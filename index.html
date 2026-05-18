@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <link rel="preconnect" href="https://res.cloudinary.com">
@@ -16,13 +16,14 @@
     <link rel="icon" type="image/png" href="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png">
     <link rel="apple-touch-icon" href="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_512,h_512,b_white/v1777801810/logo_only_kqxyfg.png">
     <meta name="apple-mobile-web-app-title" content="Mirror Burger">
-    <link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Mirror%20Burger%22%2C%22short_name%22%3A%22Mirror%20Burger%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F4F9F9%22%2C%22theme_color%22%3A%22%231d1d1f%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fres.cloudinary.com%2Fdnuhe2uwy%2Fimage%2Fupload%2Fc_pad%2Cw_512%2Ch_512%2Cb_white%2Fv1777801810%2Flogo_only_kqxyfg.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 
     <title>Mirror Burger | Michelin Flavors in HK</title>
     <meta name="description" content="Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
         tailwind.config = {
@@ -292,13 +293,14 @@
                 <button onclick="renderMenuByCategory('drinks')" role="tab" class="category-tab px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all whitespace-nowrap"><span class="en">Drinks</span><span class="zh">飲品</span></button>
                 <button onclick="renderMenuByCategory('sauces')" role="tab" class="category-tab px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all whitespace-nowrap"><span class="en">Sauces</span><span class="zh">醬汁</span></button>
             </div>
-            <div id="menu-container" class="grid grid-cols-2 gap-3 px-1"></div>
+            <div id="menu-container" class="grid grid-cols-2 gap-3 px-1">
+                 <div class="col-span-2 text-center py-20 text-gray-400 font-black animate-pulse">CONNECTING TO DATABASE...</div>
+            </div>
         </section>
 
         <section id="story-section" class="px-6 py-12 bg-[#1d1d1f] text-white overflow-hidden">
             <div class="mb-8 flex justify-between items-end"><h2 class="text-4xl font-black tracking-tighter uppercase italic leading-none"><span class="en">Word on<br>the street.</span><span class="zh">食客真實<br>評價。</span></h2></div>
             <div class="flex overflow-x-auto gap-4 pb-8 no-scrollbar snap-x snap-mandatory -mx-6 px-6">
-                
                 <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
@@ -339,46 +341,6 @@
                     </div>
                 </div>
 
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"Finding gourmet Halal food in HK can be tricky, but Mirror Burger blew my mind. The Classic Beef is an absolute masterpiece."</span>
-                        <span class="zh">"在香港要找高質素的清真美食不容易，但Mirror Burger令人驚豔。經典芝士牛肉簡直是一件藝術品。"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-[10px] font-bold">O</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Omar A. 🇦🇪</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Local Guide
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"Le pain est comme un nuage. La qualité de la viande Angus est exceptionnelle. Une vraie découverte à Sai Ying Pun!"</span>
-                        <span class="zh">"麵包吃起來就像雲朵一樣。安格斯牛肉的品質非凡。在西營盤的一個超棒發現！"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center text-[10px] font-bold">S</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Sophie L. 🇫🇷</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Verified Review
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="w-4 shrink-0"></div>
             </div>
         </section>
@@ -391,17 +353,18 @@
         <footer class="p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px] space-y-4 border-t">
             <p class="text-black mb-1">Mirror Burger © 2026</p>
             <p><span class="en">Michelin Standard | ☪️ Halal Certified</span><span class="zh">米芝蓮標準 | ☪️ 清真認證</span></p>
-            <div class="flex justify-center gap-4 text-[8px] underline"><a href="#" class="hover:text-black">Privacy Policy</a><a href="#" class="hover:text-black">Terms & Conditions</a></div>
         </footer>
     </div>
 
     <script>
-        // --- SUPABASE CONFIGURATION (Do NOT change these) ---
-        const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co/rest/v1/menu_items?select=*';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
+        // --- 1. SUPABASE 官方連線設定 ---
+        const SB_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzh-i_4b2n-3-2q9x9B5aH/exec';
 
-        // --- GLOBAL STATE & CONFIG ---
+        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+
+        // --- 2. GLOBAL STATE & CONFIG ---
         let currentLang = 'en';
         let cart = [];
         let deliveryMode = 'pickup';
@@ -411,84 +374,7 @@
 
         const lang = (en, zh) => currentLang === 'en' ? en : zh;
 
-        // --- GLOBAL LOGIC & STATE HELPERS ---
-        function getActiveStore() {
-            const select = document.getElementById('cust-store');
-            if (select && select.value) return select.value;
-            return flowSelectedStore;
-        }
-
-        function getDiscountRate() {
-            return getActiveStore() === 'Tsuen Wan (Takeaway Only)' ? 0.15 : 0.10;
-        }
-
-        function isDiscountActive() {
-            const store = getActiveStore();
-            if (store === 'Tsuen Wan (Takeaway Only)' && deliveryMode === 'pickup') return true;
-            let subtotal = cart.reduce((sum, item) => sum + item.price, 0);
-            let hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo'));
-            return deliveryMode === 'pickup' && (subtotal >= 120 || hasCombo);
-        }
-
-        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-            const R = 6371; 
-            const dLat = deg2rad(lat2-lat1);  
-            const dLon = deg2rad(lon2-lon1); 
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-            return R * c;
-        }
-
-        function deg2rad(deg) { return deg * (Math.PI/180); }
-
-        function sanitizeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({
-                '&': '&', '<': '<', '>': '>', "'": '&#39;', '"': '&quot;'
-            }[tag] || tag));
-        }
-
-        // --- LANGUAGE SYSTEM ---
-        function toggleLang() {
-            currentLang = currentLang === 'en' ? 'zh' : 'en';
-            document.body.classList.toggle('lang-en', currentLang === 'en');
-            document.body.classList.toggle('lang-zh', currentLang === 'zh');
-            document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
-            updatePlaceholders();
-            populateStoresDropdown();
-            generateTimeOptions();
-            renderMenuByCategory(currentCategory);
-            renderStores();
-            updateCartStoreUI();
-            updateCartUI();
-            closeAllSheets();
-        }
-
-        function updatePlaceholders() {
-            document.getElementById('cust-name').placeholder = lang('Your Name *', '你的名字 *');
-            document.getElementById('cust-phone').placeholder = lang('Phone Number *', '電話號碼 *');
-        }
-
-        // --- CUSTOM ALERT LOGIC ---
-        function showCustomAlert(msg) {
-            document.getElementById('custom-alert-msg').innerText = msg;
-            const modal = document.getElementById('custom-alert-modal');
-            const content = document.getElementById('custom-alert-content');
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            content.classList.remove('scale-95');
-        }
-
-        function closeCustomAlert() {
-            const modal = document.getElementById('custom-alert-modal');
-            const content = document.getElementById('custom-alert-content');
-            modal.classList.add('opacity-0');
-            content.classList.add('scale-95');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-        }
-
-        // --- DATA DICTIONARY ---
-        // These are the fallback/full items. Supabase will overwrite the price/name/soldout for the ones it finds.
+        // --- 3. DATA DICTIONARY (Fallback before Supabase loads) ---
         let menuData = {
             beef: [
                 { id: 'b1', nameEn: 'Classic Beef', nameZh: '經典芝士牛肉', price: 65, desc: 'Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam', descZh: '火山石燒 4oz 澳洲安斯及和牛、紅酒洋蔥醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545605/classic_beef_b5lcwl.png', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false },
@@ -584,24 +470,18 @@
         ];
 
         const stores = [
-            { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, hoursLogic: { openH: 11, openM: 15, closeH: 23, closeM: 59 }, mapLink: 'https://www.google.com/maps/place/Mirror+Burger/@22.2868713,114.1395085,17z/data=!3m1!4b1!4m6!3m5!1s0x340401cf40ace40b:0x71fd6c3e30c478aa!8m2!3d22.2868664!4d114.1443794!16s%2Fg%2F11qpq7_8vz?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
-            { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, hoursLogic: { openH: 11, openM: 15, closeH: 21, closeM: 30, weekendCloseH: 23, weekendCloseM: 30 }, mapLink: 'https://www.google.com/maps/place/Mirror+Burger+(%E5%A4%A9%E5%90%8E%E5%BA%97)/@22.2871103,114.1896864,17z/data=!3m1!4b1!4m6!3m5!1s0x340401e0074503a1:0xd10d73cf17dfa203!8m2!3d22.2871054!4d114.1922613!16s%2Fg%2F11vs4py461?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
-            { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg, 35-45 Chai Wan Kok St', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, hoursLogic: { openH: 11, openM: 30, closeH: 23, closeM: 30 }, mapLink: 'https://www.google.com/maps/place/%E8%A3%95%E8%B1%90%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%BB%88/@22.3735566,114.1072846,12z/data=!4m6!3m5!1s0x3403f925c70a4baf:0xf5d64ab922225bc7!8m2!3d22.3735566!4d114.1072846!16s%2Fg%2F11fltrtypj?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
+            { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://www.google.com/maps/place/Mirror+Burger/@22.2868713,114.1395085,17z/data=!3m1!4b1!4m6!3m5!1s0x340401cf40ace40b:0x71fd6c3e30c478aa!8m2!3d22.2868664!4d114.1443794!16s%2Fg%2F11qpq7_8vz?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
+            { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://www.google.com/maps/place/Mirror+Burger+(%E5%A4%A9%E5%90%8E%E5%BA%97)/@22.2871103,114.1896864,17z/data=!3m1!4b1!4m6!3m5!1s0x340401e0074503a1:0xd10d73cf17dfa203!8m2!3d22.2871054!4d114.1922613!16s%2Fg%2F11vs4py461?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
+            { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://www.google.com/maps/place/%E8%A3%95%E8%B1%90%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%BB%88/@22.3735566,114.1072846,12z/data=!4m6!3m5!1s0x3403f925c70a4baf:0xf5d64ab922225bc7!8m2!3d22.3735566!4d114.1072846!16s%2Fg%2F11fltrtypj?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
         ];
 
-        // --- SUPABASE FETCH MAGIC ---
+        // --- 4. 讀取 Supabase (官方穩定寫法) ---
         async function fetchLiveMenu() {
             try {
-                const response = await fetch(SUPABASE_URL, {
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    }
-                });
-                const liveItems = await response.json();
+                const { data, error } = await supabase.from('menu_items').select('*');
+                if (error) throw error;
                 
-                // Override our menuData with live Supabase data
-                liveItems.forEach(dbItem => {
+                data.forEach(dbItem => {
                     if(menuData[dbItem.category]) {
                         const idx = menuData[dbItem.category].findIndex(i => i.id === dbItem.id);
                         if(idx !== -1) {
@@ -619,7 +499,73 @@
             }
         }
 
-        // --- CORE FUNCTIONS ---
+        // --- 5. 核心邏輯與 UI 渲染 ---
+        function getActiveStore() {
+            const select = document.getElementById('cust-store');
+            if (select && select.value) return select.value;
+            return flowSelectedStore;
+        }
+
+        function getDiscountRate() {
+            return getActiveStore() === 'Tsuen Wan (Takeaway Only)' ? 0.15 : 0.10;
+        }
+
+        function isDiscountActive() {
+            const store = getActiveStore();
+            if (store === 'Tsuen Wan (Takeaway Only)' && deliveryMode === 'pickup') return true;
+            let subtotal = cart.reduce((sum, item) => sum + item.price, 0);
+            let hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo'));
+            return deliveryMode === 'pickup' && (subtotal >= 120 || hasCombo);
+        }
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371; 
+            const dLat = (lat2-lat1) * (Math.PI/180);  
+            const dLon = (lon2-lon1) * (Math.PI/180); 
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * (Math.PI/180)) * Math.cos(lat2 * (Math.PI/180)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            return R * c;
+        }
+
+        function sanitizeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        }
+
+        function toggleLang() {
+            currentLang = currentLang === 'en' ? 'zh' : 'en';
+            document.body.classList.toggle('lang-en', currentLang === 'en');
+            document.body.classList.toggle('lang-zh', currentLang === 'zh');
+            document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
+            updatePlaceholders();
+            populateStoresDropdown();
+            generateTimeOptions();
+            renderMenuByCategory(currentCategory);
+            renderStores();
+            updateCartStoreUI();
+            updateCartUI();
+            closeAllSheets();
+        }
+
+        function updatePlaceholders() {
+            document.getElementById('cust-name').placeholder = lang('Your Name *', '你的名字 *');
+            document.getElementById('cust-phone').placeholder = lang('Phone Number *', '電話號碼 *');
+        }
+
+        function showCustomAlert(msg) {
+            document.getElementById('custom-alert-msg').innerText = msg;
+            const modal = document.getElementById('custom-alert-modal');
+            const content = document.getElementById('custom-alert-content');
+            modal.classList.remove('hidden'); void modal.offsetWidth;
+            modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+        }
+
+        function closeCustomAlert() {
+            const modal = document.getElementById('custom-alert-modal');
+            const content = document.getElementById('custom-alert-content');
+            modal.classList.add('opacity-0'); content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
         function renderMenuByCategory(cat) {
             currentCategory = cat;
             document.querySelectorAll('.category-tab').forEach(b => {
@@ -638,15 +584,13 @@
                 let displayPrice = '';
                 if (item.sizes) {
                     let p1 = item.price, p2 = item.price + item.sizes[1].upcharge;
-                    if (discountActive) {
-                        displayPrice = `<span class="text-gray-400 line-through text-[10px] mr-1 font-semibold">${p1} / ${p2}</span><span class="text-red-500">${p1 - Math.floor(p1*rate)} / ${p2 - Math.floor(p2*rate)}</span>`;
-                    } else displayPrice = `${p1} / ${p2}`;
+                    if (discountActive) { displayPrice = `<span class="text-gray-400 line-through text-[10px] mr-1 font-semibold">${p1} / ${p2}</span><span class="text-red-500">${p1 - Math.floor(p1*rate)} / ${p2 - Math.floor(p2*rate)}</span>`; } 
+                    else displayPrice = `${p1} / ${p2}`;
                 } else {
                     if (discountActive) displayPrice = `<span class="text-gray-400 line-through text-[10px] mr-1 font-semibold">${item.price}</span><span class="text-red-500">${item.price - Math.floor(item.price*rate)}</span>`;
                     else displayPrice = `${item.price}`;
                 }
 
-                // The REAL-TIME SOLD OUT MAGIC
                 const soldOutOverlay = item.isSoldOut ? `<div class="absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
                 const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
 
@@ -725,11 +669,8 @@
             const rate = getDiscountRate();
 
             if (deliveryMode === 'pickup') {
-                if (store === 'Tsuen Wan (Takeaway Only)') {
-                    willHaveDiscount = true;
-                } else {
-                    willHaveDiscount = (tempSubtotal >= 120 || tempHasCombo);
-                }
+                if (store === 'Tsuen Wan (Takeaway Only)') willHaveDiscount = true;
+                else willHaveDiscount = (tempSubtotal >= 120 || tempHasCombo);
             }
 
             const btn = document.getElementById('config-total-btn');
@@ -783,18 +724,14 @@
             if (!modal || !content) return;
             document.getElementById('flow-step-1').classList.remove('hidden');
             document.getElementById('flow-step-2').classList.add('hidden');
-            modal.classList.remove('hidden');
-            void modal.offsetWidth; 
-            modal.classList.remove('opacity-0');
-            content.classList.remove('scale-95');
+            modal.classList.remove('hidden'); void modal.offsetWidth; 
+            modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
         }
 
         function closeOrderFlow() {
             const modal = document.getElementById('order-flow-modal');
             const content = document.getElementById('order-flow-content');
-            if (!modal || !content) return;
-            modal.classList.add('opacity-0');
-            content.classList.add('scale-95');
+            modal.classList.add('opacity-0'); content.classList.add('scale-95');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
@@ -821,15 +758,13 @@
                     deliveryContainer.innerHTML += `
                         <a href="${storeObj.panda}" target="_blank" onclick="closeOrderFlow()" class="w-full bg-[#D70F64] text-white p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-sm border border-transparent">
                             <span class="text-sm font-black uppercase tracking-widest">🐼 Foodpanda</span>
-                        </a>
-                    `;
+                        </a>`;
                 }
                 if (storeObj.keeta) {
                     deliveryContainer.innerHTML += `
                         <a href="${storeObj.keeta}" target="_blank" onclick="closeOrderFlow()" class="w-full bg-[#FFC20E] text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-sm border border-transparent">
                             <span class="text-sm font-black uppercase tracking-widest">🦅 KeeTa</span>
-                        </a>
-                    `;
+                        </a>`;
                 }
             }
 
@@ -844,10 +779,7 @@
         }
 
         function selectPickup() {
-            closeOrderFlow();
-            updateCartStoreUI();
-            generateTimeOptions();
-            validateCheckout();
+            closeOrderFlow(); updateCartStoreUI(); generateTimeOptions(); validateCheckout();
             document.getElementById('menu-section').scrollIntoView({behavior: 'smooth'});
         }
 
@@ -858,23 +790,18 @@
             
             if (!navigator.geolocation) {
                 showCustomAlert(lang('Geolocation is not supported by your browser', '你的瀏覽器不支援定位功能'));
-                btn.innerHTML = originalText;
-                return;
+                btn.innerHTML = originalText; return;
             }
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const userLat = position.coords.latitude;
                     const userLng = position.coords.longitude;
-                    let nearestStore = null;
-                    let minDistance = Infinity;
+                    let nearestStore = null; let minDistance = Infinity;
 
                     stores.forEach(store => {
                         const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                            nearestStore = store.name;
-                        }
+                        if (dist < minDistance) { minDistance = dist; nearestStore = store.name; }
                     });
 
                     if (nearestStore) setFlowStore(nearestStore);
@@ -893,10 +820,8 @@
             const content = document.getElementById('added-success-content');
             if (!modal || !content) return;
             renderUpsellBlock();
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            content.classList.remove('scale-95');
+            modal.classList.remove('hidden'); void modal.offsetWidth;
+            modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
         }
 
         function renderUpsellBlock() {
@@ -911,8 +836,7 @@
                 let snackOptions = comboSnacks.map(s => `<option value="${s.id}" data-price="${s.p}">${lang(s.nameEn, s.nameZh)} ${s.p > 0 ? '(+' + s.p + ')' : ''}</option>`).join('');
                 let drinkOptions = comboDrinks.map(d => `<option value="${d.id}" data-price="${d.p}">${lang(d.nameEn, d.nameZh)} ${d.p > 0 ? '(+' + d.p + ')' : ''}</option>`).join('');
 
-                const promoTitleEn = 'Upgrade to Combo?';
-                const promoTitleZh = '升級至套餐？';
+                const promoTitleEn = 'Upgrade to Combo?'; const promoTitleZh = '升級至套餐？';
                 const promoDescEn = store === 'Tsuen Wan (Takeaway Only)' ? 'Enjoy 15% OFF on everything!' : 'Add Snack & Drink for 10% OFF!';
                 const promoDescZh = store === 'Tsuen Wan (Takeaway Only)' ? '全單即享 85折 優惠！' : '加配小食及飲品即享 9折！';
 
@@ -925,12 +849,8 @@
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <select id="upsell-combo-snack" aria-label="Select Combo Snack" class="w-1/2 bg-white p-3 rounded-xl text-[10px] font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('combo')">
-                            ${snackOptions}
-                        </select>
-                        <select id="upsell-combo-drink" aria-label="Select Combo Drink" class="w-1/2 bg-white p-3 rounded-xl text-[10px] font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('combo')">
-                            ${drinkOptions}
-                        </select>
+                        <select id="upsell-combo-snack" aria-label="Select Combo Snack" class="w-1/2 bg-white p-3 rounded-xl text-[10px] font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('combo')">${snackOptions}</select>
+                        <select id="upsell-combo-drink" aria-label="Select Combo Drink" class="w-1/2 bg-white p-3 rounded-xl text-[10px] font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('combo')">${drinkOptions}</select>
                     </div>
                     <button id="upsell-btn" onclick="addUpsell('combo')" class="w-full bg-black text-white p-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">
                         ${lang('YES, UPGRADE', '好，立即升級')}
@@ -940,9 +860,7 @@
                 updateUpsellButton('combo');
 
             } else if (isSnack) {
-                let sauceOptions = sauces.map(s => {
-                    return `<option value="${s.id}" data-price="${s.p}">${lang(s.nameEn, s.nameZh)}</option>`;
-                }).join('');
+                let sauceOptions = sauces.map(s => { return `<option value="${s.id}" data-price="${s.p}">${lang(s.nameEn, s.nameZh)}</option>`; }).join('');
 
                 upsellBlock.innerHTML = `
                     <div class="flex items-center gap-3">
@@ -952,23 +870,18 @@
                             <p class="text-[10px] font-bold text-gray-600">${lang('Perfect with your snacks!', '配搭小食的絕佳選擇！')}</p>
                         </div>
                     </div>
-                    <select id="upsell-select" aria-label="Select Extra Sauce" class="w-full bg-white p-3 rounded-xl text-xs font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('sauce')">
-                        ${sauceOptions}
-                    </select>
+                    <select id="upsell-select" aria-label="Select Extra Sauce" class="w-full bg-white p-3 rounded-xl text-xs font-bold border border-gray-200 outline-none" onchange="updateUpsellButton('sauce')">${sauceOptions}</select>
                     <button id="upsell-btn" onclick="addUpsell('sauce')" class="w-full bg-black text-white p-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform">
                         ${lang('YES, ADD TO BAG', '好，加入購物車')}
                     </button>
                 `;
                 upsellBlock.classList.remove('hidden');
                 updateUpsellButton('sauce');
-            } else {
-                upsellBlock.classList.add('hidden');
-            }
+            } else { upsellBlock.classList.add('hidden'); }
         }
 
         function updateUpsellButton(type) {
-            let price = 0;
-            let btnText = lang('YES, ADD TO BAG', '好，加入購物車');
+            let price = 0; let btnText = lang('YES, ADD TO BAG', '好，加入購物車');
 
             if (type === 'combo') {
                 const snackSelect = document.getElementById('upsell-combo-snack');
@@ -976,12 +889,10 @@
                 if(!snackSelect || !drinkSelect) return;
                 const sPrice = parseInt(snackSelect.options[snackSelect.selectedIndex].dataset.price);
                 const dPrice = parseInt(drinkSelect.options[drinkSelect.selectedIndex].dataset.price);
-                price = 19 + sPrice + dPrice; 
-                btnText = lang('YES, UPGRADE', '好，立即升級');
+                price = 19 + sPrice + dPrice; btnText = lang('YES, UPGRADE', '好，立即升級');
             } else {
                 const select = document.getElementById('upsell-select');
-                if(!select) return;
-                price = parseInt(select.options[select.selectedIndex].dataset.price);
+                if(!select) return; price = parseInt(select.options[select.selectedIndex].dataset.price);
             }
             
             let currentSubtotal = cart.reduce((sum, item) => sum + item.price, 0);
@@ -999,12 +910,9 @@
             const btn = document.getElementById('upsell-btn');
             if (btn) {
                 if (willHaveDiscount) {
-                    let discountAmt = Math.floor(price * rate);
-                    let discounted = price - discountAmt;
+                    let discountAmt = Math.floor(price * rate); let discounted = price - discountAmt;
                     btn.innerHTML = `${btnText} (<span class="line-through text-white/50 mr-1 text-[9px] font-medium">+${price}</span>+${discounted})`;
-                } else {
-                    btn.innerHTML = `${btnText} (+${price})`;
-                }
+                } else { btn.innerHTML = `${btnText} (+${price})`; }
             }
         }
 
@@ -1013,14 +921,12 @@
                 const snackSelect = document.getElementById('upsell-combo-snack');
                 const drinkSelect = document.getElementById('upsell-combo-drink');
                 if(!snackSelect || !drinkSelect) return;
-                const idS = snackSelect.value;
-                const idD = drinkSelect.value;
                 const sPrice = parseInt(snackSelect.options[snackSelect.selectedIndex].dataset.price);
                 const dPrice = parseInt(drinkSelect.options[drinkSelect.selectedIndex].dataset.price);
                 const comboPrice = 19 + sPrice + dPrice;
 
-                const s = comboSnacks.find(x => x.id === idS);
-                const d = comboDrinks.find(x => x.id === idD);
+                const s = comboSnacks.find(x => x.id === snackSelect.value);
+                const d = comboDrinks.find(x => x.id === drinkSelect.value);
 
                 const lastItem = cart[cart.length - 1];
                 if (lastItem) {
@@ -1028,56 +934,30 @@
                     lastItem.detailsEn += ` • Combo [${s.nameEn}, ${d.nameEn}]`;
                     lastItem.detailsZh += ` • 套餐 [${s.nameZh}, ${d.nameZh}]`;
                 }
-                
                 updateCartUI();
-                
                 const upsellBlock = document.getElementById('upsell-block');
-                if (upsellBlock) {
-                    upsellBlock.innerHTML = `<div class="p-3 text-center text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 rounded-xl border border-green-200">✓ ${lang('Upgraded to Combo!', '成功升級套餐！')}</div>`;
-                }
+                if (upsellBlock) upsellBlock.innerHTML = `<div class="p-3 text-center text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 rounded-xl border border-green-200">✓ ${lang('Upgraded to Combo!', '成功升級套餐！')}</div>`;
                 return;
             }
 
             const select = document.getElementById('upsell-select');
             if(!select) return;
-            const id = select.value;
             const price = parseInt(select.options[select.selectedIndex].dataset.price);
             
             let itemToAdd;
             if (type === 'sauce') {
-                const s = sauces.find(x => x.id === id);
-                if (s) {
-                    itemToAdd = {
-                        id: Date.now(),
-                        nameEn: s.nameEn,
-                        nameZh: s.nameZh,
-                        price: price,
-                        detailsEn: 'Extra Sauce',
-                        detailsZh: '額外醬汁',
-                        qty: 1
-                    };
-                }
+                const s = sauces.find(x => x.id === select.value);
+                if (s) { itemToAdd = { id: Date.now(), nameEn: s.nameEn, nameZh: s.nameZh, price: price, detailsEn: 'Extra Sauce', detailsZh: '額外醬汁', qty: 1 }; }
             }
-            
-            if (itemToAdd) {
-                cart.push(itemToAdd);
-            }
+            if (itemToAdd) cart.push(itemToAdd);
             updateCartUI();
             
             const upsellBlock = document.getElementById('upsell-block');
-            if (upsellBlock) {
-                upsellBlock.innerHTML = `<div class="p-3 text-center text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 rounded-xl border border-green-200">✓ ${lang('Added to Bag successfully!', '成功加入購物車！')}</div>`;
-            }
+            if (upsellBlock) upsellBlock.innerHTML = `<div class="p-3 text-center text-[10px] font-black text-green-600 uppercase tracking-widest bg-green-50 rounded-xl border border-green-200">✓ ${lang('Added to Bag successfully!', '成功加入購物車！')}</div>`;
         }
 
-        function goToCartFromSuccess() {
-            hideAddedSuccessModal();
-            setTimeout(() => { toggleCart(); }, 300);
-        }
-
-        function continueShopping() {
-            hideAddedSuccessModal();
-        }
+        function goToCartFromSuccess() { hideAddedSuccessModal(); setTimeout(() => { toggleCart(); }, 300); }
+        function continueShopping() { hideAddedSuccessModal(); }
 
         // --- Helpers ---
         function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => m.classList.add('hidden'), 300); }
@@ -1111,9 +991,7 @@
             const p = document.getElementById('cust-phone').value;
             const t = document.getElementById('cust-time').value;
             const btn = document.getElementById('checkout-btn');
-            if (btn) {
-                btn.disabled = !(cart.length > 0 && s && n && p && t);
-            }
+            if (btn) { btn.disabled = !(cart.length > 0 && s && n && p && t); }
         }
         
         function populateStoresDropdown() { const s = document.getElementById('cust-store'); s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`; stores.forEach(st => s.add(new Option(lang(st.name, st.nameZh), st.name))); if(flowSelectedStore) s.value = flowSelectedStore; }
@@ -1139,8 +1017,7 @@
 
             if (!store || !name || !phone || !time || cart.length === 0) return;
 
-            name = sanitizeHTML(name);
-            phone = sanitizeHTML(phone);
+            name = sanitizeHTML(name); phone = sanitizeHTML(phone);
 
             const btn = document.getElementById('checkout-btn');
             const originalText = btn.innerHTML;
@@ -1153,15 +1030,11 @@
             let calcDiscount = 0;
             
             if (deliveryMode === 'pickup') {
-                if (store === 'Tsuen Wan (Takeaway Only)') {
-                    calcDiscount = Math.floor(calcSubtotal * 0.15);
-                } else if (calcSubtotal >= 120 || hasCombo) {
-                    calcDiscount = Math.floor(calcSubtotal * 0.10);
-                }
+                if (store === 'Tsuen Wan (Takeaway Only)') { calcDiscount = Math.floor(calcSubtotal * 0.15); } 
+                else if (calcSubtotal >= 120 || hasCombo) { calcDiscount = Math.floor(calcSubtotal * 0.10); }
             }
             
-            let delivery = 0; 
-            let calcTotal = calcSubtotal - calcDiscount + delivery;
+            let delivery = 0; let calcTotal = calcSubtotal - calcDiscount + delivery;
 
             const storeObj = stores.find(s => s.name === store);
             const storeDisplay = storeObj ? `${store} (${storeObj.nameZh})` : store;
@@ -1188,36 +1061,28 @@
             };
             const chatId = TELEGRAM_CHAT_IDS[store];
 
-            const sendRequest = (targetChatId) => {
-                fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ chat_id: targetChatId, text: msg })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.status === 'success' && data.data.ok) {
-                        finishOrderSuccess(store, time, btn, originalText);
-                    } else {
-                        showCustomAlert('傳送失敗，請聯絡管理員。');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                    }
-                })
-                .catch(err => {
-                    showCustomAlert('網絡錯誤，請重試。');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                });
-            };
-
-            sendRequest(chatId);
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ chat_id: chatId, text: msg })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success' && data.data.ok) {
+                    finishOrderSuccess(store, time, btn, originalText);
+                } else {
+                    showCustomAlert('傳送失敗，請聯絡管理員。');
+                    btn.innerHTML = originalText; btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                showCustomAlert('網絡錯誤，請重試。');
+                btn.innerHTML = originalText; btn.disabled = false;
+            });
         }
 
         function finishOrderSuccess(store, time, btn, originalText) {
-            closeAllSheets();
-            cart = [];
-            updateCartUI();
+            closeAllSheets(); cart = []; updateCartUI();
             
             const storeObj = stores.find(s => s.name === store);
             const storeZh = storeObj ? storeObj.nameZh : store;
@@ -1232,32 +1097,24 @@
             
             const modal = document.getElementById('order-confirmed-modal');
             const content = document.getElementById('order-confirmed-content');
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            content.classList.remove('scale-95');
+            modal.classList.remove('hidden'); void modal.offsetWidth;
+            modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
 
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            
-            document.getElementById('cust-name').value = '';
-            document.getElementById('cust-phone').value = '';
+            btn.innerHTML = originalText; btn.disabled = false;
+            document.getElementById('cust-name').value = ''; document.getElementById('cust-phone').value = '';
         }
 
         function closeConfirmation() {
             const modal = document.getElementById('order-confirmed-modal');
             const content = document.getElementById('order-confirmed-content');
-            modal.classList.add('opacity-0');
-            content.classList.add('scale-95');
+            modal.classList.add('opacity-0'); content.classList.add('scale-95');
             setTimeout(() => modal.classList.add('hidden'), 300);
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
         document.addEventListener('DOMContentLoaded', () => { 
-            updatePlaceholders(); 
-            populateStoresDropdown(); 
-            renderStores();
-            fetchLiveMenu(); // Real-time Supabase Fetch
+            updatePlaceholders(); populateStoresDropdown(); renderStores();
+            fetchLiveMenu(); // 連線 Supabase 大腦
         });
     </script>
 </body>
