@@ -341,6 +341,46 @@
                     </div>
                 </div>
 
+                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
+                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
+                        <span class="en">"Finding gourmet Halal food in HK can be tricky, but Mirror Burger blew my mind. The Classic Beef is an absolute masterpiece."</span>
+                        <span class="zh">"在香港要找高質素的清真美食不容易，但Mirror Burger令人驚豔。經典芝士牛肉簡直是一件藝術品。"</span>
+                    </p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-[10px] font-bold">O</div>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase">Omar A. 🇦🇪</p>
+                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
+                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Local Guide
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
+                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
+                        <span class="en">"Le pain est comme un nuage. La qualité de la viande Angus est exceptionnelle. Une vraie découverte à Sai Ying Pun!"</span>
+                        <span class="zh">"麵包吃起來就像雲朵一樣。安格斯牛肉的品質非凡。在西營盤的一個超棒發現！"</span>
+                    </p>
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center text-[10px] font-bold">S</div>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase">Sophie L. 🇫🇷</p>
+                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
+                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Verified Review
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="w-4 shrink-0"></div>
             </div>
         </section>
@@ -362,7 +402,8 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzh-i_4b2n-3-2q9x9B5aH/exec';
 
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        // 幫連線改名做 supabaseClient，避開撞名！
+        const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 
         // --- 2. GLOBAL STATE & CONFIG ---
         let currentLang = 'en';
@@ -475,10 +516,11 @@
             { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://www.google.com/maps/place/%E8%A3%95%E8%B1%90%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%BB%88/@22.3735566,114.1072846,12z/data=!4m6!3m5!1s0x3403f925c70a4baf:0xf5d64ab922225bc7!8m2!3d22.3735566!4d114.1072846!16s%2Fg%2F11fltrtypj?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
         ];
 
-        // --- 4. 讀取 Supabase (官方穩定寫法) ---
+        // --- 4. 讀取 Supabase ---
         async function fetchLiveMenu() {
             try {
-                const { data, error } = await supabase.from('menu_items').select('*');
+                // 用改咗名嘅 supabaseClient
+                const { data, error } = await supabaseClient.from('menu_items').select('*');
                 if (error) throw error;
                 
                 data.forEach(dbItem => {
@@ -528,7 +570,7 @@
         }
 
         function sanitizeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&', '<': '<', '>': '>', "'": ''', '"': '"' }[tag] || tag));
         }
 
         function toggleLang() {
@@ -669,8 +711,11 @@
             const rate = getDiscountRate();
 
             if (deliveryMode === 'pickup') {
-                if (store === 'Tsuen Wan (Takeaway Only)') willHaveDiscount = true;
-                else willHaveDiscount = (tempSubtotal >= 120 || tempHasCombo);
+                if (store === 'Tsuen Wan (Takeaway Only)') {
+                    willHaveDiscount = true;
+                } else {
+                    willHaveDiscount = (tempSubtotal >= 120 || tempHasCombo);
+                }
             }
 
             const btn = document.getElementById('config-total-btn');
