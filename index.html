@@ -569,8 +569,9 @@
             return R * c;
         }
 
+        // ⭐ 這裡修正了引發血案的單引號 Syntax Error
         function sanitizeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&', '<': '<', '>': '>', "'": ''', '"': '"' }[tag] || tag));
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
 
         function toggleLang() {
@@ -1050,7 +1051,12 @@
             intervals.forEach(m => { const t = new Date(now.getTime() + m*60000); const label = `${m} ${lang('mins', '分鐘')} (${t.getHours()}:${t.getMinutes()<10?'0':''}${t.getMinutes()})`; s.add(new Option(label, label)); });
         }
         
-        function renderStores() { document.getElementById('stores-container').innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); }
+        function renderStores() { 
+            const container = document.getElementById('stores-container');
+            if(container) {
+                container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+            }
+        }
 
         // --- TELEGRAM CHECKOUT LOGIC ---
         function processTelegramOrder() {
@@ -1137,7 +1143,7 @@
             
             const dirBtn = document.getElementById('confirm-modal-direction-btn');
             if (dirBtn && storeObj && storeObj.lat && storeObj.lng) {
-                dirBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${storeObj.lat},${storeObj.lng}`;
+                dirBtn.href = `https://maps.google.com/?q=${storeObj.lat},${storeObj.lng}`;
             }
             
             const modal = document.getElementById('order-confirmed-modal');
