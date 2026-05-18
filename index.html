@@ -21,27 +21,6 @@
     <title>Mirror Burger | Michelin Flavors in HK</title>
     <meta name="description" content="Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.">
 
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Mirror Burger | Michelin Flavors in HK">
-    <meta property="og:description" content="Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.">
-    <meta property="og:image" content="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png">
-    <meta name="twitter:card" content="summary_large_image">
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Restaurant",
-      "name": "Mirror Burger",
-      "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png",
-      "servesCuisine": "Burgers, Halal",
-      "priceRange": "$$",
-      "address": [
-        { "@type": "PostalAddress", "streetAddress": "G/F 194 Queen's Rd West", "addressLocality": "Sai Ying Pun", "addressRegion": "Hong Kong" },
-        { "@type": "PostalAddress", "streetAddress": "1A Merlin St", "addressLocality": "Fortress Hill", "addressRegion": "Hong Kong" }
-      ]
-    }
-    </script>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -77,7 +56,6 @@
     <div class="app-shell pb-24">
         <div id="sheet-overlay" class="fixed inset-0 bg-black/40 z-[1000] hidden opacity-0 transition-opacity" onclick="closeAllSheets()"></div>
 
-        <!-- Custom Alert -->
         <div id="custom-alert-modal" class="fixed inset-0 bg-black/60 z-[5000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
             <div class="bg-white w-full max-w-[320px] rounded-[2.5rem] p-8 space-y-6 transform scale-95 transition-all duration-300 text-center" id="custom-alert-content" role="dialog" aria-modal="true" aria-labelledby="alert-title">
                 <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-black" aria-hidden="true">!</div>
@@ -89,7 +67,6 @@
             </div>
         </div>
 
-        <!-- Order Flow Modal -->
         <div id="order-flow-modal" class="fixed inset-0 bg-black/60 z-[2000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
             <div class="bg-white w-full max-w-[360px] rounded-[2.5rem] p-8 space-y-6 transform scale-95 transition-all duration-300 relative" id="order-flow-content" role="dialog" aria-modal="true">
                 <div id="flow-step-1" class="space-y-5">
@@ -131,7 +108,6 @@
             </div>
         </div>
 
-        <!-- Add to Bag Success Modal -->
         <div id="added-success-modal" class="fixed inset-0 bg-black/60 z-[3000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
             <div class="bg-white w-full max-w-[320px] rounded-[2.5rem] p-8 space-y-5 transform scale-95 transition-all duration-300" id="added-success-content" role="dialog" aria-modal="true">
                 <div class="text-center space-y-2 pt-2">
@@ -139,7 +115,6 @@
                     <h3 class="text-2xl font-black italic uppercase tracking-tighter"><span class="en">Delicious Choice!</span><span class="zh">極佳選擇！</span></h3>
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"><span class="en">Item added to your bag</span><span class="zh">已成功加入購物車</span></p>
                 </div>
-                <!-- Dynamic Upsell Block -->
                 <div id="upsell-block" class="bg-apple-bg p-4 rounded-2xl border border-gray-100 hidden flex flex-col gap-3"></div>
                 <div class="space-y-3 pt-2">
                     <button onclick="goToCartFromSuccess()" class="w-full bg-black text-white p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-xl border border-transparent"><span class="text-xs font-black uppercase tracking-widest"><span class="en">Checkout Now</span><span class="zh">立即結帳</span></span></button>
@@ -148,7 +123,6 @@
             </div>
         </div>
 
-        <!-- Order Confirmed Modal -->
         <div id="order-confirmed-modal" class="fixed inset-0 bg-black/60 z-[4000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
             <div class="bg-white w-full max-w-[360px] rounded-[2.5rem] p-8 space-y-6 transform scale-95 transition-all duration-300 text-center" id="order-confirmed-content" role="dialog" aria-modal="true">
                 <div class="w-20 h-20 bg-burger-gold/20 text-burger-gold rounded-full flex items-center justify-center mx-auto mb-4 text-4xl" aria-hidden="true">🎉</div>
@@ -172,7 +146,6 @@
             </div>
         </div>
 
-        <!-- 1. Cart Bottom Sheet -->
         <div id="cart-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[85dvh] bg-white z-[1001] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Shopping Cart">
             <div class="px-6 py-5 border-b flex justify-between items-center bg-white flex-shrink-0 z-20 relative">
                 <h2 class="text-xl font-black italic uppercase tracking-tighter"><span class="en">Your Bag</span><span class="zh">你的購物車</span></h2>
@@ -213,7 +186,6 @@
             <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processTelegramOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
-        <!-- 2. Item Configurator Sheet -->
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
             <div class="relative h-48 shrink-0 bg-[#f8f9fa] flex items-center justify-center pt-4 pb-2 overflow-hidden">
                 <img id="config-hero" src="" alt="Item Image" loading="lazy" class="h-full w-full object-contain object-center drop-shadow-sm mix-blend-multiply scale-[1.15]">
@@ -277,7 +249,6 @@
             <div class="absolute bottom-0 w-full p-6 bg-white/90 backdrop-blur-md border-t pb-10"><button onclick="addCurrentToBag()" aria-label="Add item to cart" class="w-full bg-black text-white rounded-full py-5 px-8 flex justify-between items-center text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform"><span><span class="en">Add to Bag</span><span class="zh">加入購物車</span></span><span id="config-total-btn">0</span></button></div>
         </div>
 
-        <!-- Floating Cart Button -->
         <div id="floating-cart-btn" class="fixed bottom-[88px] left-0 w-full px-6 z-[45] translate-y-20 opacity-0 pointer-events-none transition-all duration-300 ease-out pb-safe">
             <button onclick="toggleCart()" aria-label="View Cart" class="w-full bg-black text-white rounded-full py-4 px-6 flex justify-between items-center shadow-[0_10px_30px_rgba(0,0,0,0.3)] active:scale-95 transition-transform border border-gray-800 pointer-events-auto">
                 <div class="flex items-center gap-3"><span class="text-xl" aria-hidden="true">🛍️</span><span class="text-xs font-black uppercase tracking-widest" id="floating-cart-count"></span></div>
@@ -285,14 +256,12 @@
             </button>
         </div>
 
-        <!-- Header -->
         <header class="absolute top-0 w-full z-40 px-6 pb-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center pointer-events-none">
-            <div class="w-20 flex justify-start pointer-events-auto"><button id="install-pwa-btn" class="hidden h-8 px-3 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center border border-white/20 shadow-sm active:scale-95 transition-all">GET APP</button></div>
+            <div class="w-20 flex justify-start pointer-events-auto"></div>
             <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger Logo" class="h-9 w-auto drop-shadow-sm mx-auto pointer-events-auto">
             <div class="w-20 flex justify-end pointer-events-auto"><button onclick="toggleLang()" id="lang-btn" aria-label="Switch Language" class="h-8 px-3 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center border border-white/20 shadow-sm active:scale-95 transition-all">中文</button></div>
         </header>
 
-        <!-- Nav -->
         <nav class="glass-nav fixed bottom-0 w-full max-w-[480px] z-50 h-20 flex items-center px-6 pb-safe">
             <div class="w-full flex justify-between items-center px-2">
                 <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" aria-label="Go to Home" class="flex flex-col items-center gap-1 text-gray-400 hover:text-black"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg><span class="text-[8px] font-black uppercase tracking-widest"><span class="en">Home</span><span class="zh">主頁</span></span></button>
@@ -303,7 +272,6 @@
             </div>
         </nav>
 
-        <!-- Hero -->
         <section class="relative h-[85dvh] flex flex-col justify-end px-8 pb-12 bg-apple-bg overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-[75dvh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
             <div class="relative z-10 space-y-6">
@@ -314,7 +282,6 @@
             </div>
         </section>
 
-        <!-- Menu -->
         <section id="menu-section" class="px-4 py-12 space-y-6">
             <div class="text-center italic pb-2"><h2 class="text-4xl font-black uppercase tracking-tighter italic"><span class="en">Signature Menu</span><span class="zh">招牌菜單</span></h2><p class="text-[10px] font-black text-burger-gold uppercase tracking-widest mt-1"><span class="en">* Prices shown before takeaway discount</span><span class="zh">* 顯示為原價，外賣自取即享折扣</span></p></div>
             <div class="sticky top-0 z-30 flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 py-4 bg-apple-bg/90 backdrop-blur" role="tablist">
@@ -328,12 +295,10 @@
             <div id="menu-container" class="grid grid-cols-2 gap-3 px-1"></div>
         </section>
 
-        <!-- Reviews -->
         <section id="story-section" class="px-6 py-12 bg-[#1d1d1f] text-white overflow-hidden">
             <div class="mb-8 flex justify-between items-end"><h2 class="text-4xl font-black tracking-tighter uppercase italic leading-none"><span class="en">Word on<br>the street.</span><span class="zh">食客真實<br>評價。</span></h2></div>
             <div class="flex overflow-x-auto gap-4 pb-8 no-scrollbar snap-x snap-mandatory -mx-6 px-6">
                 
-                <!-- Review 1 -->
                 <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
@@ -354,7 +319,6 @@
                     </div>
                 </div>
 
-                <!-- Review 2 -->
                 <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
@@ -375,7 +339,6 @@
                     </div>
                 </div>
 
-                <!-- Review 3 -->
                 <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
@@ -396,7 +359,6 @@
                     </div>
                 </div>
                 
-                <!-- Review 4 -->
                 <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
@@ -417,117 +379,10 @@
                     </div>
                 </div>
 
-                <!-- Review 5 -->
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"Best Halal burger place in HK! The Wagyu beef patty was super juicy and the Nissin bun makes a huge difference. Highly recommend the sweet potato fries as well!"</span>
-                        <span class="zh">"香港最好嘅清真快餐！和牛扒超級多汁，日清麵包口感極佳。極力推薦佢哋嘅炸番薯條！"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-yellow-500/20 text-yellow-400 rounded-full flex items-center justify-center text-[10px] font-bold">A</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Aisha M. 🇲🇾</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Local Guide
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Review 6 -->
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"The Soft Shell Crab is out of this world. Crispy, flavorful, and pairs perfectly with their homemade tartar sauce. Great hidden spot."</span>
-                        <span class="zh">"軟殼蟹好味到難以置信。香脆惹味，配埋自家製他他醬簡直完美。一間好正嘅隱世小店。"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-orange-500/20 text-orange-400 rounded-full flex items-center justify-center text-[10px] font-bold">D</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">David L. 🇦🇺</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Verified Review
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Review 7 -->
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"The aroma hits you right when you walk in. The 3.2.1 is massive and the beef flavor is incredibly rich. Will definitely return!"</span>
-                        <span class="zh">"入到去香氣撲鼻，叫咗個3.2.1，份量十足，牛肉味極濃！係我喺天后食過最好食嘅！一定會再嚟。"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-teal-500/20 text-teal-400 rounded-full flex items-center justify-center text-[10px] font-bold">K</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Ka Ho C. 🇭🇰</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Local Guide
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Review 8 -->
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"As a vegetarian, I usually have low expectations, but the Mushroom Schnitzel was fantastic. Highly recommended!"</span>
-                        <span class="zh">"身為素食者，通常對呢類餐廳無咩期望，但佢哋個吉列大啡菇真係出乎意料地好食。極度推薦！"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-pink-500/20 text-pink-400 rounded-full flex items-center justify-center text-[10px] font-bold">P</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Priya S. 🇮🇳</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Verified Review
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Review 9 -->
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
-                    <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
-                    <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                    <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
-                        <span class="en">"Incredible quality for the price. The caramelized garlic sauce is incredibly addictive. 10/10 would recommend."</span>
-                        <span class="zh">"性價比極高。個焦糖蒜蓉醬真係會食上癮。10/10 強烈推薦。"</span>
-                    </p>
-                    <div class="flex items-center justify-between mt-auto">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center text-[10px] font-bold">M</div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase">Michael B. 🇺🇸</p>
-                                <p class="text-[8px] text-gray-400 font-bold uppercase flex items-center gap-1 mt-0.5">
-                                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/></svg> Local Guide
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Spacer to ensure last item can be scrolled to center/left nicely -->
                 <div class="w-4 shrink-0"></div>
             </div>
         </section>
 
-        <!-- Stores -->
         <section id="stores-section" class="px-4 py-12 bg-apple-bg space-y-8 italic">
             <div class="text-center"><h2 class="text-4xl font-black uppercase tracking-tighter italic"><span class="en">Visit Us</span><span class="zh">分店位置</span></h2></div>
             <div class="space-y-4" id="stores-container"></div>
@@ -541,6 +396,11 @@
     </div>
 
     <script>
+        // --- SUPABASE CONFIGURATION (Do NOT change these) ---
+        const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co/rest/v1/menu_items?select=*';
+        const SUPABASE_KEY = 'sb_publishable_t25hLOY9_WTkEsoODiFJ8w_1v22qN-q';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzh-i_4b2n-3-2q9x9B5aH/exec';
+
         // --- GLOBAL STATE & CONFIG ---
         let currentLang = 'en';
         let cart = [];
@@ -583,7 +443,7 @@
 
         function sanitizeHTML(str) {
             return str.replace(/[&<>'"]/g, tag => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+                '&': '&', '<': '<', '>': '>', "'": '&#39;', '"': '&quot;'
             }[tag] || tag));
         }
 
@@ -628,49 +488,50 @@
         }
 
         // --- DATA DICTIONARY ---
-        const menuData = {
+        // These are the fallback/full items. Supabase will overwrite the price/name/soldout for the ones it finds.
+        let menuData = {
             beef: [
-                { id: 'b1', nameEn: 'Classic Beef', nameZh: '經典芝士牛肉', price: 65, desc: 'Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam', descZh: '火山石燒 4oz 澳洲安斯及和牛、紅酒洋蔥醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545605/classic_beef_b5lcwl.png', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點' },
-                { id: 'b3', nameEn: 'Hottest Beef', nameZh: '墨辣芝士牛肉', price: 68, desc: 'Double jalapenos: smoked and pickled. Spicy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。辣！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801224/hottest_beef2_flpfqk.jpg', dietary: ['🌶️'] },
-                { id: 'b4', nameEn: 'Hottest Blue Cheese', nameZh: '墨辣藍紋芝士牛肉', price: 82, desc: 'For true blue cheese lovers. Mouth-watering.', descZh: '藍芝士愛好者必選。惹味濃郁。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/IMG_1624_ljwuo6.png', dietary: ['🌶️'], tag: '👨‍🍳 Chef\'s Pick', tagZh: '👨‍🍳 主廚推薦' },
-                { id: 'b2', nameEn: '3.2.1', nameZh: '3.2.1', price: 99, desc: 'Double patty, bacon, triple cheese. Extreme flavor.', descZh: '雙層漢堡扒、煙肉、三重芝士。極致滋味。', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/321_2_spjsm1', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點' }
+                { id: 'b1', nameEn: 'Classic Beef', nameZh: '經典芝士牛肉', price: 65, desc: 'Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam', descZh: '火山石燒 4oz 澳洲安斯及和牛、紅酒洋蔥醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545605/classic_beef_b5lcwl.png', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false },
+                { id: 'b3', nameEn: 'Hottest Beef', nameZh: '墨辣芝士牛肉', price: 68, desc: 'Double jalapenos: smoked and pickled. Spicy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。辣！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801224/hottest_beef2_flpfqk.jpg', dietary: ['🌶️'], isSoldOut: false },
+                { id: 'b4', nameEn: 'Hottest Blue Cheese', nameZh: '墨辣藍紋芝士牛肉', price: 82, desc: 'For true blue cheese lovers. Mouth-watering.', descZh: '藍芝士愛好者必選。惹味濃郁。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/IMG_1624_ljwuo6.png', dietary: ['🌶️'], tag: '👨‍🍳 Chef\'s Pick', tagZh: '👨‍🍳 主廚推薦', isSoldOut: false },
+                { id: 'b2', nameEn: '3.2.1', nameZh: '3.2.1', price: 99, desc: 'Double patty, bacon, triple cheese. Extreme flavor.', descZh: '雙層漢堡扒、煙肉、三重芝士。極致滋味。', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/321_2_spjsm1', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false }
             ],
             others: [
-                { id: 'v2', nameEn: 'Smoked Salmon & Egg', nameZh: '煙三文魚煎蛋', price: 60, desc: 'Healthy avo & fried egg combo.', descZh: '健康牛油果與煎蛋的完美配搭。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777825358/unnamed_zsvj4k.jpg' },
-                { id: 'c1', nameEn: 'Buffalo Chicken', nameZh: '水牛城脆雞', price: 69, desc: 'House-blend buffalo sauce, marinated thigh, cucumber', descZh: '自家調配水牛城辣醬、醃製雞大腿、青瓜', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777826197/unnamed_1_rs1od0.jpg', dietary: ['🌶️'] },
-                { id: 'c2', nameEn: 'Soft Shell Crab', nameZh: '脆炸軟殼蟹', price: 99, desc: 'Crispy whole crab with secret tartar sauce', descZh: '原隻香脆軟殼蟹配秘製他他醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545604/soft_shell_crab_dsrxqx.jpg' }
+                { id: 'v2', nameEn: 'Smoked Salmon & Egg', nameZh: '煙三文魚煎蛋', price: 60, desc: 'Healthy avo & fried egg combo.', descZh: '健康牛油果與煎蛋的完美配搭。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777825358/unnamed_zsvj4k.jpg', isSoldOut: false },
+                { id: 'c1', nameEn: 'Buffalo Chicken', nameZh: '水牛城脆雞', price: 69, desc: 'House-blend buffalo sauce, marinated thigh, cucumber', descZh: '自家調配水牛城辣醬、醃製雞大腿、青瓜', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777826197/unnamed_1_rs1od0.jpg', dietary: ['🌶️'], isSoldOut: false },
+                { id: 'c2', nameEn: 'Soft Shell Crab', nameZh: '脆炸軟殼蟹', price: 99, desc: 'Crispy whole crab with secret tartar sauce', descZh: '原隻香脆軟殼蟹配秘製他他醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545604/soft_shell_crab_dsrxqx.jpg', isSoldOut: false }
             ],
             veggie: [
-                { id: 'v1', nameEn: 'Mushroom Schnitzel', nameZh: '燕麥吉列大啡菇', price: 58, desc: 'Vegetarian chicken-style schnitzel. Soft and crispy.', descZh: '素食炸雞排，外脆內軟。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg', dietary: ['🌱'] },
-                { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素肉', price: 61, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'] },
-                { id: 'v4', nameEn: 'Hottest Veggie', nameZh: '墨辣素', price: 65, desc: 'Double jalapenos: smoked and pickled. Spicy plant-based joy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。惹味植物肉！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801210/hot_veggie_qtszvh.jpg', dietary: ['🌱', '🌶️'] }
+                { id: 'v1', nameEn: 'Mushroom Schnitzel', nameZh: '燕麥吉列大啡菇', price: 58, desc: 'Vegetarian chicken-style schnitzel. Soft and crispy.', descZh: '素食炸雞排，外脆內軟。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg', dietary: ['🌱'], isSoldOut: false },
+                { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素肉', price: 61, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'], isSoldOut: false },
+                { id: 'v4', nameEn: 'Hottest Veggie', nameZh: '墨辣素', price: 65, desc: 'Double jalapenos: smoked and pickled. Spicy plant-based joy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。惹味植物肉！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801210/hot_veggie_qtszvh.jpg', dietary: ['🌱', '🌶️'], isSoldOut: false }
             ],
             snacks: [
-                { id: 's1', nameEn: 'Crispy Fries M/L', nameZh: '脆炸薯條 M/L', price: 15, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 8}], isSide: true, dietary: ['🌱'], desc: 'A customer complained he cracked his teeth by having just one!', descZh: '脆到連客人都投訴話差啲咬崩牙！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/2a85989b-f02f-47df-82c7-df7af2fd84bf_b84fak.jpg' },
-                { id: 's2', nameEn: 'Renkon Chips M/L', nameZh: '蓮藕脆片 M/L', price: 15, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 8}], isSide: true, dietary: ['🌱'], desc: 'For those who wanna be different.', descZh: '專為追求獨特口味嘅你而設。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137520/PHOTO-2026-05-07-14-56-58_intdw2.jpg' },
-                { id: 's5', nameEn: 'Sweet Potato M/L', nameZh: '炸番薯條 M/L', price: 26, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 13}], isSide: true, dietary: ['🌱'], tag: '👨‍🍳 Chef\'s Pick', tagZh: '👨‍🍳 主廚推薦', desc: 'I have never had such a genuine taste of it in my life.', descZh: '我人生中未試過咁純粹嘅番薯鮮甜。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137381/b766620c-1db8-434d-b929-066dcf0cc46b_wjghea.jpg' },
-                { id: 's3', nameEn: 'Smoky Wings 3pcs/5pcs', nameZh: '煙燻雞翼 3件/5件', price: 26, sizes: [{label: '3pcs', labelZh: '3件', upcharge: 0}, {label: '5pcs', labelZh: '5件', upcharge: 13}], isSide: true, desc: 'If you don\'t smoke, don\'t choose (kidding).', descZh: '煙燻味極濃，非煙民慎點！(講笑)', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/3e099907-efa3-42d8-a2e5-0d92ab7e27a8_ug23hi.jpg' },
-                { id: 's7', nameEn: 'Buffalo Wings 5pcs', nameZh: '水牛城雞翼 5件', price: 50, isSide: true, dietary: ['🌶️'], desc: 'Just lose your shit!', descZh: '惹味到令人失去理智！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/ae707be9-605e-418a-bea8-25b7a79d441f_gtxou9.jpg' }
+                { id: 's1', nameEn: 'Crispy Fries M/L', nameZh: '脆炸薯條 M/L', price: 15, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 8}], isSide: true, dietary: ['🌱'], desc: 'A customer complained he cracked his teeth by having just one!', descZh: '脆到連客人都投訴話差啲咬崩牙！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/2a85989b-f02f-47df-82c7-df7af2fd84bf_b84fak.jpg', isSoldOut: false },
+                { id: 's2', nameEn: 'Renkon Chips M/L', nameZh: '蓮藕脆片 M/L', price: 15, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 8}], isSide: true, dietary: ['🌱'], desc: 'For those who wanna be different.', descZh: '專為追求獨特口味嘅你而設。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137520/PHOTO-2026-05-07-14-56-58_intdw2.jpg', isSoldOut: false },
+                { id: 's5', nameEn: 'Sweet Potato M/L', nameZh: '炸番薯條 M/L', price: 26, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 13}], isSide: true, dietary: ['🌱'], tag: '👨‍🍳 Chef\'s Pick', tagZh: '👨‍🍳 主廚推薦', desc: 'I have never had such a genuine taste of it in my life.', descZh: '我人生中未試過咁純粹嘅番薯鮮甜。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137381/b766620c-1db8-434d-b929-066dcf0cc46b_wjghea.jpg', isSoldOut: false },
+                { id: 's3', nameEn: 'Smoky Wings 3pcs/5pcs', nameZh: '煙燻雞翼 3件/5件', price: 26, sizes: [{label: '3pcs', labelZh: '3件', upcharge: 0}, {label: '5pcs', labelZh: '5件', upcharge: 13}], isSide: true, desc: 'If you don\'t smoke, don\'t choose (kidding).', descZh: '煙燻味極濃，非煙民慎點！(講笑)', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/3e099907-efa3-42d8-a2e5-0d92ab7e27a8_ug23hi.jpg', isSoldOut: false },
+                { id: 's7', nameEn: 'Buffalo Wings 5pcs', nameZh: '水牛城雞翼 5件', price: 50, isSide: true, dietary: ['🌶️'], desc: 'Just lose your shit!', descZh: '惹味到令人失去理智！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/ae707be9-605e-418a-bea8-25b7a79d441f_gtxou9.jpg', isSoldOut: false }
             ],
             drinks: [
-                { id: 'd1', nameEn: 'Coke', nameZh: '可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138704/Coke_wba2do.jpg' },
-                { id: 'd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138703/coke_zero_jdjubx.jpg', dietary: ['🚫🍬'] },
-                { id: 'd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg' },
-                { id: 'd3', nameEn: 'Soda Water', nameZh: '梳打水', price: 15, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138715/170200178-1-schweppes-soda-water-330ml_tyvsww.jpg', dietary: ['🚫🍬'] },
-                { id: 'd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', price: 22 },
-                { id: 'd5', nameEn: 'Americano', nameZh: '美式咖啡', price: 22, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801201/americano_fqaszt.png', hasTemp: true },
-                { id: 'd6', nameEn: 'Latte', nameZh: '鮮奶咖啡', price: 25, hasTemp: true },
-                { id: 'd7', nameEn: 'Mocha', nameZh: '朱古力咖啡', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true },
-                { id: 'd8', nameEn: 'Chocolate', nameZh: '朱古力', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true },
-                { id: 'd9', nameEn: 'Avocado Smoothie with Oat', nameZh: '燕麥牛油果沙冰', price: 37 },
-                { id: 'd10', nameEn: 'Double Ovaltine Smoothie', nameZh: '雙重阿華田沙冰', price: 40 }
+                { id: 'd1', nameEn: 'Coke', nameZh: '可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138704/Coke_wba2do.jpg', isSoldOut: false },
+                { id: 'd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138703/coke_zero_jdjubx.jpg', dietary: ['🚫🍬'], isSoldOut: false },
+                { id: 'd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg', isSoldOut: false },
+                { id: 'd3', nameEn: 'Soda Water', nameZh: '梳打水', price: 15, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138715/170200178-1-schweppes-soda-water-330ml_tyvsww.jpg', dietary: ['🚫🍬'], isSoldOut: false },
+                { id: 'd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', price: 22, isSoldOut: false },
+                { id: 'd5', nameEn: 'Americano', nameZh: '美式咖啡', price: 22, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801201/americano_fqaszt.png', hasTemp: true, isSoldOut: false },
+                { id: 'd6', nameEn: 'Latte', nameZh: '鮮奶咖啡', price: 25, hasTemp: true, isSoldOut: false },
+                { id: 'd7', nameEn: 'Mocha', nameZh: '朱古力咖啡', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true, isSoldOut: false },
+                { id: 'd8', nameEn: 'Chocolate', nameZh: '朱古力', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true, isSoldOut: false },
+                { id: 'd9', nameEn: 'Avocado Smoothie with Oat', nameZh: '燕麥牛油果沙冰', price: 37, isSoldOut: false },
+                { id: 'd10', nameEn: 'Double Ovaltine Smoothie', nameZh: '雙重阿華田沙冰', price: 40, isSoldOut: false }
             ],
             sauces: [
-                { id: 'ss1', nameEn: 'Caramelized Garlic', nameZh: '焦糖蒜蓉醬', price: 6, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138619/garlic-mayonnaise_kg8fez.jpg' },
-                { id: 'ss2', nameEn: 'Smoked Jalapeño', nameZh: '煙燻墨西哥辣椒醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138635/Copy_of_jalapeno_sauce_mfd8qv.jpg' },
-                { id: 'ss3', nameEn: 'Buffalo Sauce', nameZh: '水牛城辣醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/vegan-buffalo-sauce-6-737x1024_vnpb7z.jpg' },
-                { id: 'ss4', nameEn: 'Tartar Sauce', nameZh: '秘製他他醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/tartar-sauce-1500-6-square_i8owfz.jpg' },
-                { id: 'ss5', nameEn: 'Blue Cheese', nameZh: '藍紋芝士醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/blue_cheese_sauce_rewu7i.jpg' }
+                { id: 'ss1', nameEn: 'Caramelized Garlic', nameZh: '焦糖蒜蓉醬', price: 6, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138619/garlic-mayonnaise_kg8fez.jpg', isSoldOut: false },
+                { id: 'ss2', nameEn: 'Smoked Jalapeño', nameZh: '煙燻墨西哥辣椒醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138635/Copy_of_jalapeno_sauce_mfd8qv.jpg', isSoldOut: false },
+                { id: 'ss3', nameEn: 'Buffalo Sauce', nameZh: '水牛城辣醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/vegan-buffalo-sauce-6-737x1024_vnpb7z.jpg', isSoldOut: false },
+                { id: 'ss4', nameEn: 'Tartar Sauce', nameZh: '秘製他他醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/tartar-sauce-1500-6-square_i8owfz.jpg', isSoldOut: false },
+                { id: 'ss5', nameEn: 'Blue Cheese', nameZh: '藍紋芝士醬', price: 8, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138636/blue_cheese_sauce_rewu7i.jpg', isSoldOut: false }
             ]
         };
 
@@ -728,6 +589,36 @@
             { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg, 35-45 Chai Wan Kok St', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, hoursLogic: { openH: 11, openM: 30, closeH: 23, closeM: 30 }, mapLink: 'https://www.google.com/maps/place/%E8%A3%95%E8%B1%90%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%BB%88/@22.3735566,114.1072846,12z/data=!4m6!3m5!1s0x3403f925c70a4baf:0xf5d64ab922225bc7!8m2!3d22.3735566!4d114.1072846!16s%2Fg%2F11fltrtypj?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
         ];
 
+        // --- SUPABASE FETCH MAGIC ---
+        async function fetchLiveMenu() {
+            try {
+                const response = await fetch(SUPABASE_URL, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                const liveItems = await response.json();
+                
+                // Override our menuData with live Supabase data
+                liveItems.forEach(dbItem => {
+                    if(menuData[dbItem.category]) {
+                        const idx = menuData[dbItem.category].findIndex(i => i.id === dbItem.id);
+                        if(idx !== -1) {
+                            menuData[dbItem.category][idx].price = dbItem.price;
+                            menuData[dbItem.category][idx].nameEn = dbItem.name_en;
+                            menuData[dbItem.category][idx].nameZh = dbItem.name_zh;
+                            menuData[dbItem.category][idx].isSoldOut = dbItem.is_sold_out;
+                        }
+                    }
+                });
+                renderMenuByCategory(currentCategory);
+            } catch (error) {
+                console.error("Supabase Error:", error);
+                renderMenuByCategory(currentCategory); 
+            }
+        }
+
         // --- CORE FUNCTIONS ---
         function renderMenuByCategory(cat) {
             currentCategory = cat;
@@ -754,7 +645,13 @@
                     if (discountActive) displayPrice = `<span class="text-gray-400 line-through text-[10px] mr-1 font-semibold">${item.price}</span><span class="text-red-500">${item.price - Math.floor(item.price*rate)}</span>`;
                     else displayPrice = `${item.price}`;
                 }
-                return `<div onclick="openConfig('${cat}', '${item.id}')" class="relative bg-white rounded-3xl border border-gray-100 shadow-sm active:scale-95 transition-transform cursor-pointer overflow-hidden flex flex-col">
+
+                // The REAL-TIME SOLD OUT MAGIC
+                const soldOutOverlay = item.isSoldOut ? `<div class="absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
+                const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
+
+                return `<div ${clickAction} class="relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
+                    ${soldOutOverlay}
                     ${item.tag ? `<span class="absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
                     <div class="relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
                     <div class="p-3 flex-grow flex flex-col">
@@ -1183,6 +1080,7 @@
         }
 
         // --- Helpers ---
+        function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => m.classList.add('hidden'), 300); }
         function toggleComboDetails() { document.getElementById('combo-details').classList.toggle('hidden', !document.getElementById('opt-combo').checked); updateConfigPrice(); }
         function closeAllSheets() { document.getElementById('sheet-overlay').classList.add('opacity-0'); document.getElementById('cart-sheet').classList.remove('sheet-open'); document.getElementById('config-sheet').classList.remove('sheet-open'); setTimeout(() => document.getElementById('sheet-overlay').classList.add('hidden'), 400); }
         function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); }, 10); } }
@@ -1203,7 +1101,6 @@
             validateCheckout(); generateTimeOptions();
         }
 
-        // --- Logic Boilerplate ---
         function removeFromCart(id) { cart = cart.filter(i => i.id !== id); updateCartUI(); }
         function handleStoreChange() { flowSelectedStore = document.getElementById('cust-store').value; updateCartStoreUI(); updateCartUI(); }
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
@@ -1356,7 +1253,12 @@
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
 
-        document.addEventListener('DOMContentLoaded', () => { updatePlaceholders(); populateStoresDropdown(); renderMenuByCategory('beef'); renderStores(); });
+        document.addEventListener('DOMContentLoaded', () => { 
+            updatePlaceholders(); 
+            populateStoresDropdown(); 
+            renderStores();
+            fetchLiveMenu(); // Real-time Supabase Fetch
+        });
     </script>
 </body>
 </html>
