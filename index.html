@@ -184,15 +184,15 @@
                     </div>
                 </div>
             </div>
-            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processKPayOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
+            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processTelegramOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
-            <div class="relative h-48 shrink-0 bg-[#f8f9fa] flex items-center justify-center pt-4 pb-2 overflow-hidden">
-                <img id="config-hero" src="" alt="Item Image" loading="lazy" class="h-full w-full object-contain object-center drop-shadow-sm mix-blend-multiply scale-[1.15]">
-                <button onclick="closeAllSheets()" aria-label="Close Options" class="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center font-bold text-gray-600 border border-gray-100 shadow-sm z-10">✕</button>
-            </div>
-            <div id="config-scroll-area" class="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32">
+    <button onclick="closeAllSheets()" aria-label="Close Options" class="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center font-bold text-gray-600 border border-gray-100 shadow-sm z-[1005]">✕</button>
+    <div id="config-scroll-area" class="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32 pt-0">
+        <div class="relative h-48 -mx-6 mb-6 shrink-0 bg-[#f8f9fa] flex items-center justify-center overflow-hidden rounded-t-[2.5rem]">
+            <img id="config-hero" src="" alt="Item Image" loading="lazy" class="h-full w-full object-contain object-center drop-shadow-sm mix-blend-multiply scale-[1.15]">
+        </div>
                 <div>
                     <h2 id="config-name" class="text-3xl font-black italic uppercase tracking-tighter leading-none mb-2 pr-2">Item Name</h2>
                     <div id="config-desc" class="text-sm text-gray-500 leading-relaxed font-medium"></div>
@@ -274,7 +274,7 @@
         </nav>
 
         <section class="relative h-[85dvh] flex flex-col justify-end px-8 pb-12 bg-apple-bg overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-[75dvh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
+            <div class="absolute top-0 left-0 w-full h-[75svh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
             <div class="relative z-10 space-y-6">
                 <h1 class="text-5xl md:text-6xl font-black tracking-tighter text-[#1d1d1f] leading-[0.9] uppercase"><span class="en">FRESHNESS<br>YOU CAN<br>SEE.</span><span class="zh">新鮮，<br>肉眼可見。</span></h1>
                 <p class="text-[10px] font-bold text-gray-800 uppercase tracking-widest leading-relaxed mt-2"><span class="en">Michelin Recipe • ☪️ Halal Certified<br>Nissin Flour Bun • Aussie Black Angus + Wagyu</span><span class="zh">米芝蓮配方 • ☪️ 清真認證<br>日清麵包 • 澳洲黑安格斯及和牛</span></p>
@@ -512,9 +512,9 @@
         ];
 
         const stores = [
-            { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://www.google.com/maps/place/Mirror+Burger/@22.2868713,114.1395085,17z/data=!3m1!4b1!4m6!3m5!1s0x340401cf40ace40b:0x71fd6c3e30c478aa!8m2!3d22.2868664!4d114.1443794!16s%2Fg%2F11qpq7_8vz?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
-            { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://www.google.com/maps/place/Mirror+Burger+(%E5%A4%A9%E5%90%8E%E5%BA%97)/@22.2871103,114.1896864,17z/data=!3m1!4b1!4m6!3m5!1s0x340401e0074503a1:0xd10d73cf17dfa203!8m2!3d22.2871054!4d114.1922613!16s%2Fg%2F11vs4py461?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
-            { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://www.google.com/maps/place/%E8%A3%95%E8%B1%90%E5%B7%A5%E6%A5%AD%E5%A4%A7%E5%BB%88/@22.3735566,114.1072846,12z/data=!4m6!3m5!1s0x3403f925c70a4baf:0xf5d64ab922225bc7!8m2!3d22.3735566!4d114.1072846!16s%2Fg%2F11fltrtypj?entry=ttu&g_ep=EgoyMDI2MDQyOS4wIKXMDSoASAFQAw%3D%3D', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
+            { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
+            { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://maps.app.goo.gl/8944PrWNxNKrNXaZ9', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
+            { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://maps.app.goo.gl/6oxTsRNSUwmtibUx9', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
         ];
 
         // --- 4. 讀取 Supabase ---
@@ -1216,11 +1216,16 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
-
         document.addEventListener('DOMContentLoaded', () => { 
-            updatePlaceholders(); populateStoresDropdown(); renderStores();
-            fetchLiveMenu(); // 連線 Supabase 大腦
-        });
+    const userLang = navigator.language || navigator.userLanguage;
+    currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
+    document.body.classList.toggle('lang-en', currentLang === 'en');
+    document.body.classList.toggle('lang-zh', currentLang === 'zh');
+    document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
+
+    updatePlaceholders(); populateStoresDropdown(); renderStores();
+    fetchLiveMenu(); // 連線 Supabase 大腦
+});
     </script>
 </body>
 </html>
