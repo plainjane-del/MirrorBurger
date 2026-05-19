@@ -1099,8 +1099,8 @@
 
                 const result = await response.json();
 
-                if (result.payUrl) {
-                    window.location.href = result.payUrl;
+                if (result.paymentUrl) {
+                    window.location.href = result.paymentUrl;
                 } else {
                     alert("KPay 系統回覆: " + (result.replyMsg || "連線失敗"));
                     btn.innerHTML = originalText;
