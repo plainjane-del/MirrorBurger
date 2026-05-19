@@ -184,7 +184,7 @@
                     </div>
                 </div>
             </div>
-            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processTelegramOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
+            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processKPayOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
@@ -401,6 +401,12 @@
         const SB_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbym1vHsZ3ggBc-FPxQ7CZLP7SaNkhR1arGoqhKOMJFmJ6Ix-PX-9kyM1QA_nkZztZMmvw/exec';
+        
+// --- 1. SUPABASE & SERVER 設定 ---
+        const SB_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbym1vHsZ3ggBc-FPxQ7CZLP7SaNkhR1arGoqhKOMJFmJ6Ix-PX-9kyM1QA_nkZztZMmvw/exec';
+        const KPAY_SERVER_URL = 'http://129.212.229.126:3000/api/checkout';
 
         // 幫連線改名做 supabaseClient，避開撞名！
         const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
@@ -1059,6 +1065,59 @@
         }
 
         // --- TELEGRAM CHECKOUT LOGIC ---
+
+        // --- 2. KPAY 支付處理邏輯 ---
+        async function processKPayOrder() {
+            const storeElem = document.getElementById('cust-store');
+            const store = storeElem ? storeElem.value : flowSelectedStore;
+            const name = document.getElementById('cust-name').value.trim();
+            const phone = document.getElementById('cust-phone').value.trim();
+            const time = document.getElementById('cust-time').value;
+
+            if (!store || !name || !phone || !time || cart.length === 0) return;
+
+            const btn = document.getElementById('checkout-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span class="en">Connecting KPay...</span><span class="zh">正在連接 KPay...</span>`;
+            btn.disabled = true;
+
+            // 計算總金額
+            let subtotal = cart.reduce((sum, item) => sum + item.price, 0);
+            let hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo'));
+            let discount = 0;
+            if (store === 'Tsuen Wan (Takeaway Only)') {
+                discount = Math.floor(subtotal * 0.15);
+            } else if (subtotal >= 120 || hasCombo) {
+                discount = Math.floor(subtotal * 0.10);
+            }
+            const finalTotal = subtotal - discount;
+
+            try {
+                const response = await fetch(KPAY_SERVER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: finalTotal,
+                        orderNo: "MB" + Date.now()
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.payUrl) {
+                    window.location.href = result.payUrl;
+                } else {
+                    alert("KPay 系統回覆: " + (result.replyMsg || "連線失敗"));
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error("Server Error:", err);
+                alert("伺服器連線失敗，請檢查網絡或 IP 白名單。");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
         function processTelegramOrder() {
             const storeElem = document.getElementById('cust-store');
             const store = storeElem ? storeElem.value : flowSelectedStore;
