@@ -184,7 +184,7 @@
                     </div>
                 </div>
             </div>
-            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processTelegramOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
+            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processKPayOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
@@ -1053,16 +1053,15 @@
         }
         
         function renderStores() { 
-            const container = document.getElementById('stores-container');
-            if(container) {
-                container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
-            }
-        }
-
+    const container = document.getElementById('stores-container');
+    if(container) {
+        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+    }
+}
         // --- TELEGRAM CHECKOUT LOGIC ---
 
         // --- 2. KPAY 支付處理邏輯 ---
-        async function processKPayOrder() {
+async function processKPayOrder() {
             const storeElem = document.getElementById('cust-store');
             const store = storeElem ? storeElem.value : flowSelectedStore;
             const name = document.getElementById('cust-name').value.trim();
@@ -1073,42 +1072,43 @@
 
             const btn = document.getElementById('checkout-btn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = `<span class="en">Connecting KPay...</span><span class="zh">正在連接 KPay...</span>`;
+            btn.innerHTML = `<span class="en">Preparing Order...</span><span class="zh">準備訂單中...</span>`;
             btn.disabled = true;
 
-            // 計算總金額
+            const orderNo = "UAT" + Date.now().toString().slice(-6);
             let subtotal = cart.reduce((sum, item) => sum + item.price, 0);
-            let hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo'));
-            let discount = 0;
-            if (store === 'Tsuen Wan (Takeaway Only)') {
-                discount = Math.floor(subtotal * 0.15);
-            } else if (subtotal >= 120 || hasCombo) {
-                discount = Math.floor(subtotal * 0.10);
-            }
+            let discount = isDiscountActive() ? Math.floor(subtotal * getDiscountRate()) : 0;
             const finalTotal = subtotal - discount;
 
             try {
+                // 💡 重點：先喺 Supabase 留底，狀態係 PENDING
+                await supabaseClient.from('orders').insert([{
+                    order_no: orderNo,
+                    store_name: store,
+                    customer_name: name,
+                    customer_phone: phone,
+                    pickup_time: time,
+                    items_json: cart,
+                    total_amount: finalTotal,
+                    payment_status: 'PENDING'
+                }]);
+
+                // 去 KPay 攞支付 Link
                 const response = await fetch(KPAY_SERVER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        amount: finalTotal,
-                        orderNo: "MB" + Date.now()
-                    })
+                    body: JSON.stringify({ amount: finalTotal, orderNo: orderNo })
                 });
 
                 const result = await response.json();
-
                 if (result.paymentUrl) {
                     window.location.href = result.paymentUrl;
                 } else {
-                    alert("KPay 系統回覆: " + (result.replyMsg || "連線失敗"));
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+                    throw new Error("KPay Error");
                 }
             } catch (err) {
-                console.error("Server Error:", err);
-                alert("伺服器連線失敗，請檢查網絡或 IP 白名單。");
+                console.error(err);
+                showCustomAlert("Connection Error");
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
