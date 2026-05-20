@@ -1,0 +1,4 @@
+[[redirects]]
+  from = "/api/*"
+  to = "/api/index.js"
+  status = 200
