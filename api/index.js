@@ -58,7 +58,7 @@ function generateSignature(params, privateKey) {
 // ==========================================
 // 🚀 3. 對應 index.html 呼叫的 API
 // ==========================================
-app.post('/api/checkout', async (req, res) => {
+app.post('/checkout', async (req, res) => {
     try {
         const { amount, orderNo } = req.body;
         
