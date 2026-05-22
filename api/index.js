@@ -7,13 +7,13 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 🔐 1. KPay 資料 (已根據你提供的資料填寫)
+// 🔐 1. KPay 資料 (UAT 測試環境)
 // ==========================================
-// 既然你要做 UAT 測試攞白名單，就係用呢個 85212... 嘅測試商戶號
 const MERCHANT_CODE = '852124272000001'; 
-const KPAY_API_URL = 'https://payment.uat.kpay-group.com/gateway/api/v1/online/order/create';
+const CHECKOUT_API_URL = 'https://payment.uat.kpay-group.com/gateway/api/v1/online/order/create';
+const REFUND_API_URL = 'https://payment.uat.kpay-group.com/gateway/api/v1/online/order/refund';
 
-// 這是你剛剛貼給我的 Private Key，我已幫你加上頭尾標籤，這是簽名必須的格式
+// 你的 RSA 私鑰 (保持原樣)
 const RSA_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
@@ -44,8 +44,7 @@ g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
 -----END RSA PRIVATE KEY-----`;
 
 // ==========================================
-// 🛠️ 2. 簽名工具函數 (唔使改)
-// 呢段係用嚟將你張訂單資料加密，等 KPay 知道係你發出嘅
+// 🛠️ 2. 簽名工具函數
 // ==========================================
 function generateSignature(params, privateKey) {
     const sortedKeys = Object.keys(params).sort();
@@ -56,7 +55,7 @@ function generateSignature(params, privateKey) {
 }
 
 // ==========================================
-// 🚀 3. 對應 index.html 呼叫的 API
+// 🚀 3. 支付下單接口 (用於 index.html 的立即落單)
 // ==========================================
 app.post('/checkout', async (req, res) => {
     try {
@@ -74,7 +73,7 @@ app.post('/checkout', async (req, res) => {
 
         const signature = generateSignature(params, RSA_PRIVATE_KEY);
 
-        const response = await fetch(KPAY_API_URL, {
+        const response = await fetch(CHECKOUT_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -91,7 +90,48 @@ app.post('/checkout', async (req, res) => {
             res.status(400).json({ error: result.msg || 'KPay API Error' });
         }
     } catch (error) {
-        console.error('Server Error:', error);
+        console.error('Checkout Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// ==========================================
+// 🔙 4. 退款處理接口 (用於 UAT 測試退款)
+// ==========================================
+app.post('/refund', async (req, res) => {
+    try {
+        const { orderNo, amount } = req.body;
+
+        const params = {
+            merchantCode: MERCHANT_CODE,
+            managedOrderNo: orderNo,
+            refundAmount: parseFloat(amount).toFixed(2),
+            refundCurrency: 'HKD',
+            refundReason: 'UAT Test Refund',
+            timestamp: Math.floor(Date.now() / 1000).toString()
+        };
+
+        const signature = generateSignature(params, RSA_PRIVATE_KEY);
+
+        const response = await fetch(REFUND_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-KPay-Signature': signature
+            },
+            body: JSON.stringify(params)
+        });
+
+        const result = await response.json();
+
+        if (result.code === 'SUCCESS') {
+            res.json({ success: true, msg: '退款成功', data: result.data });
+        } else {
+            // 這裡失敗時會回傳 KPay 的錯誤訊息（例如：餘額不足）
+            res.status(400).json({ success: false, error: result.msg || '退款失敗' });
+        }
+    } catch (error) {
+        console.error('Refund Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
