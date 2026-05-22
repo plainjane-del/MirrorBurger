@@ -1227,5 +1227,35 @@ async function processKPayOrder() {
     fetchLiveMenu(); // 連線 Supabase 大腦
 });
     </script>
+    <div style="padding: 20px; text-align: center; background: #eee; margin-top: 50px;">
+    <p style="font-size: 10px; color: #999;">UAT ADMIN TOOLS</p>
+    <button onclick="promptRefund()" style="background: red; color: white; padding: 10px 20px; border-radius: 10px; font-weight: bold;">
+        發起退款測試
+    </button>
+</div>
+
+<script>
+async function promptRefund() {
+    const orderNo = prompt("請輸入要退款的單號 (例如: UAT123456):");
+    const amount = prompt("請輸入退款金額 (例如: 5):");
+    if (orderNo && amount) {
+        try {
+            const response = await fetch('/api/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderNo: orderNo, amount: amount })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert("✅ 退款成功！\nKPay 單號: " + result.data.kPayOrderNo);
+            } else {
+                alert("❌ 退款失敗！\n原因: " + result.error);
+            }
+        } catch (err) {
+            alert("系統連線錯誤: " + err.message);
+        }
+    }
+}
+</script>
 </body>
 </html>
