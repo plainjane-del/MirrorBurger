@@ -7,12 +7,9 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================================
-// 🔐 1. KPay 資料 (UAT 測試環境)
+// 🔐 1. KPay 測試資料 (852124272000001)
 // ==========================================
-const MERCHANT_CODE = '852124272000001'; 
-const CHECKOUT_API_URL = 'https://payment.uat.kpay-group.com/gateway/api/v1/online/order/create';
-const REFUND_API_URL = 'https://payment.uat.kpay-group.com/gateway/api/v1/online/order/refund';
-
+const MERCHANT_CODE = '852124272000001';
 const RSA_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
@@ -50,7 +47,7 @@ function generateSignature(params, privateKey) {
     return sign.sign(privateKey, 'base64');
 }
 
-// 🚀 支付接口 (支援 /checkout 或 /api/checkout)
+// 🚀 下單接口 (不論係 /checkout 定 /api/checkout 都會通)
 app.post(['/checkout', '/api/checkout'], async (req, res) => {
     try {
         const { amount, orderNo } = req.body;
@@ -64,7 +61,7 @@ app.post(['/checkout', '/api/checkout'], async (req, res) => {
             timestamp: Math.floor(Date.now() / 1000).toString()
         };
         const signature = generateSignature(params, RSA_PRIVATE_KEY);
-        const response = await fetch(CHECKOUT_API_URL, {
+        const response = await fetch('https://payment.uat.kpay-group.com/gateway/api/v1/online/order/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-KPay-Signature': signature },
             body: JSON.stringify(params)
@@ -75,7 +72,7 @@ app.post(['/checkout', '/api/checkout'], async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 🔙 退款接口 (支援 /refund 或 /api/refund)
+// 🔙 退款接口 (不論係 /refund 定 /api/refund 都會通)
 app.post(['/refund', '/api/refund'], async (req, res) => {
     try {
         const { orderNo, amount } = req.body;
@@ -88,13 +85,13 @@ app.post(['/refund', '/api/refund'], async (req, res) => {
             timestamp: Math.floor(Date.now() / 1000).toString()
         };
         const signature = generateSignature(params, RSA_PRIVATE_KEY);
-        const response = await fetch(REFUND_API_URL, {
+        const response = await fetch('https://payment.uat.kpay-group.com/gateway/api/v1/online/order/refund', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-KPay-Signature': signature },
             body: JSON.stringify(params)
         });
         const result = await response.json();
-        if (result.code === 'SUCCESS') res.json({ success: true, msg: '退款成功' });
+        if (result.code === 'SUCCESS') res.json({ success: true });
         else res.status(400).json({ success: false, error: result.msg });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
