@@ -1033,13 +1033,31 @@
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
         
         function validateCheckout() { 
-            const s = flowSelectedStore || document.getElementById('cust-store').value;
-            const n = document.getElementById('cust-name').value;
-            const p = document.getElementById('cust-phone').value;
-            const t = document.getElementById('cust-time').value;
-            const btn = document.getElementById('checkout-btn');
-            if (btn) { btn.disabled = !(cart.length > 0 && s && n && p && t); }
+    // 🔍 檢查網址有無 ?test=1
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTestMode = urlParams.has('test'); 
+
+    const btn = document.getElementById('checkout-btn');
+    if (btn) {
+        // 🔒 如果唔係測試模式，直接鎖死個掣
+        if (!isTestMode) {
+            btn.disabled = true;
+            btn.style.opacity = "0.5"; // 變淡啲，等客唔會亂撳
+            btn.innerHTML = '<span class="zh">系統測試中 (即將推出)</span><span class="en">System Testing (Coming Soon)</span>';
+            return;
         }
+
+        // 🟢 如果係測試模式 (網址有 ?test=1)，先行返原本嘅邏輯
+        btn.style.opacity = "1";
+        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+        
+        const s = flowSelectedStore || document.getElementById('cust-store').value;
+        const n = document.getElementById('cust-name').value;
+        const p = document.getElementById('cust-phone').value;
+        const t = document.getElementById('cust-time').value;
+        btn.disabled = !(cart.length > 0 && s && n && p && t);
+    }
+}
         
         function populateStoresDropdown() { const s = document.getElementById('cust-store'); s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`; stores.forEach(st => s.add(new Option(lang(st.name, st.nameZh), st.name))); if(flowSelectedStore) s.value = flowSelectedStore; }
         function updateCartStoreUI() { const d = document.getElementById('cart-store-display'), c = document.getElementById('cart-store-select-container'); if(flowSelectedStore) { document.getElementById('cart-store-name').innerText = lang(flowSelectedStore, stores.find(x=>x.name===flowSelectedStore).nameZh); d.classList.remove('hidden'); c.classList.add('hidden'); } else { d.classList.add('hidden'); c.classList.remove('hidden'); } }
