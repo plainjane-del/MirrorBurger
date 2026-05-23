@@ -1266,11 +1266,10 @@ async function promptRefund() {
             body: JSON.stringify({ orderNo: orderNo, amount: amount })
         });
         const result = await response.json();
-        if (result.success) {
-            alert("✅ 退款成功！\nKPay 單號: " + result.data.kPayOrderNo);
+        if (result.code === 10000) { 
+            alert("✅ 退款成功！\nKPay 單號: " + result.data.orderNo);
         } else {
-            // 💡 呢度彈出「餘額不足」嗰陣，記得 Cap 圖交 Case 6
-            alert("❌ 退款失敗！\n原因: " + result.error);
+            alert("❌ 退款失敗！\n原因: " + (result.message || result.error));
         }
     } catch (err) {
         alert("系統連線錯誤: " + err.message);
