@@ -24,4 +24,62 @@ XJz6+JSZ7YZ8qk7IIS/E6YGIQ6D34Q2RoiFCayP5aXy+EzV97docGOgs8BqkCgYBQ
 oEvi3YhxEzhZ3LvFU823FJVwiXiFc029+u5USeOqzOR8xDGgbunjal2m2Sumry4M
 R/wNzcWOA1/sCFhIp7YkyYyeWk8NEvXunCE+rqoWLOnd/ugigy/GNZSMp9aNSBIs
 I2TsVKX8h7B2usaazTag6Vopyp1CBjuMLK2KBgu+NwKBgE9tx0maUcHW/re3ZixU
-Pegrha
+Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
+g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
+5DUMHT9kClrFNl2f0l9hcrXg`;
+
+const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${RAW_KEY.replace(/\s+/g, '\n')}\n-----END RSA PRIVATE KEY-----`;
+
+exports.handler = async (event) => {
+    const headers = { 
+        "Access-Control-Allow-Origin": "*", 
+        "Access-Control-Allow-Headers": "Content-Type", 
+        "Access-Control-Allow-Methods": "POST, OPTIONS" 
+    };
+
+    if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
+
+    try {
+        const { amount, orderNo } = JSON.parse(event.body || "{}");
+        const nonceStr = Math.random().toString(36).substring(2, 15);
+        const timestamp = Date.now().toString();
+
+        const signParams = { "K-Merchant-Code": MERCHANT_CODE, "K-Nonce-Str": nonceStr, "K-Timestamp": timestamp };
+        const sortedKeys = Object.keys(signParams).sort();
+        const signStr = sortedKeys.map(k => `${k}=${signParams[k]}`).join('\n') + '\n';
+
+        const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({ 
+            key: PRIVATE_KEY, 
+            padding: crypto.constants.RSA_PKCS1_PADDING 
+        }, 'base64');
+
+        const res = await fetch('https://payment.uat.kpay-group.com/v1/order/add', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'K-Merchant-Code': MERCHANT_CODE, 
+                'K-Nonce-Str': nonceStr, 
+                'K-Timestamp': timestamp, 
+                'K-Signature': signature, 
+                'K-Language': 'zh_HK' 
+            },
+            body: JSON.stringify({ 
+                outTradeNo: orderNo, 
+                orderType: "CNP_SALES_GATEWAY", 
+                payAmount: parseFloat(amount), 
+                payCurrency: "HKD", 
+                returnUrl: "https://mirrorburger.com", 
+                itemList: [{ itemNo: "1", itemName: "Burger", price: parseFloat(amount), priceCurrency: "HKD", quantity: 1 }] 
+            })
+        });
+
+        const result = await res.json();
+        if (result.code === 10000) {
+            const payUrl = `https://payment.uat.kpay-group.com/v1/web?orderNo=${result.data.orderNo}&K-Merchant-Code=${MERCHANT_CODE}&K-Nonce-Str=${nonceStr}&K-Timestamp=${timestamp}`;
+            return { statusCode: 200, headers, body: JSON.stringify({ paymentUrl: payUrl }) };
+        }
+        return { statusCode: 400, headers, body: JSON.stringify({ error: result.message }) };
+    } catch (err) { 
+        return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) }; 
+    }
+};
