@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 
-const MERCHANT_CODE = '852124272000001';
+const MERCHANT_CODE = '852124272000001'; //
 
-// 💡 採用最通用的 Private Key 封裝，不使用 "RSA" 字眼
-const RAW_KEY = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
+// 💡 原始私鑰
+const RAW_KEY_CONTENT = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
 mFXSv4EeC+o1GG0W7RMG4vU+sCZbzhM3NZef+OoZp1sruUbEQG1szFANoBoiu8Zz
 c/tt1K0S020K+7Zp3iNUbg/UBDW1AFhjlEZBi0xBsqoP0RDXDnXBMCEup2kZP8ti
@@ -28,9 +28,10 @@ R/wNzcWOA1/sCFhIp7YkyYyeWk8NEvXunCE+rqoWLOnd/ugigy/GNZSMp9aNSBIs
 I2TsVKX8h7B2usaazTag6Vopyp1CBjuMLK2KBgu+NwKBgE9tx0maUcHW/re3ZixU
 Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
 g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
-5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, '');
+5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, ''); // 徹底移除所有空格及換行
 
-const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${RAW_KEY.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
+// 💡 構建標準 PEM 格式 (這是解決 DECODER 錯誤的關鍵)
+const FORMATTED_KEY = `-----BEGIN PRIVATE KEY-----\n${RAW_KEY_CONTENT.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
 
 exports.handler = async (event) => {
     const corsHeaders = {
@@ -42,22 +43,33 @@ exports.handler = async (event) => {
     if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" };
 
     try {
-        // 1. 穩健解析 Body (處理 Base64 編碼情況)
-        const bodyStr = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
-        const { orderNo, amount } = JSON.parse(bodyStr || "{}");
+        // 🔍 [Debug] 在日誌輸出收到的內容
+        console.log("Incoming Event Body:", event.body);
+
+        // 1. 解析數據 (加入多層安全檢查)
+        let data;
+        try {
+            const bodyStr = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
+            data = typeof bodyStr === 'string' ? JSON.parse(bodyStr) : bodyStr;
+        } catch (e) {
+            return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Invalid JSON format" }) };
+        }
+
+        const { orderNo, amount } = data || {};
 
         if (!orderNo || !amount) {
+            console.error("Missing Data Error:", { orderNo, amount });
             return { 
                 statusCode: 400, 
                 headers: corsHeaders, 
-                body: JSON.stringify({ success: false, error: "Missing orderNo or amount", received: { orderNo, amount } }) 
+                body: JSON.stringify({ success: false, error: "Missing orderNo or amount", received: data }) 
             };
         }
 
-        const nonceStr = Math.random().toString(36).substring(2, 15);
+        const nonceStr = crypto.randomBytes(16).toString('hex');
         const timestamp = Date.now().toString();
 
-        // 2. KPay v4.0 簽名規則 [cite: 61, 63]
+        // 2. 構建簽名串 (按 KPay v4.0 要求)
         const signParams = {
             "K-Merchant-Code": MERCHANT_CODE,
             "K-Nonce-Str": nonceStr,
@@ -66,13 +78,13 @@ exports.handler = async (event) => {
         const sortedKeys = Object.keys(signParams).sort();
         const signStr = sortedKeys.map(k => `${k}=${signParams[k]}`).join('\n') + '\n';
 
-        // 3. 簽名運算
+        // 3. 執行簽名 (指定 PKCS1 填充)
         const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({
-            key: PRIVATE_KEY,
+            key: FORMATTED_KEY,
             padding: crypto.constants.RSA_PKCS1_PADDING
         }, 'base64');
 
-        // 4. 發送請求至 KPay
+        // 4. 發送至 KPay
         const response = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
             method: 'POST',
             headers: {
@@ -90,14 +102,10 @@ exports.handler = async (event) => {
         });
 
         const result = await response.json();
-        return { 
-            statusCode: 200, 
-            headers: corsHeaders, 
-            body: JSON.stringify(result) 
-        };
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify(result) };
 
     } catch (err) {
-        console.error("Refund Logic Error:", err.message);
+        console.error("Critical Refund Error:", err.message);
         return {
             statusCode: 500,
             headers: corsHeaders,
