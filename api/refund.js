@@ -1,8 +1,7 @@
 const crypto = require('crypto');
 
-const MERCHANT_CODE = '852124272000001'; //
+const MERCHANT_CODE = '852124272000001';
 
-// 💡 原始私鑰
 const RAW_KEY_CONTENT = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
 mFXSv4EeC+o1GG0W7RMG4vU+sCZbzhM3NZef+OoZp1sruUbEQG1szFANoBoiu8Zz
@@ -28,10 +27,9 @@ R/wNzcWOA1/sCFhIp7YkyYyeWk8NEvXunCE+rqoWLOnd/ugigy/GNZSMp9aNSBIs
 I2TsVKX8h7B2usaazTag6Vopyp1CBjuMLK2KBgu+NwKBgE9tx0maUcHW/re3ZixU
 Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
 g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
-5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, ''); // 徹底移除所有空格及換行
+5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, '');
 
-// 💡 構建標準 PEM 格式 (這是解決 DECODER 錯誤的關鍵)
-const FORMATTED_KEY = `-----BEGIN PRIVATE KEY-----\n${RAW_KEY_CONTENT.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
+const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${RAW_KEY_CONTENT.match(/.{1,64}/g).join('\n')}\n-----END PRIVATE KEY-----`;
 
 exports.handler = async (event) => {
     const corsHeaders = {
@@ -43,48 +41,32 @@ exports.handler = async (event) => {
     if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" };
 
     try {
-        // 🔍 [Debug] 在日誌輸出收到的內容
-        console.log("Incoming Event Body:", event.body);
-
-        // 1. 解析數據 (加入多層安全檢查)
         let data;
         try {
-            const bodyStr = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
-            data = typeof bodyStr === 'string' ? JSON.parse(bodyStr) : bodyStr;
+            data = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
         } catch (e) {
-            return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Invalid JSON format" }) };
+            const decoded = Buffer.from(event.body, 'base64').toString();
+            data = JSON.parse(decoded);
         }
 
         const { orderNo, amount } = data || {};
 
         if (!orderNo || !amount) {
-            console.error("Missing Data Error:", { orderNo, amount });
-            return { 
-                statusCode: 400, 
-                headers: corsHeaders, 
-                body: JSON.stringify({ success: false, error: "Missing orderNo or amount", received: data }) 
-            };
+            return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "Missing Parameters", received: data }) };
         }
 
         const nonceStr = crypto.randomBytes(16).toString('hex');
         const timestamp = Date.now().toString();
 
-        // 2. 構建簽名串 (按 KPay v4.0 要求)
-        const signParams = {
-            "K-Merchant-Code": MERCHANT_CODE,
-            "K-Nonce-Str": nonceStr,
-            "K-Timestamp": timestamp
-        };
+        const signParams = { "K-Merchant-Code": MERCHANT_CODE, "K-Nonce-Str": nonceStr, "K-Timestamp": timestamp };
         const sortedKeys = Object.keys(signParams).sort();
         const signStr = sortedKeys.map(k => `${k}=${signParams[k]}`).join('\n') + '\n';
 
-        // 3. 執行簽名 (指定 PKCS1 填充)
         const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({
-            key: FORMATTED_KEY,
+            key: PRIVATE_KEY,
             padding: crypto.constants.RSA_PKCS1_PADDING
         }, 'base64');
 
-        // 4. 發送至 KPay
         const response = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
             method: 'POST',
             headers: {
@@ -105,11 +87,6 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers: corsHeaders, body: JSON.stringify(result) };
 
     } catch (err) {
-        console.error("Critical Refund Error:", err.message);
-        return {
-            statusCode: 500,
-            headers: corsHeaders,
-            body: JSON.stringify({ success: false, error: err.message })
-        };
+        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "Server Crash", msg: err.message }) };
     }
 };
