@@ -1,6 +1,9 @@
 [build]
   functions = "api"
 
+[build.environment]
+  GIT_LFS_ENABLED = "true"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
