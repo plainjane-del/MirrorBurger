@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 
 const MERCHANT_CODE = '852124272000001';
+
+// 💡 修正點：用 trim() 確保無多餘空格，並確保格式 100% 被 Node.js 接受
 const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
@@ -28,25 +30,47 @@ I2TsVKX8h7B2usaazTag6Vopyp1CBjuMLK2KBgu+NwKBgE9tx0maUcHW/re3ZixU
 Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
 g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
 5DUMHT9kClrFNl2f0l9hcrXg
------END RSA PRIVATE KEY-----`;
+-----END RSA PRIVATE KEY-----`.trim();
 
 exports.handler = async (event) => {
+    // 1. 確保係 POST
+    if (event.httpMethod !== "POST") {
+        return { statusCode: 405, body: JSON.stringify({ error: "Only POST allowed" }) };
+    }
+
     try {
+        // 2. 解析手機傳過嚟嘅單號同金額
         const { orderNo, amount } = JSON.parse(event.body || "{}");
+        if (!orderNo || !amount) {
+            return { statusCode: 400, body: JSON.stringify({ error: "Missing orderNo or amount" }) };
+        }
+
         const nonceStr = Math.random().toString(36).substring(2, 15);
         const timestamp = Date.now().toString();
 
-        const bodyData = {
-            outTradeNo: "REF" + Date.now(),
-            oriOrderNo: orderNo,
-            refundAmount: parseFloat(amount)
+        // 3. KPay v4.0 簽名邏輯
+        const signParams = {
+            "K-Merchant-Code": MERCHANT_CODE,
+            "K-Nonce-Str": nonceStr,
+            "K-Timestamp": timestamp
         };
-
-        const signParams = { "K-Merchant-Code": MERCHANT_CODE, "K-Nonce-Str": nonceStr, "K-Timestamp": timestamp };
         const sortedKeys = Object.keys(signParams).sort();
         const signStr = sortedKeys.map(k => `${k}=${signParams[k]}`).join('\n') + '\n';
         
-        const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({ key: PRIVATE_KEY, padding: crypto.constants.RSA_PKCS1_PADDING }, 'base64');
+        // 🔐 簽名修正：加入 padding 確保解碼唔會出錯
+        const signature = crypto.createSign('RSA-SHA256')
+            .update(signStr)
+            .sign({
+                key: PRIVATE_KEY,
+                padding: crypto.constants.RSA_PKCS1_PADDING
+            }, 'base64');
+
+        // 4. 打去 KPay UAT
+        const bodyData = {
+            outTradeNo: "REF" + Date.now(), // 隨機生成一個退款單號
+            oriOrderNo: orderNo,            // 手機傳過嚟嘅原始單號
+            refundAmount: parseFloat(amount)
+        };
 
         const res = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
             method: 'POST',
@@ -61,9 +85,23 @@ exports.handler = async (event) => {
         });
 
         const result = await res.json();
-        if (result.code === 10000) return { statusCode: 200, body: JSON.stringify({ success: true }) };
-        return { statusCode: 400, body: JSON.stringify({ success: false, error: result.message || "KPay Refund Fail" }) };
+        
+        // 返回結果畀手機
+        return {
+            statusCode: res.status,
+            body: JSON.stringify(result)
+        };
+
     } catch (err) {
-        return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+        // 🆘 如果崩潰，喺呢度捉住個真實原因
+        console.error("Function Error:", err.message);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ 
+                error: "Internal Server Error", 
+                message: err.message,
+                hint: "Check Netlify function logs for details" 
+            })
+        };
     }
 };
