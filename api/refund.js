@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 
 const MERCHANT_CODE = '852124272000001';
-const RAW_KEY = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
+
+// 💡 原始私鑰數據：移除所有空格與換行，確保數據純淨
+const RAW_KEY_CONTENT = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
 mFXSv4EeC+o1GG0W7RMG4vU+sCZbzhM3NZef+OoZp1sruUbEQG1szFANoBoiu8Zz
 c/tt1K0S020K+7Zp3iNUbg/UBDW1AFhjlEZBi0xBsqoP0RDXDnXBMCEup2kZP8ti
@@ -26,36 +28,51 @@ R/wNzcWOA1/sCFhIp7YkyYyeWk8NEvXunCE+rqoWLOnd/ugigy/GNZSMp9aNSBIs
 I2TsVKX8h7B2usaazTag6Vopyp1CBjuMLK2KBgu+NwKBgE9tx0maUcHW/re3ZixU
 Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
 g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
-5DUMHT9kClrFNl2f0l9hcrXg`;
+5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, ''); // 移除所有空格/換行
 
-// 強制重構標準 PKCS#1 格式
-const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${RAW_KEY.replace(/\s+/g, '\n')}\n-----END RSA PRIVATE KEY-----`;
+// 重新構建標準格式，解決 DECODERUnsupported 問題
+const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${RAW_KEY_CONTENT.match(/.{1,64}/g).join('\n')}\n-----END RSA PRIVATE KEY-----`;
 
 exports.handler = async (event) => {
-    const headers = {
+    const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, K-Merchant-Code, K-Nonce-Str, K-Timestamp, K-Signature",
         "Access-Control-Allow-Methods": "POST, OPTIONS"
     };
 
-    if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers, body: "" };
-    if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: "Method Not Allowed" };
+    // 1. 解決 405: 處理瀏覽器 OPTIONS 預檢請求
+    if (event.httpMethod === "OPTIONS") {
+        return { statusCode: 200, headers: corsHeaders, body: "" };
+    }
 
     try {
         const { orderNo, amount } = JSON.parse(event.body || "{}");
         const nonceStr = Math.random().toString(36).substring(2, 15);
         const timestamp = Date.now().toString();
 
-        const signParams = { "K-Merchant-Code": MERCHANT_CODE, "K-Nonce-Str": nonceStr, "K-Timestamp": timestamp };
+        // 2. KPay v4.0 簽名邏輯 
+        const signParams = {
+            "K-Merchant-Code": MERCHANT_CODE,
+            "K-Nonce-Str": nonceStr,
+            "K-Timestamp": timestamp
+        };
         const sortedKeys = Object.keys(signParams).sort();
+        // 嚴格按照 key=value\n 格式，且最後多一行 \n [cite: 93]
         const signStr = sortedKeys.map(k => `${k}=${signParams[k]}`).join('\n') + '\n';
 
         const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({
             key: PRIVATE_KEY,
-            padding: crypto.constants.RSA_PKCS1_PADDING
+            padding: crypto.constants.RSA_PKCS1_PADDING // 確保使用 PKCS1 填充
         }, 'base64');
 
-        const res = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
+        // 3. 呼叫 KPay UAT 退款 API [cite: 93]
+        const bodyData = {
+            outTradeNo: "REF" + Date.now(),
+            oriOrderNo: orderNo,
+            refundAmount: parseFloat(amount)
+        };
+
+        const response = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -64,12 +81,21 @@ exports.handler = async (event) => {
                 'K-Timestamp': timestamp,
                 'K-Signature': signature
             },
-            body: JSON.stringify({ outTradeNo: "REF" + Date.now(), oriOrderNo: orderNo, refundAmount: parseFloat(amount) })
+            body: JSON.stringify(bodyData)
         });
 
-        const result = await res.json();
-        return { statusCode: 200, headers, body: JSON.stringify(result) };
+        const result = await response.json();
+        return { 
+            statusCode: 200, 
+            headers: corsHeaders, 
+            body: JSON.stringify(result) 
+        };
+
     } catch (err) {
-        return { statusCode: 500, headers, body: JSON.stringify({ error: "系統內部錯誤", message: err.message }) };
+        return { 
+            statusCode: 500, 
+            headers: corsHeaders, 
+            body: JSON.stringify({ error: "系統內部錯誤", message: err.message }) 
+        };
     }
 };
