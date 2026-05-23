@@ -2,8 +2,8 @@ const crypto = require('crypto');
 
 const MERCHANT_CODE = '852124272000001';
 
-// 💡 原始私鑰數據
-const RAW_KEY_CONTENT = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
+// 💡 採用最穩定的格式：移除 "RSA" 字眼，並保持長字串
+const PRIVATE_KEY_CONTENT = `MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgEWuo8x9rdKJD
 pszdRYC+Gqb9fx+0dBVrdC9iEVo1zPp/OI7WDHsdT8rWV7S1yT+IWWSc/XMeyr6k
 mFXSv4EeC+o1GG0W7RMG4vU+sCZbzhM3NZef+OoZp1sruUbEQG1szFANoBoiu8Zz
 c/tt1K0S020K+7Zp3iNUbg/UBDW1AFhjlEZBi0xBsqoP0RDXDnXBMCEup2kZP8ti
@@ -30,8 +30,8 @@ Pegrha/UYdtBdC3F1kJPC65z8scDpdlpU4Y2uw5nrlTmsPcBWW+4Ebya6a2ijy8I
 g8qYZTQA1kMgLPsRSqWVZGz4VkPFfQHJVofzx/3AUvVB7rhDkCJ2UxFr/zorXZx5
 5DUMHT9kClrFNl2f0l9hcrXg`.replace(/\s+/g, '');
 
-// 重新構建標準格式
-const PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----\n${RAW_KEY_CONTENT.match(/.{1,64}/g).join('\n')}\n-----END RSA PRIVATE KEY-----`;
+// 使用更標準的 BEGIN PRIVATE KEY (PKCS#8 格式封裝)
+const FINAL_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${PRIVATE_KEY_CONTENT}\n-----END PRIVATE KEY-----`;
 
 exports.handler = async (event) => {
     const corsHeaders = {
@@ -43,19 +43,13 @@ exports.handler = async (event) => {
     if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: corsHeaders, body: "" };
 
     try {
-        // 解析前端傳來的 orderNo 同 amount
-        const requestBody = JSON.parse(event.body || "{}");
-        const orderNo = requestBody.orderNo;
-        const amount = requestBody.amount;
-
-        if (!orderNo || !amount) {
-            throw new Error("Missing orderNo or amount");
-        }
+        const { orderNo, amount } = JSON.parse(event.body || "{}");
+        if (!orderNo || !amount) throw new Error("Missing orderNo or amount");
 
         const nonceStr = Math.random().toString(36).substring(2, 15);
         const timestamp = Date.now().toString();
 
-        // 1. 構建簽名串 (按照字母排序，每行連最後一行都要有 \n) [cite: 61, 63]
+        // 1. 構建簽名串 (按字母排序，每行包括最後一行都要有 \n) [cite: 3, 61, 63]
         const signParams = {
             "K-Merchant-Code": MERCHANT_CODE,
             "K-Nonce-Str": nonceStr,
@@ -66,11 +60,11 @@ exports.handler = async (event) => {
 
         // 2. RSA-SHA256 簽名
         const signature = crypto.createSign('RSA-SHA256').update(signStr).sign({
-            key: PRIVATE_KEY,
+            key: FINAL_PRIVATE_KEY,
             padding: crypto.constants.RSA_PKCS1_PADDING
         }, 'base64');
 
-        // 3. 呼叫 KPay 退款 API 
+        // 3. 呼叫 KPay 退款 API [cite: 3]
         const response = await fetch('https://payment.uat.kpay-group.com/v1/refund', {
             method: 'POST',
             headers: {
@@ -88,12 +82,7 @@ exports.handler = async (event) => {
         });
 
         const result = await response.json();
-
-        return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify(result)
-        };
+        return { statusCode: 200, headers: corsHeaders, body: JSON.stringify(result) };
 
     } catch (err) {
         console.error("Refund Logic Error:", err.message);
