@@ -184,7 +184,7 @@
                     </div>
                 </div>
             </div>
-            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button onclick="processKPayOrder()" id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
+            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
@@ -1032,29 +1032,34 @@
         function handleStoreChange() { flowSelectedStore = document.getElementById('cust-store').value; updateCartStoreUI(); updateCartUI(); }
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
         
-        function validateCheckout() { 
-    // 🔍 檢查網址有無 ?test=1
+       function validateCheckout() { 
+    // 🔍 檢查有無 ?test=1 參數
     const urlParams = new URLSearchParams(window.location.search);
     const isTestMode = urlParams.has('test'); 
 
     const btn = document.getElementById('checkout-btn');
     if (btn) {
-        // 🔒 如果唔係測試模式，直接鎖死個掣
-        if (!isTestMode) {
-            btn.disabled = true;
-            btn.style.opacity = "0.5"; // 變淡啲，等客唔會亂撳
-            btn.innerHTML = '<span class="zh">系統測試中 (即將推出)</span><span class="en">System Testing (Coming Soon)</span>';
-            return;
-        }
-
-        // 🟢 如果係測試模式 (網址有 ?test=1)，先行返原本嘅邏輯
+        // 🔓 確保按鈕喺任何模式都顯示（唔再變淡）
         btn.style.opacity = "1";
-        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+
+        // 🔀 根據模式分配唔同嘅「落單」功能
+        if (isTestMode) {
+            // 同事測試用：行 KPay 支付
+            btn.onclick = processKPayOrder; 
+            btn.innerHTML = '<span class="en">Place Order (KPay Test)</span><span class="zh">立即落單 (KPay 測試)</span>';
+        } else {
+            // 正常客用：發送到 Telegram
+            btn.onclick = processTelegramOrder; 
+            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+        }
         
+        // 驗證資料有無填好
         const s = flowSelectedStore || document.getElementById('cust-store').value;
         const n = document.getElementById('cust-name').value;
         const p = document.getElementById('cust-phone').value;
         const t = document.getElementById('cust-time').value;
+        
+        // 只有填好資料同購物車有嘢，按鈕先會生效
         btn.disabled = !(cart.length > 0 && s && n && p && t);
     }
 }
