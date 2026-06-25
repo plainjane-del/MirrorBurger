@@ -40,7 +40,7 @@
                 .from('orders')
                 .select('*')
                 .eq('store_name', branch)
-                .not('payment_status', 'eq', 'COMPLETED') // 已經攞咗包嘅單會自動隱藏，保持畫面乾淨
+                .in('payment_status', ['PAID', 'READY']) // 🔒 嚴格把關：只准已俾錢 (PAID) 或製作中 (READY) 嘅單出現在廚房
                 .order('created_at', { ascending: true });
 
             if (error) return console.error(error);
