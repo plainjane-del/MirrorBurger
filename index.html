@@ -171,12 +171,15 @@
                         <input type="text" id="cust-name" aria-label="Your Name" oninput="this.value = this.value.replace(/[^a-zA-Z\s\u4e00-\u9fa5]/g, ''); validateCheckout();" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
 
 <div class="flex gap-2 w-full">
-    <select id="cust-country-code" onchange="document.getElementById('cust-phone').placeholder = (this.value === 'others' ? 'e.g. +1 123456' : '91234567'); validateCheckout();" class="bg-white px-3 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black">
+    <select id="cust-country-code" onchange="document.getElementById('cust-custom-cc').classList.toggle('hidden', this.value !== 'others'); if(this.value === 'others') document.getElementById('cust-custom-cc').focus(); validateCheckout();" class="bg-white px-3 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black cursor-pointer">
         <option value="+852">🇭🇰 +852</option>
         <option value="+86">🇨🇳 +86</option>
         <option value="others">🌍 Others / 其他</option>
     </select>
-    <input type="tel" id="cust-phone" placeholder="91234567" aria-label="Phone Number" oninput="this.value = this.value.replace(/[^0-9+\s]/g, ''); validateCheckout();" class="flex-1 bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
+    
+    <input type="text" id="cust-custom-cc" placeholder="+61" oninput="this.value = this.value.replace(/[^0-9+]/g, ''); validateCheckout();" class="hidden bg-white px-2 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black w-16 text-center">
+    
+    <input type="tel" id="cust-phone" placeholder="91234567" aria-label="Phone Number" oninput="this.value = this.value.replace(/[^0-9]/g, ''); validateCheckout();" class="flex-1 bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
 </div>
 
 <div class="relative">
@@ -1145,9 +1148,15 @@ async function processKPayOrder() {
             const name = document.getElementById('cust-name').value.trim();
             
             // 🌍 智能解析國碼：如果揀「其他」，就直接用客手打嘅內容；如果是港陸，就自動傳統拼接！
-            const countryCode = document.getElementById('cust-country-code')?.value || '+852';
-            const rawPhone = document.getElementById('cust-phone').value.trim();
-            const phone = countryCode === 'others' ? rawPhone : (countryCode + " " + rawPhone);
+            const countrySelect = document.getElementById('cust-country-code');
+const rawPhone = document.getElementById('cust-phone').value.trim();
+let phone = countrySelect.value + " " + rawPhone;
+
+// 如果係自定義區號，就將客手打個區號（例如 61）自動補上 + 號並打包
+if (countrySelect.value === 'others') {
+    const customCC = document.getElementById('cust-custom-cc').value.trim();
+    phone = (customCC.startsWith('+') ? customCC : '+' + customCC) + " " + rawPhone;
+}
             
             const time = document.getElementById('cust-time').value;
 
