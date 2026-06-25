@@ -1033,25 +1033,15 @@
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
         
        function validateCheckout() { 
-    // 🔍 檢查有無 ?test=1 參數
-    const urlParams = new URLSearchParams(window.location.search);
-    const isTestMode = urlParams.has('test'); 
-
+    // 🔍 唔理網址有冇 test 參數，全部普通客人都行 Stripe 實時收錢流程！
     const btn = document.getElementById('checkout-btn');
     if (btn) {
         // 🔓 確保按鈕喺任何模式都顯示（唔再變淡）
         btn.style.opacity = "1";
 
-        // 🔀 根據模式分配唔同嘅「落單」功能
-        if (isTestMode) {
-            // 同事測試用：行 KPay 支付
-            btn.onclick = processKPayOrder; 
-            btn.innerHTML = '<span class="en">Place Order (KPay Test)</span><span class="zh">立即落單 (KPay 測試)</span>';
-        } else {
-            // 正常客用：發送到 Telegram
-            btn.onclick = processTelegramOrder; 
-            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
-        }
+        // 🔀 強制分配「Stripe 正式收錢」功能 (前端外殼叫 processKPayOrder)
+        btn.onclick = processKPayOrder; 
+        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
         
         // 驗證資料有無填好
         const s = flowSelectedStore || document.getElementById('cust-store').value;
