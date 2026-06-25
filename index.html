@@ -1033,23 +1033,31 @@
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
         
        function validateCheckout() { 
-    // 🔍 唔理網址有冇 test 參數，全部普通客人都行 Stripe 實時收錢流程！
+    // 🔍 檢查網址有無 ?test=1 參數
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTestMode = urlParams.has('test'); 
+
     const btn = document.getElementById('checkout-btn');
     if (btn) {
-        // 🔓 確保按鈕喺任何模式都顯示（唔再變淡）
         btn.style.opacity = "1";
 
-        // 🔀 強制分配「Stripe 正式收錢」功能 (前端外殼叫 processKPayOrder)
+        // 🔀 統一交給後端分流！
         btn.onclick = processKPayOrder; 
-        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
         
-        // 驗證資料有無填好
+        if (isTestMode) {
+            // 測試員專用顯示
+            btn.innerHTML = '<span class="en">Place Order (KPay Test)</span><span class="zh">立即落單 (KPay 測試)</span>';
+        } else {
+            // 真正客仔收錢顯示
+            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+        }
+        
+        // 驗證欄位有冇填齊
         const s = flowSelectedStore || document.getElementById('cust-store').value;
         const n = document.getElementById('cust-name').value;
         const p = document.getElementById('cust-phone').value;
         const t = document.getElementById('cust-time').value;
         
-        // 只有填好資料同購物車有嘢，按鈕先會生效
         btn.disabled = !(cart.length > 0 && s && n && p && t);
     }
 }
