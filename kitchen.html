@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mirror Burger | 廚房實時接單平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }
+        .order-card { animation: popIn 0.3s ease-out; }
+        @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body class="p-6">
+
+    <header class="flex justify-between items-center bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-6 shadow-2xl">
+        <div class="flex items-center gap-4">
+            <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Logo" class="h-10 w-auto">
+            <h1 class="text-xl font-black text-yellow-400 italic uppercase">Mirror Burger KDS</h1>
+        </div>
+        <select id="branch-select" onchange="loadOrders()" class="bg-slate-900 text-white px-4 py-2 rounded-xl border border-slate-700 font-bold text-sm">
+            <option value="Sai Ying Pun">西營盤店</option>
+            <option value="Fortress Hill">天后店</option>
+            <option value="Tsuen Wan (Takeaway Only)">荃灣店</option>
+        </select>
+    </header>
+
+    <audio id="bell-sound" src="https://assets.mixkit.co/active_storage/sfx/911/911-200.wav" preload="auto"></audio>
+
+    <main id="orders-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></main>
+
+    <script>
+        // 🔐 100% 駁通你原有的 Supabase 大腦憑證
+        const client = window.supabase.createClient('https://olmoingcxkgdrqezweuf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw');
+
+        async function loadOrders() {
+            const branch = document.getElementById('branch-select').value;
+            const { data, error } = await client
+                .from('orders')
+                .select('*')
+                .eq('store_name', branch)
+                .not('payment_status', 'eq', 'COMPLETED') // 已經攞咗包嘅單會自動隱藏，保持畫面乾淨
+                .order('created_at', { ascending: true });
+
+            if (error) return console.error(error);
+            
+            const grid = document.getElementById('orders-grid');
+            if (!data || data.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-500 font-bold text-sm tracking-widest">📭 目前沒有未完成訂單</div>`;
+                return;
+            }
+
+            grid.innerHTML = data.map(order => {
+                const items = Array.isArray(order.items_json) ? order.items_json : JSON.parse(order.items_json || '[]');
+                const itemsHtml = items.map(i => `
+                    <div class="border-b border-slate-700/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                        <div class="flex justify-between font-bold text-sm text-white"><span>🍔 ${i.nameZh || i.nameEn}</span></div>
+                        <div class="text-[10px] text-yellow-400 font-medium mt-0.5">${i.detailsZh || i.detailsEn || ''}</div>
+                    </div>
+                `).join('');
+
+                let cardStyle = 'bg-slate-800 border-slate-700';
+                let actionBtn = '';
+
+                // 根據客人的付款狀態，給廚房不同的按鈕和顏色
+                if (order.payment_status === 'PENDING') {
+                    cardStyle = 'bg-red-950/30 border-red-900 animate-pulse';
+                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'PAID')" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-xs uppercase">⚠️ 客人現金俾咗錢 / 補認證</button>`;
+                } else if (order.payment_status === 'PAID') {
+                    cardStyle = 'bg-blue-950/30 border-blue-800';
+                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'READY')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-xs uppercase">🧑‍🍳 包整好咗！出餐</button>`;
+                } else if (order.payment_status === 'READY') {
+                    cardStyle = 'bg-emerald-950/30 border-emerald-700';
+                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'COMPLETED')" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase">✅ 客人已攞包自取</button>`;
+                }
+
+                return `
+                    <div class="order-card p-5 rounded-3xl border-2 flex flex-col justify-between ${cardStyle} shadow-xl">
+                        <div>
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <span class="text-[9px] font-black text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">單號 #${order.order_no}</span>
+                                    <h2 class="text-base font-black text-white mt-1">${order.customer_name}</h2>
+                                </div>
+                                <span class="text-xs font-black text-yellow-400 bg-slate-900 px-2 py-1 rounded-xl">🕒 ${order.pickup_time}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mb-3">📞 ${order.customer_phone}</div>
+                            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/50 mb-4 max-h-[160px] overflow-y-auto">${itemsHtml}</div>
+                        </div>
+                        <div>${actionBtn}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function updateStatus(orderNo, nextStatus) {
+            await client.from('orders').update({ payment_status: nextStatus }).eq('order_no', orderNo);
+            loadOrders();
+        }
+
+        // 📡 終極黑科技：開啟 Supabase 實時監聽，一有新單自動叮咚響，免刷新網頁！
+        window.onload = () => {
+            loadOrders();
+            client.channel('kitchen-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+                if (payload.eventType === 'INSERT' && payload.new.store_name === document.getElementById('branch-select').value) {
+                    try { document.getElementById('bell-sound').play(); } catch(e){}
+                }
+                loadOrders();
+            }).subscribe();
+            setInterval(loadOrders, 60000); // 每分鐘安全重刷
+        };
+    </script>
+</body>
+</html>
