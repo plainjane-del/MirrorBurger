@@ -168,12 +168,29 @@
                             <select id="cust-store" aria-label="Select Pickup Store" onchange="handleStoreChange()" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black appearance-none cursor-pointer"></select>
                             <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none" aria-hidden="true"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
                         </div>
-                        <input type="text" id="cust-name" aria-label="Your Name" oninput="validateCheckout()" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
-                        <input type="tel" id="cust-phone" aria-label="Phone Number" oninput="validateCheckout()" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
-                        <div class="relative">
-                            <select id="cust-time" aria-label="Select Pickup Time" onchange="validateCheckout()" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black appearance-none cursor-pointer"></select>
-                            <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none" aria-hidden="true"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
-                        </div>
+                        <input type="text" id="cust-name" aria-label="Your Name" oninput="this.value = this.value.replace(/[^a-zA-Z\s\u4e00-\u9fa5]/g, ''); validateCheckout();" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
+
+<div class="flex gap-2 w-full">
+    <select id="cust-country-code" class="bg-white px-3 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black">
+        <option value="+852">🇭🇰 +852</option>
+        <option value="+86">🇨🇳 +86</option>
+        <option value="+61">🇦🇺 +61</option>
+        <option value="+1">🇨🇦 +1</option>
+        <option value="+81">🇯🇵 +81</option>
+        <option value="+853">🇲🇴 +853</option>
+        <option value="+60">🇲🇾 +60</option>
+        <option value="+65">🇸🇬 +65</option>
+        <option value="+886">🇹🇼 +886</option>
+        <option value="+44">🇬🇧 +44</option>
+        <option value="+1">🇺🇸 +1</option>
+    </select>
+    <input type="tel" id="cust-phone" aria-label="Phone Number" oninput="this.value = this.value.replace(/[^0-9]/g, ''); validateCheckout();" class="flex-1 bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
+</div>
+
+<div class="relative">
+    <select id="cust-time" aria-label="Select Pickup Time" onchange="validateCheckout()" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black appearance-none cursor-pointer"></select>
+    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none" aria-hidden="true"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+</div>
                     </div>
                     <div id="promo-banner" class="hidden text-[9px] font-black text-black bg-burger-gold/50 border border-burger-gold px-3 py-2 rounded-lg text-center uppercase tracking-widest"></div>
                     <div class="space-y-1 text-sm font-medium pt-2 pb-6">
@@ -1033,45 +1050,93 @@
         function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
         
        function validateCheckout() { 
-    // 🔍 檢查網址有無 ?test=1 參數
     const urlParams = new URLSearchParams(window.location.search);
     const isTestMode = urlParams.has('test'); 
 
     const btn = document.getElementById('checkout-btn');
     if (btn) {
         btn.style.opacity = "1";
-
-        // 🔀 統一交給後端分流！
         btn.onclick = processKPayOrder; 
         
         if (isTestMode) {
-            // 測試員專用顯示
             btn.innerHTML = '<span class="en">Place Order (KPay Test)</span><span class="zh">立即落單 (KPay 測試)</span>';
         } else {
-            // 真正客仔收錢顯示
             btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
         }
         
-        // 驗證欄位有冇填齊
         const s = flowSelectedStore || document.getElementById('cust-store').value;
         const n = document.getElementById('cust-name').value;
         const p = document.getElementById('cust-phone').value;
         const t = document.getElementById('cust-time').value;
         
-        btn.disabled = !(cart.length > 0 && s && n && p && t);
+        // 🚨 修正：如果時間顯示為 CLOSED 或者是空的，落單掣會被鎖死不能點擊！
+        btn.disabled = !(cart.length > 0 && s && n && p && t && t !== '' && t !== 'CLOSED');
     }
 }
         
-        function populateStoresDropdown() { const s = document.getElementById('cust-store'); s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`; stores.forEach(st => s.add(new Option(lang(st.name, st.nameZh), st.name))); if(flowSelectedStore) s.value = flowSelectedStore; }
-        function updateCartStoreUI() { const d = document.getElementById('cart-store-display'), c = document.getElementById('cart-store-select-container'); if(flowSelectedStore) { document.getElementById('cart-store-name').innerText = lang(flowSelectedStore, stores.find(x=>x.name===flowSelectedStore).nameZh); d.classList.remove('hidden'); c.classList.add('hidden'); } else { d.classList.add('hidden'); c.classList.remove('hidden'); } }
+function populateStoresDropdown() { const s = document.getElementById('cust-store'); s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`; stores.forEach(st => s.add(new Option(lang(st.name, st.nameZh), st.name))); if(flowSelectedStore) s.value = flowSelectedStore; }
+function updateCartStoreUI() { const d = document.getElementById('cart-store-display'), c = document.getElementById('cart-store-select-container'); if(flowSelectedStore) { document.getElementById('cart-store-name').innerText = lang(flowSelectedStore, stores.find(x=>x.name===flowSelectedStore).nameZh); d.classList.remove('hidden'); c.classList.add('hidden'); } else { d.classList.add('hidden'); c.classList.remove('hidden'); } }
         
-        function generateTimeOptions() {
-            const s = document.getElementById('cust-time'), store = stores.find(x => x.name === (flowSelectedStore || document.getElementById('cust-store').value));
-            if (!store) { s.innerHTML = `<option value="" disabled selected>${lang('Select Store First', '請先選擇分店')}</option>`; return; }
-            const now = new Date(), subtotal = cart.reduce((sum, item) => sum + item.price, 0), intervals = subtotal > 300 ? [15, 20, 25] : [10, 15, 20];
-            s.innerHTML = `<option value="" disabled selected>${lang('Select Time *', '選擇取餐時間 *')}</option>`;
-            intervals.forEach(m => { const t = new Date(now.getTime() + m*60000); const label = `${m} ${lang('mins', '分鐘')} (${t.getHours()}:${t.getMinutes()<10?'0':''}${t.getMinutes()})`; s.add(new Option(label, label)); });
-        }
+function generateTimeOptions() {
+    const s = document.getElementById('cust-time');
+    const storeName = flowSelectedStore || document.getElementById('cust-store').value;
+    if (!storeName) { s.innerHTML = `<option value="" disabled selected>${lang('Select Store First', '請先選擇分店')}</option>`; return; }
+    
+    // 🕒 各分店精準營業時間大腦 (24小時制)
+    let openTime = "11:15";
+    let closeTime = "22:00";
+    
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = 星期日, 5 = 星期五, 6 = 星期六
+    
+    if (storeName === 'Sai Ying Pun') {
+        openTime = "11:15"; closeTime = "24:00"; // 西營盤開到凌晨12點
+    } else if (storeName === 'Fortress Hill') {
+        openTime = "11:15";
+        closeTime = (dayOfWeek === 5 || dayOfWeek === 6) ? "23:30" : "21:30"; // 天后店五六開到23:30，平日21:30
+    } else if (storeName === 'Tsuen Wan (Takeaway Only)') {
+        openTime = "11:30"; closeTime = "23:30"; // 荃灣店開到23:30
+    }
+    
+    const [openH, openM] = openTime.split(':').map(Number);
+    const [closeH, closeM] = closeTime.split(':').map(Number);
+    
+    const openTotal = openH * 60 + openM;
+    const closeTotal = closeH * 60 + closeM;
+    const lastOrderTotal = closeTotal - 15; // 🚨 關門前 15 分鐘（西營盤即 23:45）為最後收單時間
+    
+    const currentTotal = today.getHours() * 60 + today.getMinutes();
+    
+    s.innerHTML = "";
+    
+    // 🛑 防爆單：如果當前時間已經過咗最後收單時間
+    if (currentTotal >= lastOrderTotal) {
+        s.add(new Option(lang('Sorry, Closed for today / 今日已收舖', 'Sorry, Closed for today / 今日已收舖'), 'CLOSED'));
+        validateCheckout();
+        return;
+    }
+    
+    s.add(new Option(lang('Select Time *', '選擇取餐時間 *'), ''));
+    
+    // 🟢 智能起步：當前時間 + 20 分鐘廚房做包時間，並自動 Round Up 補齊到最近嘅 15 分鐘區間
+    let startMins = Math.max(openTotal, currentTotal + 20);
+    const rem = startMins % 15;
+    if (rem !== 0) startMins += (15 - rem);
+    
+    let count = 0;
+    for (let mins = startMins; mins <= lastOrderTotal; mins += 15) {
+        let h = Math.floor(mins / 60);
+        let m = mins % 60;
+        const displayTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        s.add(new Option(displayTime, displayTime));
+        count++;
+    }
+    
+    if (count === 0) {
+        s.innerHTML = `<option value="CLOSED">${lang('Too close to closing / 太接近收舖時間', 'Too close to closing / 太接近收舖時間')}</option>`;
+    }
+    validateCheckout();
+}
         
         function renderStores() { 
     const container = document.getElementById('stores-container');
@@ -1086,7 +1151,12 @@ async function processKPayOrder() {
             const storeElem = document.getElementById('cust-store');
             const store = storeElem ? storeElem.value : flowSelectedStore;
             const name = document.getElementById('cust-name').value.trim();
-            const phone = document.getElementById('cust-phone').value.trim();
+            
+            // 🌍 升級：自動抓取左邊選定嘅國碼 + 右邊號碼，打包黐埋一齊傳
+            const countryCode = document.getElementById('cust-country-code')?.value || '+852';
+            const rawPhone = document.getElementById('cust-phone').value.trim();
+            const phone = countryCode + " " + rawPhone;
+            
             const time = document.getElementById('cust-time').value;
 
             if (!store || !name || !phone || !time || cart.length === 0) return;
