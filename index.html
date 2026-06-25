@@ -171,20 +171,12 @@
                         <input type="text" id="cust-name" aria-label="Your Name" oninput="this.value = this.value.replace(/[^a-zA-Z\s\u4e00-\u9fa5]/g, ''); validateCheckout();" class="w-full bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
 
 <div class="flex gap-2 w-full">
-    <select id="cust-country-code" class="bg-white px-3 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black">
+    <select id="cust-country-code" onchange="document.getElementById('cust-phone').placeholder = (this.value === 'others' ? 'e.g. +1 123456' : '91234567'); validateCheckout();" class="bg-white px-3 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black">
         <option value="+852">🇭🇰 +852</option>
         <option value="+86">🇨🇳 +86</option>
-        <option value="+61">🇦🇺 +61</option>
-        <option value="+1">🇨🇦 +1</option>
-        <option value="+81">🇯🇵 +81</option>
-        <option value="+853">🇲🇴 +853</option>
-        <option value="+60">🇲🇾 +60</option>
-        <option value="+65">🇸🇬 +65</option>
-        <option value="+886">🇹🇼 +886</option>
-        <option value="+44">🇬🇧 +44</option>
-        <option value="+1">🇺🇸 +1</option>
+        <option value="others">🌍 Others / 其他</option>
     </select>
-    <input type="tel" id="cust-phone" aria-label="Phone Number" oninput="this.value = this.value.replace(/[^0-9]/g, ''); validateCheckout();" class="flex-1 bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
+    <input type="tel" id="cust-phone" placeholder="91234567" aria-label="Phone Number" oninput="this.value = this.value.replace(/[^0-9+\s]/g, ''); validateCheckout();" class="flex-1 bg-white px-4 py-3 rounded-xl text-xs font-bold border border-gray-200 outline-none focus:border-black placeholder:font-medium">
 </div>
 
 <div class="relative">
@@ -1152,10 +1144,10 @@ async function processKPayOrder() {
             const store = storeElem ? storeElem.value : flowSelectedStore;
             const name = document.getElementById('cust-name').value.trim();
             
-            // 🌍 升級：自動抓取左邊選定嘅國碼 + 右邊號碼，打包黐埋一齊傳
+            // 🌍 智能解析國碼：如果揀「其他」，就直接用客手打嘅內容；如果是港陸，就自動傳統拼接！
             const countryCode = document.getElementById('cust-country-code')?.value || '+852';
             const rawPhone = document.getElementById('cust-phone').value.trim();
-            const phone = countryCode + " " + rawPhone;
+            const phone = countryCode === 'others' ? rawPhone : (countryCode + " " + rawPhone);
             
             const time = document.getElementById('cust-time').value;
 
