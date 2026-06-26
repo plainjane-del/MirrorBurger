@@ -1,0 +1,32 @@
+{
+  "name": "Mirror Burger",
+  "short_name": "Mirror Burger",
+  "description": "Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
+  "lang": "en",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F9F9",
+  "theme_color": "#FFD131",
+  "icons": [
+    {
+      "src": "https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_192,h_192,b_white/v1777801810/logo_only_kqxyfg.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_512,h_512,b_white/v1777801810/logo_only_kqxyfg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_512,h_512,b_white/v1777801810/logo_only_kqxyfg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
