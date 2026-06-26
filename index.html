@@ -1150,8 +1150,9 @@ function generateTimeOptions() {
 
         // --- 2. KPAY 支付處理邏輯 ---
 async function processKPayOrder() {
-            const storeElem = document.getElementById('cust-store');
-            const store = storeElem ? storeElem.value : flowSelectedStore;
+            // 🚨 用返 getActiveStore()：經「立即點餐」流程揀分店時，cust-store 個揀單係收埋兼空白，
+            // 真正揀咗嘅分店其實存喺 flowSelectedStore。之前直接讀 cust-store.value 就會誤判「未揀舖」。
+            const store = getActiveStore();
             const name = document.getElementById('cust-name').value.trim();
             
             // 🌍 智能解析國碼：如果揀「其他」，就直接用客手打嘅內容；如果是港陸，就自動傳統拼接！
@@ -1218,8 +1219,7 @@ if (countrySelect.value === 'others') {
             }
         }
         function processTelegramOrder() {
-            const storeElem = document.getElementById('cust-store');
-            const store = storeElem ? storeElem.value : flowSelectedStore;
+            const store = getActiveStore();
             let name = document.getElementById('cust-name').value.trim();
             let phone = document.getElementById('cust-phone').value.trim();
             const time = document.getElementById('cust-time').value;
