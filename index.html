@@ -1233,6 +1233,30 @@ function generateTimeOptions() {
             setTimeout(() => modal.classList.add('hidden'), 300);
             window.scrollTo({top: 0, behavior: 'smooth'});
         }
+        // ✅ 後備收款認證：Stripe 付完款會跳返 https://mirrorburger.com/?paid=單號
+        //    Webhook (api/webhook.js) 係主力；萬一 webhook 遲到或漏接，呢度即刻補認張單做 PAID，
+        //    確保廚房 KDS 一定見到單。只會將 PENDING 嘅單升做 PAID，唔會覆蓋 READY / COMPLETED。
+        async function confirmPaymentFromRedirect() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const paidOrderNo = params.get('paid');
+                if (!paidOrderNo) return;
+
+                await supabaseClient
+                    .from('orders')
+                    .update({ payment_status: 'PAID' })
+                    .eq('order_no', paidOrderNo)
+                    .eq('payment_status', 'PENDING');
+
+                // 清走網址上的 ?paid=...，避免客人刷新或分享連結時重複觸發
+                params.delete('paid');
+                const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState({}, document.title, cleanUrl);
+            } catch (err) {
+                console.warn('Redirect payment confirmation failed:', err);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => { 
     const userLang = navigator.language || navigator.userLanguage;
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
@@ -1242,6 +1266,8 @@ function generateTimeOptions() {
 
     updatePlaceholders(); populateStoresDropdown(); renderStores();
     fetchLiveMenu(); // 連線 Supabase 大腦
+
+    confirmPaymentFromRedirect(); // ✅ 後備：客人付完款跳返主頁時，補認張單做 PAID
 
     // 📱 PWA：註冊 Service Worker，俾客人可以「加到主畫面」當 App 咁用
     if ('serviceWorker' in navigator) {

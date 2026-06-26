@@ -39,7 +39,11 @@ module.exports = async (req, res) => {
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `https://mirrorburger.com`, 
+            // 🔑 帶住單號入 Stripe，等 webhook 收到付款成功時，知道要改邊張單做 PAID
+            metadata: { orderNo: orderNo },
+            client_reference_id: orderNo,
+            // ✅ 後備機制：付完款跳返主頁時帶住 ?paid=單號，前端即刻補認 PAID（防 webhook 萬一漏接）
+            success_url: `https://mirrorburger.com/?paid=${orderNo}`,
             cancel_url: `https://mirrorburger.com`,
         });
 
