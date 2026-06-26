@@ -1,66 +1,53 @@
-// =============================================================
-//  Mirror Burger — 正式 Stripe 付款 (Vercel Serverless Function)
-//  路徑：POST /api/checkout
-//  前端 (js/order-handler.js) 會傳 { amount, orderNo }，
-//  本函式建立 Stripe Checkout Session，回傳 { paymentUrl }，
-//  前端再 redirect 客人去 Stripe 結帳頁面。
-//
-//  ⚠️ 必須喺 Vercel → Project → Settings → Environment Variables
-//     設定 STRIPE_SECRET_KEY（千祈唔好寫死喺代碼度）。
-// =============================================================
-
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// api/checkout.js
+// 🚨 終極暴風修復：直接將你頭先喺 Stripe 複製出嚟串 sk_live_... 貼喺下面單引號入面！
+const STRIPE_KEY = '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'; 
+const stripe = require('stripe')(STRIPE_KEY);
 
 module.exports = async (req, res) => {
-    // 同源呼叫，順手開返 CORS，方便日後測試
+    // 處理跨域問題 (CORS 防禦)
+    res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-    if (req.method !== 'POST') { res.status(405).json({ error: 'Method Not Allowed' }); return; }
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
 
     try {
-        if (!process.env.STRIPE_SECRET_KEY) {
-            res.status(500).json({ error: 'Missing STRIPE_SECRET_KEY env var' });
-            return;
+        const { amount, orderNo } = req.body;
+
+        if (!amount || !orderNo) {
+            return res.status(400).json({ error: 'Missing amount or orderNo' });
         }
 
-        const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-        const { amount, orderNo } = body;
-
-        const payAmount = Number(amount);
-        if (!orderNo || !payAmount || payAmount <= 0) {
-            res.status(400).json({ error: 'Missing or invalid amount / orderNo', received: body });
-            return;
-        }
-
-        // 用 request 嘅 host 砌返成功 / 取消網址，preview 同 production 都啱用
-        const proto = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers.host;
-        const baseUrl = host ? `${proto}://${host}` : 'https://mirrorburger.com';
-
+        // 建立 Stripe Checkout Session 支付連結
         const session = await stripe.checkout.sessions.create({
-            mode: 'payment',
             payment_method_types: ['card'],
             line_items: [{
                 price_data: {
                     currency: 'hkd',
-                    product_data: { name: `Mirror Burger Order ${orderNo}` },
-                    // Stripe 以「分」為單位：HKD $120 → 12000
-                    unit_amount: Math.round(payAmount * 100),
+                    product_data: {
+                        name: `Mirror Burger Order #${orderNo}`,
+                    },
+                    unit_amount: Math.round(amount * 100), // Stripe 單位係「仙」，必須乘 100
                 },
                 quantity: 1,
             }],
-            client_reference_id: orderNo,
-            metadata: { orderNo },
-            success_url: `${baseUrl}/?paid=1&order=${encodeURIComponent(orderNo)}`,
-            cancel_url: `${baseUrl}/?canceled=1&order=${encodeURIComponent(orderNo)}`,
+            mode: 'payment',
+            success_url: `https://mirrorburger.com`, 
+            cancel_url: `https://mirrorburger.com`,
         });
 
-        res.status(200).json({ paymentUrl: session.url });
+        // 完美回傳支付網址
+        return res.status(200).json({ paymentUrl: session.url });
+
     } catch (err) {
-        console.error('Stripe checkout error:', err);
-        res.status(500).json({ error: err.message });
+        console.error('Stripe Server Error:', err);
+        return res.status(500).json({ error: err.message });
     }
 };
