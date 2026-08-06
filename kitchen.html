@@ -2,113 +2,509 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mirror Burger | 廚房實時接單平台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>Mirror Burger | Kitchen Display System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kds: {
+                            bg: '#0a0a0a',
+                            panel: '#141414',
+                            card: '#1a1a1a',
+                            yellow: '#FFD131',
+                            border: '#2a2a2a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }
-        .order-card { animation: popIn 0.3s ease-out; }
-        @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            background: #0a0a0a;
+            color: #f5f5f5;
+            font-family: "Avenir Next", "Helvetica Neue", "PingFang HK", "Noto Sans TC", sans-serif;
+            min-height: 100dvh;
+        }
+        .order-card {
+            animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .order-card.is-new {
+            box-shadow: 0 0 0 3px #FFD131, 0 12px 40px rgba(255, 209, 49, 0.25);
+        }
+        @keyframes popIn {
+            from { transform: translateY(-12px) scale(0.97); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .status-btn {
+            min-height: 56px;
+            font-size: 1rem;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
+        }
+        .status-btn:active { transform: scale(0.97); }
+        .status-btn.is-active { outline: 3px solid #FFD131; outline-offset: 2px; }
+        .branch-tab {
+            min-height: 52px;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+        .branch-tab.is-active {
+            background: #FFD131;
+            color: #0a0a0a;
+            border-color: #FFD131;
+        }
+        .shift-btn {
+            min-height: 64px;
+            background: #FFD131;
+            color: #0a0a0a;
+            font-weight: 900;
+            letter-spacing: 0.03em;
+            border: 4px solid #0a0a0a;
+            box-shadow: 0 0 0 3px #FFD131;
+            transition: transform 0.12s ease, filter 0.15s ease;
+        }
+        .shift-btn:active { transform: scale(0.98); }
+        .shift-btn.is-on {
+            background: #16a34a;
+            color: #fff;
+            box-shadow: 0 0 0 3px #16a34a;
+        }
+        .items-scroll::-webkit-scrollbar { width: 6px; }
+        .items-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 999px; }
+        #conn-dot.online { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        #conn-dot.offline { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
     </style>
 </head>
-<body class="p-6">
+<body class="antialiased">
 
-    <header class="flex justify-between items-center bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-6 shadow-2xl">
-        <div class="flex items-center gap-4">
-            <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Logo" class="h-10 w-auto">
-            <h1 class="text-xl font-black text-yellow-400 italic uppercase">Mirror Burger KDS</h1>
+    <header class="sticky top-0 z-50 bg-kds-bg/95 backdrop-blur border-b border-kds-border px-4 py-3 md:px-6 md:py-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-10 w-auto shrink-0">
+                    <div class="min-w-0">
+                        <h1 class="text-xl md:text-2xl font-black tracking-tight text-kds-yellow uppercase leading-none">Mirror Burger KDS</h1>
+                        <p class="text-xs md:text-sm text-neutral-400 font-bold mt-1 flex items-center gap-2">
+                            <span id="conn-dot" class="inline-block w-2.5 h-2.5 rounded-full offline"></span>
+                            <span id="conn-label">連線中…</span>
+                            <span class="text-neutral-600">·</span>
+                            <span id="order-count">0 張活躍單</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="shift-btn w-full lg:w-auto px-6 rounded-2xl text-base md:text-lg uppercase">
+                開班 / 啟用廚房響鈴
+            </button>
         </div>
-        <select id="branch-select" onchange="loadOrders()" class="bg-slate-900 text-white px-4 py-2 rounded-xl border border-slate-700 font-bold text-sm">
-            <option value="Sai Ying Pun">西營盤店</option>
-            <option value="Fortress Hill">天后店</option>
-            <option value="Tsuen Wan (Takeaway Only)">荃灣店</option>
-        </select>
+
+        <div class="mt-3 grid grid-cols-3 gap-2" role="tablist" aria-label="分店篩選">
+            <button type="button" class="branch-tab is-active rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Sai Ying Pun" onclick="selectBranch(this)">
+                西營盤<br><span class="text-[11px] md:text-xs font-bold opacity-80">Sai Ying Pun</span>
+            </button>
+            <button type="button" class="branch-tab rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Fortress Hill" onclick="selectBranch(this)">
+                天后<br><span class="text-[11px] md:text-xs font-bold opacity-80">Fortress Hill</span>
+            </button>
+            <button type="button" class="branch-tab rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">
+                荃灣<br><span class="text-[11px] md:text-xs font-bold opacity-80">Tsuen Wan</span>
+            </button>
+        </div>
     </header>
 
-    <audio id="bell-sound" src="https://assets.mixkit.co/active_storage/sfx/911/911-200.wav" preload="auto"></audio>
-
-    <main id="orders-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></main>
+    <main id="orders-grid" class="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-5"></main>
 
     <script>
-        // 🔐 100% 駁通你原有的 Supabase 大腦憑證
-        const client = window.supabase.createClient('https://olmoingcxkgdrqezweuf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw');
+        const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 廚房活躍狀態：已付款但未完成
+        const ACTIVE_STATUSES = ['PAID', 'PREPARING', 'READY'];
+        const STATUS_META = {
+            PAID:       { label: '新單',     color: 'border-yellow-400',  badge: 'bg-yellow-400 text-black' },
+            PREPARING:  { label: '製作中',   color: 'border-sky-400',     badge: 'bg-sky-500 text-white' },
+            READY:      { label: '可取餐',   color: 'border-emerald-400', badge: 'bg-emerald-500 text-white' },
+            COMPLETED:  { label: '已完成',   color: 'border-neutral-600', badge: 'bg-neutral-600 text-white' }
+        };
+
+        let currentBranch = 'Sai Ying Pun';
+        let audioUnlocked = false;
+        let audioCtx = null;
+        /** @type {Map<string, object>} */
+        let ordersMap = new Map();
+        const highlightedOrders = new Set();
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getKitchenStatus(order) {
+            // 優先用 status；否則用 payment_status（現有資料庫欄位）
+            const raw = (order.status || order.payment_status || '').toUpperCase();
+            if (raw === 'PAID') return 'PAID';
+            if (raw === 'PREPARING') return 'PREPARING';
+            if (raw === 'READY') return 'READY';
+            if (raw === 'COMPLETED') return 'COMPLETED';
+            return raw || 'PAID';
+        }
+
+        function getFulfillment(order) {
+            const mode = (order.delivery_mode || order.order_type || order.fulfillment || order.mode || 'pickup').toString().toLowerCase();
+            if (mode.includes('deliver')) return { label: 'Delivery', zh: '外送', cls: 'bg-orange-500 text-white' };
+            return { label: 'Pickup', zh: '自取', cls: 'bg-neutral-700 text-white' };
+        }
+
+        function parseItems(order) {
+            try {
+                if (Array.isArray(order.items_json)) return order.items_json;
+                if (typeof order.items_json === 'string') return JSON.parse(order.items_json || '[]');
+            } catch (e) {
+                console.warn('items_json parse failed', e);
+            }
+            return [];
+        }
+
+        function itemQty(item) {
+            return Number(item.qty || item.quantity || 1) || 1;
+        }
+
+        function itemName(item) {
+            return item.nameZh || item.nameEn || item.name || '項目';
+        }
+
+        function itemNotes(item) {
+            const parts = [
+                item.detailsZh || item.detailsEn || '',
+                item.notes || item.note || item.remark || '',
+                item.size || '',
+                item.temp || ''
+            ].map(s => String(s || '').trim()).filter(Boolean);
+            return parts.join(' · ');
+        }
+
+        // --- Web Audio：開班解鎖 + 雙重嗶嗶 ---
+        async function unlockKitchenAudio() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+                // 短促確認音，證明權限已開
+                playBeepPair(0.55);
+                audioUnlocked = true;
+                const btn = document.getElementById('shift-btn');
+                btn.classList.add('is-on');
+                btn.textContent = '✓ 廚房響鈴已啟用（開班中）';
+            } catch (err) {
+                console.error('Audio unlock failed', err);
+                alert('無法啟用響鈴，請再試一次。');
+            }
+        }
+
+        function playTone(freq, start, duration, volume) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(start);
+            osc.stop(start + duration + 0.02);
+        }
+
+        function playBeepPair(volume = 0.85) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const t = audioCtx.currentTime;
+            // 嗶嗶 —— 嗶嗶
+            playTone(880, t + 0.00, 0.12, volume);
+            playTone(880, t + 0.16, 0.12, volume);
+            playTone(1046, t + 0.42, 0.12, volume);
+            playTone(1046, t + 0.58, 0.12, volume);
+        }
+
+        function ringNewOrder() {
+            if (!audioUnlocked || !audioCtx) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => playBeepPair()).catch(() => {});
+                return;
+            }
+            playBeepPair();
+        }
+
+        function selectBranch(btn) {
+            currentBranch = btn.dataset.branch;
+            document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
+            loadOrders();
+        }
+
+        function sortOrders(list) {
+            return [...list].sort((a, b) => {
+                const ta = new Date(a.created_at || 0).getTime();
+                const tb = new Date(b.created_at || 0).getTime();
+                return tb - ta; // 最新在最頂
+            });
+        }
+
+        function matchesBranch(order) {
+            return (order.store_name || '') === currentBranch;
+        }
+
+        function isActiveKitchenOrder(order) {
+            const pay = (order.payment_status || '').toUpperCase();
+            const st = (order.status || '').toUpperCase();
+            // 必須已付款（或已進入廚房流程）；COMPLETED 唔顯示
+            if (pay === 'PENDING') return false;
+            if (pay === 'COMPLETED' || st === 'COMPLETED') return false;
+            if (ACTIVE_STATUSES.includes(pay) || ACTIVE_STATUSES.includes(st)) return true;
+            // 已付款但 status 仍空 → 當新單
+            if (pay === 'PAID') return true;
+            return false;
+        }
 
         async function loadOrders() {
-            const branch = document.getElementById('branch-select').value;
             const { data, error } = await client
                 .from('orders')
                 .select('*')
-                .eq('store_name', branch)
-                .in('payment_status', ['PAID', 'READY']) // 🔒 嚴格把關：只准已俾錢 (PAID) 或製作中 (READY) 嘅單出現在廚房
-                .order('created_at', { ascending: true });
+                .eq('store_name', currentBranch)
+                .in('payment_status', ['PAID', 'PREPARING', 'READY'])
+                .order('created_at', { ascending: false });
 
-            if (error) return console.error(error);
-            
-            const grid = document.getElementById('orders-grid');
-            if (!data || data.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-500 font-bold text-sm tracking-widest">📭 目前沒有未完成訂單</div>`;
+            if (error) {
+                console.error(error);
+                document.getElementById('orders-grid').innerHTML =
+                    `<div class="col-span-full text-center py-24 text-red-400 font-black text-xl">載入失敗：${escapeHtml(error.message)}</div>`;
                 return;
             }
 
-            grid.innerHTML = data.map(order => {
-                const items = Array.isArray(order.items_json) ? order.items_json : JSON.parse(order.items_json || '[]');
-                const itemsHtml = items.map(i => `
-                    <div class="border-b border-slate-700/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
-                        <div class="flex justify-between font-bold text-sm text-white"><span>🍔 ${i.nameZh || i.nameEn}</span></div>
-                        <div class="text-[10px] text-yellow-400 font-medium mt-0.5">${i.detailsZh || i.detailsEn || ''}</div>
-                    </div>
-                `).join('');
+            ordersMap = new Map();
+            (data || []).forEach(o => {
+                if (isActiveKitchenOrder(o)) ordersMap.set(o.order_no, o);
+            });
+            renderOrders();
+        }
 
-                let cardStyle = 'bg-slate-800 border-slate-700';
-                let actionBtn = '';
-
-                // 根據客人的付款狀態，給廚房不同的按鈕和顏色
-                if (order.payment_status === 'PENDING') {
-                    cardStyle = 'bg-red-950/30 border-red-900 animate-pulse';
-                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'PAID')" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-xs uppercase">⚠️ 客人現金俾咗錢 / 補認證</button>`;
-                } else if (order.payment_status === 'PAID') {
-                    cardStyle = 'bg-blue-950/30 border-blue-800';
-                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'READY')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-xs uppercase">🧑‍🍳 包整好咗！出餐</button>`;
-                } else if (order.payment_status === 'READY') {
-                    cardStyle = 'bg-emerald-950/30 border-emerald-700';
-                    actionBtn = `<button onclick="updateStatus('${order.order_no}', 'COMPLETED')" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs uppercase">✅ 客人已攞包自取</button>`;
+        function upsertOrder(order, { ring = false, highlight = false } = {}) {
+            if (!matchesBranch(order)) return;
+            if (!isActiveKitchenOrder(order)) {
+                if (ordersMap.has(order.order_no)) {
+                    ordersMap.delete(order.order_no);
+                    renderOrders();
                 }
+                return;
+            }
+            const isNewCard = !ordersMap.has(order.order_no);
+            ordersMap.set(order.order_no, order);
+            if (highlight || isNewCard) {
+                highlightedOrders.add(order.order_no);
+                setTimeout(() => {
+                    highlightedOrders.delete(order.order_no);
+                    renderOrders();
+                }, 8000);
+            }
+            if (ring && isNewCard) ringNewOrder();
+            renderOrders();
+        }
 
-                return `
-                    <div class="order-card p-5 rounded-3xl border-2 flex flex-col justify-between ${cardStyle} shadow-xl">
-                        <div>
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <span class="text-[9px] font-black text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded">單號 #${order.order_no}</span>
-                                    <h2 class="text-base font-black text-white mt-1">${order.customer_name}</h2>
+        function renderOrders() {
+            const grid = document.getElementById('orders-grid');
+            const list = sortOrders([...ordersMap.values()]);
+            document.getElementById('order-count').textContent = `${list.length} 張活躍單`;
+
+            if (list.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-28">
+                        <p class="text-3xl md:text-4xl font-black text-neutral-600 tracking-widest">目前沒有未完成訂單</p>
+                        <p class="mt-3 text-lg text-neutral-500 font-bold">新單會即時顯示喺呢度</p>
+                    </div>`;
+                return;
+            }
+
+            grid.innerHTML = list.map(order => renderCard(order)).join('');
+        }
+
+        function renderCard(order) {
+            const status = getKitchenStatus(order);
+            const meta = STATUS_META[status] || STATUS_META.PAID;
+            const fulfill = getFulfillment(order);
+            const items = parseItems(order);
+            const isNew = highlightedOrders.has(order.order_no);
+            const orderNo = escapeHtml(order.order_no);
+            const name = escapeHtml(order.customer_name || '—');
+            const phone = escapeHtml(order.customer_phone || '—');
+            const pickup = escapeHtml(order.pickup_time || '—');
+
+            const itemsHtml = items.length
+                ? items.map(item => {
+                    const qty = itemQty(item);
+                    const notes = itemNotes(item);
+                    return `
+                        <div class="border-b border-neutral-700/80 py-3 last:border-0">
+                            <div class="flex items-start gap-3">
+                                <span class="shrink-0 min-w-[2.5rem] text-center text-2xl font-black text-kds-yellow leading-none">${qty}×</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xl md:text-2xl font-black text-white leading-tight">${escapeHtml(itemName(item))}</div>
+                                    ${notes ? `<div class="mt-1 text-base md:text-lg font-bold text-kds-yellow/95 leading-snug">${escapeHtml(notes)}</div>` : ''}
                                 </div>
-                                <span class="text-xs font-black text-yellow-400 bg-slate-900 px-2 py-1 rounded-xl">🕒 ${order.pickup_time}</span>
                             </div>
-                            <div class="text-[10px] text-slate-400 mb-3">📞 ${order.customer_phone}</div>
-                            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/50 mb-4 max-h-[160px] overflow-y-auto">${itemsHtml}</div>
+                        </div>`;
+                }).join('')
+                : `<div class="text-neutral-500 font-bold py-4">無餐點資料</div>`;
+
+            return `
+                <article class="order-card ${isNew ? 'is-new' : ''} bg-kds-card border-4 ${meta.color} rounded-3xl flex flex-col overflow-hidden shadow-2xl" data-order="${orderNo}">
+                    <div class="p-4 md:p-5 flex-1 flex flex-col gap-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-sm font-black uppercase tracking-widest text-neutral-400">單號 Order No.</div>
+                                <div class="text-3xl md:text-4xl font-black text-white tracking-tight">#${orderNo}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-black uppercase ${meta.badge}">${meta.label}</div>
+                                <div class="mt-2 text-3xl md:text-4xl font-black text-kds-yellow leading-none">${pickup}</div>
+                                <div class="text-xs font-bold text-neutral-400 uppercase mt-1">取餐時間 Pickup</div>
+                            </div>
                         </div>
-                        <div>${actionBtn}</div>
+
+                        <div class="flex flex-wrap items-center gap-2 text-base md:text-lg font-bold">
+                            <span class="text-white">${name}</span>
+                            <span class="text-neutral-500">·</span>
+                            <a href="tel:${phone}" class="text-sky-300 underline-offset-2 hover:underline">${phone}</a>
+                            <span class="ml-auto inline-flex items-center px-3 py-1 rounded-lg text-sm font-black uppercase ${fulfill.cls}">
+                                ${fulfill.zh} / ${fulfill.label}
+                            </span>
+                        </div>
+
+                        <div class="items-scroll bg-black/50 border border-neutral-800 rounded-2xl px-3 md:px-4 max-h-[280px] overflow-y-auto flex-1">
+                            ${itemsHtml}
+                        </div>
                     </div>
-                `;
-            }).join('');
+
+                    <div class="grid grid-cols-3 gap-2 p-3 md:p-4 bg-black/40 border-t border-neutral-800">
+                        <button type="button" class="status-btn rounded-xl bg-sky-600 text-white ${status === 'PREPARING' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNo}', 'PREPARING')">製作中<br><span class="text-xs font-bold opacity-90">PREPARING</span></button>
+                        <button type="button" class="status-btn rounded-xl bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNo}', 'READY')">可取餐<br><span class="text-xs font-bold opacity-90">READY</span></button>
+                        <button type="button" class="status-btn rounded-xl bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNo}', 'COMPLETED')">已完成<br><span class="text-xs font-bold opacity-90">COMPLETED</span></button>
+                    </div>
+                </article>`;
         }
 
-        async function updateStatus(orderNo, nextStatus) {
-            await client.from('orders').update({ payment_status: nextStatus }).eq('order_no', orderNo);
-            loadOrders();
+        async function updateOrderStatus(orderNo, nextStatus) {
+            // 同時寫 status + payment_status，兼容現有資料庫同你要求嘅 status 欄位
+            const payload = { status: nextStatus, payment_status: nextStatus };
+            let { error } = await client.from('orders').update(payload).eq('order_no', orderNo);
+
+            // 若 status 欄位唔存在，退回只更新 payment_status
+            if (error) {
+                console.warn('status update fallback → payment_status only', error.message);
+                ({ error } = await client.from('orders').update({ payment_status: nextStatus }).eq('order_no', orderNo));
+            }
+
+            if (error) {
+                console.error(error);
+                alert('更新狀態失敗：' + error.message);
+                return;
+            }
+
+            const existing = ordersMap.get(orderNo);
+            if (existing) {
+                const merged = { ...existing, status: nextStatus, payment_status: nextStatus };
+                if (nextStatus === 'COMPLETED') {
+                    ordersMap.delete(orderNo);
+                    renderOrders();
+                } else {
+                    ordersMap.set(orderNo, merged);
+                    renderOrders();
+                }
+            } else {
+                loadOrders();
+            }
         }
 
-        // 📡 終極黑科技：開啟 Supabase 實時監聽，一有新單自動叮咚響，免刷新網頁！
+        function setConn(online) {
+            const dot = document.getElementById('conn-dot');
+            const label = document.getElementById('conn-label');
+            dot.classList.toggle('online', online);
+            dot.classList.toggle('offline', !online);
+            label.textContent = online ? 'Realtime 已連接' : '連線中斷 / 重連中';
+        }
+
+        function handleRealtime(payload) {
+            const row = payload.new;
+            if (!row) {
+                if (payload.old && payload.old.order_no) {
+                    ordersMap.delete(payload.old.order_no);
+                    renderOrders();
+                }
+                return;
+            }
+
+            // INSERT：新單即時置頂 + 響鈴（同舖先計）
+            if (payload.eventType === 'INSERT') {
+                // PENDING 未付款唔響鈴、唔上牆；PAID / PREPARING / READY 先上牆
+                if (matchesBranch(row) && isActiveKitchenOrder(row)) {
+                    upsertOrder(row, { ring: true, highlight: true });
+                }
+                return;
+            }
+
+            // UPDATE：付款成功變 PAID → 當新單響鈴；其他狀態同步畫面
+            if (payload.eventType === 'UPDATE') {
+                const prev = payload.old || {};
+                const becamePaid =
+                    (prev.payment_status || '').toUpperCase() !== 'PAID' &&
+                    (row.payment_status || '').toUpperCase() === 'PAID';
+                const isNewToBoard = becamePaid || (!ordersMap.has(row.order_no) && isActiveKitchenOrder(row));
+
+                if (matchesBranch(row)) {
+                    upsertOrder(row, { ring: isNewToBoard, highlight: isNewToBoard });
+                } else if (ordersMap.has(row.order_no)) {
+                    ordersMap.delete(row.order_no);
+                    renderOrders();
+                }
+            }
+        }
+
+        function startRealtime() {
+            client
+                .channel('kitchen-kds')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, handleRealtime)
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, handleRealtime)
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, handleRealtime)
+                .subscribe((status) => {
+                    setConn(status === 'SUBSCRIBED');
+                });
+        }
+
         window.onload = () => {
             loadOrders();
-            client.channel('kitchen-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-                if (payload.eventType === 'INSERT' && payload.new.store_name === document.getElementById('branch-select').value) {
-                    try { document.getElementById('bell-sound').play(); } catch(e){}
-                }
-                loadOrders();
-            }).subscribe();
-            setInterval(loadOrders, 60000); // 每分鐘安全重刷
+            startRealtime();
+            // 安全網：每分鐘重拉一次，防漏單
+            setInterval(loadOrders, 60000);
         };
     </script>
 </body>
