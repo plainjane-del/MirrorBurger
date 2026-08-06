@@ -84,6 +84,17 @@
         .items-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 999px; }
         #conn-dot.online { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
         #conn-dot.offline { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        .wa-notify-btn {
+            min-height: 52px;
+            background: #22c55e;
+            color: #fff;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            box-shadow: 0 0 16px rgba(34, 197, 94, 0.45);
+            transition: transform 0.12s ease, filter 0.15s ease;
+        }
+        .wa-notify-btn:active { transform: scale(0.97); }
+        .wa-notify-btn:hover { filter: brightness(1.08); }
     </style>
 </head>
 <body class="antialiased">
@@ -155,6 +166,17 @@
                 .replace(/'/g, '&#39;');
         }
 
+        /** Escape for single-quoted JS string literals inside HTML onclick="...('...')" */
+        function escapeJsString(str) {
+            return String(str ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\r/g, '\\r')
+                .replace(/\n/g, '\\n')
+                .replace(/\u2028/g, '\\u2028')
+                .replace(/\u2029/g, '\\u2029');
+        }
+
         function getKitchenStatus(order) {
             // 優先用 status；否則用 payment_status（現有資料庫欄位）
             const raw = (order.status || order.payment_status || '').toUpperCase();
@@ -197,6 +219,37 @@
                 item.temp || ''
             ].map(s => String(s || '').trim()).filter(Boolean);
             return parts.join(' · ');
+        }
+
+        /** 整理電話：去 +／空格／符號；純 8 位香港號補 852；已有區號則照用 */
+        function normalizeWhatsAppPhone(raw) {
+            let formattedPhone = String(raw ?? '').replace(/[^0-9]/g, '');
+            if (!formattedPhone) return '';
+            // 客人冇揀區號、只填 8 位香港號碼 → 自動補 852
+            if (formattedPhone.length === 8) {
+                formattedPhone = '852' + formattedPhone;
+            }
+            // 已包含國家區號（例如 852…、86…）→ 直接使用
+            return formattedPhone;
+        }
+
+        function notifyCustomerWhatsApp(orderNo) {
+            const order = ordersMap.get(orderNo);
+            if (!order) {
+                alert('找不到訂單資料。');
+                return;
+            }
+            const formattedPhone = normalizeWhatsAppPhone(order.customer_phone);
+            if (!formattedPhone) {
+                alert('此單沒有有效電話號碼，無法開啟 WhatsApp。');
+                return;
+            }
+            const store_name = order.store_name || currentBranch || '';
+            const order_no = order.order_no;
+            const msg =
+                `🍔 Mirror Burger【取餐通知】\n` +
+                `你好！閣下於【${store_name}】落單嘅訂單 #${order_no} 已經準備好啦！請憑此訊息前往分店取餐，多謝！`;
+            window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         // --- Web Audio：開班解鎖 + 雙重嗶嗶 ---
@@ -352,6 +405,7 @@
             const items = parseItems(order);
             const isNew = highlightedOrders.has(order.order_no);
             const orderNo = escapeHtml(order.order_no);
+            const orderNoJs = escapeJsString(order.order_no);
             const name = escapeHtml(order.customer_name || '—');
             const phone = escapeHtml(order.customer_phone || '—');
             const pickup = escapeHtml(order.pickup_time || '—');
@@ -400,15 +454,21 @@
                         <div class="items-scroll bg-black/50 border border-neutral-800 rounded-2xl px-3 md:px-4 max-h-[280px] overflow-y-auto flex-1">
                             ${itemsHtml}
                         </div>
+
+                        ${(status === 'READY' || status === 'PREPARING') ? `
+                        <button type="button" class="wa-notify-btn w-full rounded-xl px-4 text-base md:text-lg"
+                            onclick="notifyCustomerWhatsApp('${orderNoJs}')">
+                            📱 WhatsApp 通知客人
+                        </button>` : ''}
                     </div>
 
                     <div class="grid grid-cols-3 gap-2 p-3 md:p-4 bg-black/40 border-t border-neutral-800">
                         <button type="button" class="status-btn rounded-xl bg-sky-600 text-white ${status === 'PREPARING' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNo}', 'PREPARING')">製作中<br><span class="text-xs font-bold opacity-90">PREPARING</span></button>
+                            onclick="updateOrderStatus('${orderNoJs}', 'PREPARING')">製作中<br><span class="text-xs font-bold opacity-90">PREPARING</span></button>
                         <button type="button" class="status-btn rounded-xl bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNo}', 'READY')">可取餐<br><span class="text-xs font-bold opacity-90">READY</span></button>
+                            onclick="updateOrderStatus('${orderNoJs}', 'READY')">可取餐<br><span class="text-xs font-bold opacity-90">READY</span></button>
                         <button type="button" class="status-btn rounded-xl bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNo}', 'COMPLETED')">已完成<br><span class="text-xs font-bold opacity-90">COMPLETED</span></button>
+                            onclick="updateOrderStatus('${orderNoJs}', 'COMPLETED')">已完成<br><span class="text-xs font-bold opacity-90">COMPLETED</span></button>
                     </div>
                 </article>`;
         }
