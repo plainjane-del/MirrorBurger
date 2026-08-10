@@ -83,9 +83,18 @@
                             <span class="text-lg" aria-hidden="true">📍</span>
                             <span class="text-xs font-black uppercase tracking-widest"><span class="en">Auto-Detect Nearest</span><span class="zh">自動偵測最近分店</span></span>
                         </button>
-                        <button onclick="setFlowStore('Sai Ying Pun')" class="w-full bg-apple-bg text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black"><span class="text-sm font-black uppercase tracking-widest"><span class="en">Sai Ying Pun</span><span class="zh">西營盤</span></span></button>
-                        <button onclick="setFlowStore('Fortress Hill')" class="w-full bg-apple-bg text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black"><span class="text-sm font-black uppercase tracking-widest"><span class="en">Fortress Hill</span><span class="zh">天后</span></span></button>
-                        <button onclick="setFlowStore('Tsuen Wan (Takeaway Only)')" class="w-full bg-apple-bg text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black"><span class="text-sm font-black uppercase tracking-widest"><span class="en">Tsuen Wan</span><span class="zh">荃灣</span></span></button>
+                        <button type="button" data-store="Sai Ying Pun" onclick="setFlowStore('Sai Ying Pun')" class="store-pick-btn w-full bg-apple-bg text-black p-4 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black">
+                            <span class="text-sm font-black uppercase tracking-widest"><span class="en">Sai Ying Pun</span><span class="zh">西營盤</span></span>
+                            <span class="store-closed-tag hidden text-[10px] font-black uppercase tracking-widest">[今日休息 / Closed]</span>
+                        </button>
+                        <button type="button" data-store="Fortress Hill" onclick="setFlowStore('Fortress Hill')" class="store-pick-btn w-full bg-apple-bg text-black p-4 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black">
+                            <span class="text-sm font-black uppercase tracking-widest"><span class="en">Fortress Hill</span><span class="zh">天后</span></span>
+                            <span class="store-closed-tag hidden text-[10px] font-black uppercase tracking-widest">[今日休息 / Closed]</span>
+                        </button>
+                        <button type="button" data-store="Tsuen Wan (Takeaway Only)" onclick="setFlowStore('Tsuen Wan (Takeaway Only)')" class="store-pick-btn w-full bg-apple-bg text-black p-4 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black">
+                            <span class="text-sm font-black uppercase tracking-widest"><span class="en">Tsuen Wan</span><span class="zh">荃灣</span></span>
+                            <span class="store-closed-tag hidden text-[10px] font-black uppercase tracking-widest">[今日休息 / Closed]</span>
+                        </button>
                     </div>
                 </div>
                 <div id="flow-step-2" class="space-y-5 hidden">
@@ -532,6 +541,14 @@
             { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://maps.app.goo.gl/6oxTsRNSUwmtibUx9', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
         ];
 
+        /** store_name → is_open；預設 true，等 Supabase 覆寫 */
+        const storeOpenMap = {};
+        stores.forEach(s => { storeOpenMap[s.name] = true; });
+
+        function isStoreOpen(storeName) {
+            return storeOpenMap[storeName] !== false;
+        }
+
         // --- 4. 讀取 Supabase ---
         async function fetchLiveMenu() {
             try {
@@ -554,6 +571,82 @@
             } catch (error) {
                 console.error("Supabase Error:", error);
                 renderMenuByCategory(currentCategory); 
+            }
+        }
+
+        async function fetchStoreSettings() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('store_settings')
+                    .select('store_name, is_open');
+                if (error) throw error;
+
+                (data || []).forEach(row => {
+                    if (row.store_name) storeOpenMap[row.store_name] = !!row.is_open;
+                });
+                applyStoreOpenUI();
+            } catch (err) {
+                console.error('store_settings fetch failed', err);
+            }
+        }
+
+        function startStoreSettingsRealtime() {
+            supabaseClient
+                .channel('store-settings-public')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'store_settings' },
+                    (payload) => {
+                        const row = payload.new;
+                        if (!row || !row.store_name) return;
+                        storeOpenMap[row.store_name] = !!row.is_open;
+                        applyStoreOpenUI();
+                    }
+                )
+                .subscribe();
+        }
+
+        const STORE_BTN_BASE =
+            'store-pick-btn w-full p-4 rounded-2xl flex flex-col items-center justify-center gap-1 transition-transform border-2';
+        const STORE_BTN_OPEN =
+            'bg-apple-bg text-black active:scale-95 border-gray-100 hover:border-black';
+        const STORE_BTN_CLOSED =
+            'opacity-50 cursor-not-allowed text-gray-400 border-gray-200 bg-apple-bg';
+
+        function updateStoreModalButtons() {
+            document.querySelectorAll('.store-pick-btn[data-store]').forEach(btn => {
+                const name = btn.dataset.store;
+                const closed = !isStoreOpen(name);
+                const tag = btn.querySelector('.store-closed-tag');
+
+                btn.className = `${STORE_BTN_BASE} ${closed ? STORE_BTN_CLOSED : STORE_BTN_OPEN}`;
+                btn.disabled = closed;
+                btn.setAttribute('aria-disabled', closed ? 'true' : 'false');
+                if (closed) {
+                    btn.removeAttribute('onclick');
+                    btn.onclick = null;
+                } else {
+                    btn.setAttribute('onclick', `setFlowStore('${name.replace(/'/g, "\\'")}')`);
+                    btn.onclick = () => setFlowStore(name);
+                }
+                if (tag) tag.classList.toggle('hidden', !closed);
+            });
+        }
+
+        function applyStoreOpenUI() {
+            updateStoreModalButtons();
+            populateStoresDropdown();
+
+            if (flowSelectedStore && !isStoreOpen(flowSelectedStore)) {
+                flowSelectedStore = '';
+                updateCartStoreUI();
+                updateCartUI();
+                const step1 = document.getElementById('flow-step-1');
+                const step2 = document.getElementById('flow-step-2');
+                if (step1 && step2 && !step2.classList.contains('hidden')) {
+                    step1.classList.remove('hidden');
+                    step2.classList.add('hidden');
+                }
             }
         }
 
@@ -784,6 +877,7 @@
             const modal = document.getElementById('order-flow-modal');
             const content = document.getElementById('order-flow-content');
             if (!modal || !content) return;
+            updateStoreModalButtons();
             document.getElementById('flow-step-1').classList.remove('hidden');
             document.getElementById('flow-step-2').classList.add('hidden');
             modal.classList.remove('hidden'); void modal.offsetWidth; 
@@ -798,6 +892,10 @@
         }
 
         function setFlowStore(storeName) {
+            if (!isStoreOpen(storeName)) {
+                showCustomAlert(lang('This store is closed today.', '此分店今日休息。'));
+                return;
+            }
             flowSelectedStore = storeName;
             const storeObj = stores.find(s => s.name === storeName);
             const storeZh = storeObj ? storeObj.nameZh : storeName;
@@ -862,11 +960,19 @@
                     let nearestStore = null; let minDistance = Infinity;
 
                     stores.forEach(store => {
+                        if (!isStoreOpen(store.name)) return;
                         const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
                         if (dist < minDistance) { minDistance = dist; nearestStore = store.name; }
                     });
 
-                    if (nearestStore) setFlowStore(nearestStore);
+                    if (nearestStore) {
+                        setFlowStore(nearestStore);
+                    } else {
+                        showCustomAlert(lang(
+                            'No open stores nearby. Please try again later.',
+                            '附近暫時沒有營業中的分店，請稍後再試。'
+                        ));
+                    }
                     btn.innerHTML = originalText;
                 },
                 (error) => {
@@ -1049,7 +1155,25 @@
         
        // 📦 validateCheckout()（表單驗證 / 落單掣設定）已抽去 js/order-handler.js
         
-function populateStoresDropdown() { const s = document.getElementById('cust-store'); s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`; stores.forEach(st => s.add(new Option(lang(st.name, st.nameZh), st.name))); if(flowSelectedStore) s.value = flowSelectedStore; }
+function populateStoresDropdown() {
+    const s = document.getElementById('cust-store');
+    if (!s) return;
+    s.innerHTML = `<option value="" disabled selected>${lang('Select Store *', '選擇分店 *')}</option>`;
+    stores.forEach(st => {
+        const open = isStoreOpen(st.name);
+        const label = open
+            ? lang(st.name, st.nameZh)
+            : lang(`${st.name} [今日休息]`, `${st.nameZh} [今日休息]`);
+        const opt = new Option(label, st.name);
+        opt.disabled = !open;
+        s.add(opt);
+    });
+    if (flowSelectedStore && isStoreOpen(flowSelectedStore)) {
+        s.value = flowSelectedStore;
+    } else if (flowSelectedStore && !isStoreOpen(flowSelectedStore)) {
+        s.value = '';
+    }
+}
 function updateCartStoreUI() { const d = document.getElementById('cart-store-display'), c = document.getElementById('cart-store-select-container'); if(flowSelectedStore) { document.getElementById('cart-store-name').innerText = lang(flowSelectedStore, stores.find(x=>x.name===flowSelectedStore).nameZh); d.classList.remove('hidden'); c.classList.add('hidden'); } else { d.classList.add('hidden'); c.classList.remove('hidden'); } }
         
 function generateTimeOptions() {
@@ -1266,6 +1390,8 @@ function generateTimeOptions() {
 
     updatePlaceholders(); populateStoresDropdown(); renderStores();
     fetchLiveMenu(); // 連線 Supabase 大腦
+    fetchStoreSettings();
+    startStoreSettingsRealtime();
 
     confirmPaymentFromRedirect(); // ✅ 後備：客人付完款跳返主頁時，補認張單做 PAID
 
