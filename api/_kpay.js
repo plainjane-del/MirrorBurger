@@ -6,40 +6,53 @@ function getKeyContent(envVar) {
     return val;
 }
 
-// 🛡️ 原生 OpenSSL 密鑰解析器：自動清洗 Base64 並解析 PKCS#8 / PKCS#1 密鑰
+// 🛡️ Bulletproof Key Parser: Automatically handles DER binary buffers & PEM formats
 function getPrivateKeyObject(rawKey) {
-    if (!rawKey) throw new Error('Private key is empty.');
+    if (!rawKey) throw new Error('KPAY_PRIVATE_KEY is missing or empty.');
+    
     let text = String(rawKey).trim();
     text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-    // 清走所有可能殘留或不完整的標頭標尾及空格，取得純粹 Base64
+    // Extract pure Base64 content
     const cleanBase64 = text
         .replace(/-----BEGIN [A-Z ]+-----/g, '')
         .replace(/-----END [A-Z ]+-----/g, '')
         .replace(/\s+/g, '');
 
+    const keyBuffer = Buffer.from(cleanBase64, 'base64');
+
+    // 1. Try DER PKCS#8 Binary (Primary for KPay raw Base64 keys)
+    try {
+        return crypto.createPrivateKey({ key: keyBuffer, format: 'der', type: 'pkcs8' });
+    } catch (e) {}
+
+    // 2. Try DER PKCS#1 Binary
+    try {
+        return crypto.createPrivateKey({ key: keyBuffer, format: 'der', type: 'pkcs1' });
+    } catch (e) {}
+
+    // 3. Try Formatted PEM (PKCS#8)
     const formattedBody = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
-    const pemTypes = ['PRIVATE KEY', 'RSA PRIVATE KEY'];
+    try {
+        return crypto.createPrivateKey(`-----BEGIN PRIVATE KEY-----\n${formattedBody}\n-----END PRIVATE KEY-----\n`);
+    } catch (e) {}
 
-    // 嘗試以 PKCS#8 及 PKCS#1 格式載入
-    for (const type of pemTypes) {
-        const pem = `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
-        try {
-            return crypto.createPrivateKey(pem);
-        } catch (e) {
-            // 繼續嘗試下一種格式
-        }
-    }
+    // 4. Try Formatted PEM (PKCS#1)
+    try {
+        return crypto.createPrivateKey(`-----BEGIN RSA PRIVATE KEY-----\n${formattedBody}\n-----END RSA PRIVATE KEY-----\n`);
+    } catch (e) {}
 
+    // 5. Try direct raw string
     try {
         return crypto.createPrivateKey(text);
-    } catch (e) {
-        throw new Error(`Failed to parse Private Key: ${e.message}`);
-    }
+    } catch (e) {}
+
+    throw new Error('Failed to parse KPAY_PRIVATE_KEY in all DER/PEM formats.');
 }
 
 function getPublicKeyObject(rawKey) {
-    if (!rawKey) throw new Error('Public key is empty.');
+    if (!rawKey) throw new Error('KPAY_PUBLIC_KEY is missing or empty.');
+
     let text = String(rawKey).trim();
     text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
@@ -48,40 +61,50 @@ function getPublicKeyObject(rawKey) {
         .replace(/-----END [A-Z ]+-----/g, '')
         .replace(/\s+/g, '');
 
-    const formattedBody = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
-    const pemTypes = ['PUBLIC KEY', 'RSA PUBLIC KEY'];
+    const keyBuffer = Buffer.from(cleanBase64, 'base64');
 
-    for (const type of pemTypes) {
-        const pem = `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
-        try {
-            return crypto.createPublicKey(pem);
-        } catch (e) {
-            // 繼續嘗試下一種格式
-        }
-    }
+    // 1. Try DER SPKI (SubjectPublicKeyInfo)
+    try {
+        return crypto.createPublicKey({ key: keyBuffer, format: 'der', type: 'spki' });
+    } catch (e) {}
+
+    // 2. Try DER PKCS#1
+    try {
+        return crypto.createPublicKey({ key: keyBuffer, format: 'der', type: 'pkcs1' });
+    } catch (e) {}
+
+    // 3. Try Formatted PEM
+    const formattedBody = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
+    try {
+        return crypto.createPublicKey(`-----BEGIN PUBLIC KEY-----\n${formattedBody}\n-----END PUBLIC KEY-----\n`);
+    } catch (e) {}
+
+    try {
+        return crypto.createPublicKey(`-----BEGIN RSA PUBLIC KEY-----\n${formattedBody}\n-----END RSA PUBLIC KEY-----\n`);
+    } catch (e) {}
 
     try {
         return crypto.createPublicKey(text);
-    } catch (e) {
-        throw new Error(`Failed to parse Public Key: ${e.message}`);
-    }
+    } catch (e) {}
+
+    throw new Error('Failed to parse KPAY_PUBLIC_KEY in all DER/PEM formats.');
 }
 
 function signWithRsaSha256(signatureText, rawPemKey) {
     const privateKeyObject = getPrivateKeyObject(rawPemKey);
-    const sign = crypto.createSign('RSA-SHA256');
-    sign.update(signatureText, 'utf8');
-    sign.end();
-    return sign.sign(privateKeyObject, 'base64');
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(signatureText, 'utf8');
+    signer.end();
+    return signer.sign(privateKeyObject, 'base64');
 }
 
 function verifyKpaySignature(signatureB64, signatureText, rawPubKeyPem) {
     try {
         const publicKeyObject = getPublicKeyObject(rawPubKeyPem);
-        const verify = crypto.createVerify('RSA-SHA256');
-        verify.update(signatureText, 'utf8');
-        verify.end();
-        return verify.verify(publicKeyObject, signatureB64, 'base64');
+        const verifier = crypto.createVerify('RSA-SHA256');
+        verifier.update(signatureText, 'utf8');
+        verifier.end();
+        return verifier.verify(publicKeyObject, signatureB64, 'base64');
     } catch (error) {
         console.error('KPay signature verification error:', error);
         return false;
@@ -115,7 +138,7 @@ async function createManagedOrder(payload) {
 
     const kpayResponse = await response.json();
     if (String(kpayResponse.code) !== '10000') {
-        throw new Error(`KPay API Error: ${kpayResponse.message || 'Unknown Error'}`);
+        throw new Error(`KPay API Error [${kpayResponse.code}]: ${kpayResponse.message || kpayResponse.msg || JSON.stringify(kpayResponse)}`);
     }
     return kpayResponse;
 }
