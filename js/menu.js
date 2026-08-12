@@ -793,7 +793,7 @@ function generateTimeOptions() {
     offsets.forEach(off => {
         const mins = base + off;
         if (mins <= closeTotal) {
-            const h = Math.floor(mins / 60);
+            const h = Math.floor(mins / 60) % 24;
             const m = mins % 60;
             const displayTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
             s.add(new Option(displayTime, displayTime));
