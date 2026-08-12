@@ -3,35 +3,27 @@
 // =============================================================
 
 const KPAY_SERVER_URL = '/api/kpay-checkout';
-const STRIPE_SERVER_URL = '/api/checkout';
+const STRIPE_SERVER_URL = '/api/checkout'; // 保留作後備
 
 // --- 表單驗證 + 落單掣設定 (Form Validation) ---
 function validateCheckout() {
-    // 🔍 智能分流：網址只要包含 test（例如 ?test=1 或 #test1/）即自動進入 KPay 測試模式
-    const isTestMode = window.location.href.toLowerCase().includes('test');
-
     const btn = document.getElementById('checkout-btn');
     if (btn) {
         btn.style.opacity = "1";
         btn.disabled = false;
 
-        // 🔀 KPay / Stripe 分流
-        btn.onclick = isTestMode ? processKPayOrder : processStripeOrder;
+        // 🌟 已經全面轉用 KPay 正式環境
+        btn.onclick = processKPayOrder;
 
-        if (isTestMode) {
-            btn.innerHTML = '<span class="en">Place Order (KPay Test)</span><span class="zh">立即落單 (KPay 測試)</span>';
-        } else {
-            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
-        }
+        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
     }
 }
 
-// 網頁載入即時初始化分流狀態
+// 網頁載入即時初始化
 document.addEventListener('DOMContentLoaded', validateCheckout);
 
-// test 模式 → KPay 測試 (DigitalOcean)
+// 全面預設用 KPay
 function processKPayOrder() { return submitOrder('kpay'); }
-// 正式模式 → Stripe (Vercel)
 function processStripeOrder() { return submitOrder('stripe'); }
 
 async function submitOrder(provider) {
@@ -59,7 +51,8 @@ async function submitOrder(provider) {
     btn.innerHTML = `<span class="en">Preparing Order...</span><span class="zh">準備訂單中...</span>`;
     btn.disabled = true;
 
-    const orderNo = "UAT" + Date.now().toString().slice(-6);
+    // 將訂單號碼前綴由 UAT 改為正式嘅 MB (Mirror Burger)
+    const orderNo = "MB" + Date.now().toString().slice(-6);
     const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
     const discount = isDiscountActive() ? Math.floor(subtotal * getDiscountRate()) : 0;
     const finalTotal = subtotal - discount;
@@ -89,7 +82,7 @@ async function submitOrder(provider) {
         if (result.paymentUrl) {
             window.location.href = result.paymentUrl;
         } else {
-            throw new Error((isKPay ? 'KPay' : 'Stripe') + " Error");
+            throw new Error((isKPay ? 'KPay' : 'Stripe') + " Error: " + (result.error || "Unknown"));
         }
     } catch (err) {
         console.error(err);
