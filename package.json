@@ -2,7 +2,8 @@
   "name": "mirror-burger-uat",
   "version": "1.0.0",
   "dependencies": {
-    "stripe": "^22.3.0"
+    "node-forge": "^1.4.0",
+    "stripe": "^22.5.0"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.19"

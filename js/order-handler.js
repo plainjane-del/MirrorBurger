@@ -2,7 +2,7 @@
 // Mirror Burger — 落單 / 付款處理 (Order & Payment Handler)
 // =============================================================
 
-const KPAY_SERVER_URL = 'https://api.mirrorburger.com/api/checkout';
+const KPAY_SERVER_URL = '/api/kpay-checkout';
 const STRIPE_SERVER_URL = '/api/checkout';
 
 // --- 表單驗證 + 落單掣設定 (Form Validation) ---
