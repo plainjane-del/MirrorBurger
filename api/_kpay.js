@@ -1,71 +1,90 @@
 const crypto = require('crypto');
-const forge = require('node-forge');
-
-// 🛡️ 智能 PEM 修復器：即使 Vercel 漏貼 -----BEGIN...----- 亦能自動補全並格式化
-function normalizePem(rawPem, defaultType = 'PRIVATE KEY') {
-    if (!rawPem) return '';
-    let text = String(rawPem).trim();
-    text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-    // 如果完全沒有 -----BEGIN 標頭，自動加上頭尾與 64 字元換行
-    if (!text.includes('-----BEGIN')) {
-        const cleanBody = text.replace(/\s+/g, '');
-        const formattedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
-        return `-----BEGIN ${defaultType}\n${formattedBody}\n-----END ${defaultType}\n`;
-    }
-
-    const match = text.match(/-----BEGIN ([A-Z ]+)-----\s*([\s\S]+?)\s*-----END \1-----/);
-    if (match) {
-        const type = match[1];
-        const body = match[2].replace(/\s+/g, '');
-        const formattedBody = body.match(/.{1,64}/g)?.join('\n') || body;
-        return `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
-    }
-    return text;
-}
 
 function getKeyContent(envVar) {
     const val = process.env[envVar];
     if (!val) throw new Error(`Missing environment variable: ${envVar}`);
-    // 💡 已經移除了之前誤加的 '-----BEGIN' 攔截器，讓程式可以順利落去執行自動補全！
     return val;
 }
 
-function signWithRsaSha256(signatureText, rawPemKey) {
-    const normalizedPem = normalizePem(rawPemKey, 'PRIVATE KEY');
-    try {
-        const signer = crypto.createSign('RSA-SHA256');
-        signer.update(signatureText);
-        signer.end();
-        return signer.sign({ key: normalizedPem, padding: crypto.constants.RSA_PKCS1_PADDING }, 'base64');
-    } catch (error) {
+// 🛡️ 原生 OpenSSL 密鑰解析器：自動清洗 Base64 並解析 PKCS#8 / PKCS#1 密鑰
+function getPrivateKeyObject(rawKey) {
+    if (!rawKey) throw new Error('Private key is empty.');
+    let text = String(rawKey).trim();
+    text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // 清走所有可能殘留或不完整的標頭標尾及空格，取得純粹 Base64
+    const cleanBase64 = text
+        .replace(/-----BEGIN [A-Z ]+-----/g, '')
+        .replace(/-----END [A-Z ]+-----/g, '')
+        .replace(/\s+/g, '');
+
+    const formattedBody = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
+    const pemTypes = ['PRIVATE KEY', 'RSA PRIVATE KEY'];
+
+    // 嘗試以 PKCS#8 及 PKCS#1 格式載入
+    for (const type of pemTypes) {
+        const pem = `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
         try {
-            const privateKey = forge.pki.privateKeyFromPem(normalizedPem);
-            const md = forge.md.sha256.create();
-            md.update(signatureText, 'utf8');
-            return forge.util.encode64(privateKey.sign(md));
-        } catch (forgeErr) {
-            throw new Error(`PEM Parsing Error: ${forgeErr.message}`);
+            return crypto.createPrivateKey(pem);
+        } catch (e) {
+            // 繼續嘗試下一種格式
         }
+    }
+
+    try {
+        return crypto.createPrivateKey(text);
+    } catch (e) {
+        throw new Error(`Failed to parse Private Key: ${e.message}`);
     }
 }
 
-function verifyKpaySignature(signatureB64, signatureText, rawPubKeyPem) {
-    const normalizedPem = normalizePem(rawPubKeyPem, 'PUBLIC KEY');
-    try {
-        const verifier = crypto.createVerify('RSA-SHA256');
-        verifier.update(signatureText);
-        verifier.end();
-        return verifier.verify({ key: normalizedPem, padding: crypto.constants.RSA_PKCS1_PADDING }, signatureB64, 'base64');
-    } catch (error) {
+function getPublicKeyObject(rawKey) {
+    if (!rawKey) throw new Error('Public key is empty.');
+    let text = String(rawKey).trim();
+    text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    const cleanBase64 = text
+        .replace(/-----BEGIN [A-Z ]+-----/g, '')
+        .replace(/-----END [A-Z ]+-----/g, '')
+        .replace(/\s+/g, '');
+
+    const formattedBody = cleanBase64.match(/.{1,64}/g)?.join('\n') || cleanBase64;
+    const pemTypes = ['PUBLIC KEY', 'RSA PUBLIC KEY'];
+
+    for (const type of pemTypes) {
+        const pem = `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
         try {
-            const publicKey = forge.pki.publicKeyFromPem(normalizedPem);
-            const md = forge.md.sha256.create();
-            md.update(signatureText, 'utf8');
-            return publicKey.verify(md.digest().bytes(), forge.util.decode64(signatureB64));
-        } catch (forgeErr) {
-            return false;
+            return crypto.createPublicKey(pem);
+        } catch (e) {
+            // 繼續嘗試下一種格式
         }
+    }
+
+    try {
+        return crypto.createPublicKey(text);
+    } catch (e) {
+        throw new Error(`Failed to parse Public Key: ${e.message}`);
+    }
+}
+
+function signWithRsaSha256(signatureText, rawPemKey) {
+    const privateKeyObject = getPrivateKeyObject(rawPemKey);
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(signatureText, 'utf8');
+    sign.end();
+    return sign.sign(privateKeyObject, 'base64');
+}
+
+function verifyKpaySignature(signatureB64, signatureText, rawPubKeyPem) {
+    try {
+        const publicKeyObject = getPublicKeyObject(rawPubKeyPem);
+        const verify = crypto.createVerify('RSA-SHA256');
+        verify.update(signatureText, 'utf8');
+        verify.end();
+        return verify.verify(publicKeyObject, signatureB64, 'base64');
+    } catch (error) {
+        console.error('KPay signature verification error:', error);
+        return false;
     }
 }
 
