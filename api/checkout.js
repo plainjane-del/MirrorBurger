@@ -12,17 +12,11 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    // 🔍 安全診斷：印出所有變數名稱（100% 隱私安全，完全不含密碼內容）
-    const allEnvKeys = Object.keys(process.env);
-    const stripeKeys = allEnvKeys.filter(k => k.toUpperCase().includes('STRIPE'));
-    console.log("🔍 Vercel 偵測到的 Stripe 相關變數名稱:", stripeKeys);
-
     const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
     if (!STRIPE_KEY) {
-        console.error('🚨 錯誤：Vercel 完全讀唔到 STRIPE_SECRET_KEY！現有相關 Key：', stripeKeys);
-        return res.status(500).json({ 
+        console.error('Missing STRIPE_SECRET_KEY');
+        return res.status(500).json({
             error: 'Server configuration error: Missing Stripe Key',
-            detectedKeys: stripeKeys 
         });
     }
     
