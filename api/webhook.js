@@ -1,10 +1,4 @@
 // api/webhook.js
-// 🔑 由 Vercel 環境變數讀取 Stripe Secret Key 同 Webhook Secret
-const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
-const stripe = require('stripe')(STRIPE_KEY);
-
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-
 const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
 
@@ -43,10 +37,15 @@ const handler = async (req, res) => {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    if (!STRIPE_WEBHOOK_SECRET) {
-        console.error('Webhook 未設定：環境變數 STRIPE_WEBHOOK_SECRET 係空嘅。');
+    // 🛡️ 延遲載入：確保 Function 行緊嘅時候先去讀環境變數
+    const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
+    const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!STRIPE_KEY || !STRIPE_WEBHOOK_SECRET) {
+        console.error('🚨 Webhook 未設定：環境變數 STRIPE_SECRET_KEY 或 STRIPE_WEBHOOK_SECRET 係空嘅。');
         return res.status(500).json({ error: 'Webhook secret not configured' });
     }
+    const stripe = require('stripe')(STRIPE_KEY);
 
     let event;
     try {
