@@ -1,6 +1,6 @@
 // api/checkout.js
-// 🚨 終極暴風修復：直接將你頭先喺 Stripe 複製出嚟串 sk_live_... 貼喺下面單引號入面！
-const STRIPE_KEY = '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'; 
+// 🔑 由 Vercel 環境變數讀取 Stripe Secret Key
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY; 
 const stripe = require('stripe')(STRIPE_KEY);
 
 module.exports = async (req, res) => {
@@ -39,15 +39,12 @@ module.exports = async (req, res) => {
                 quantity: 1,
             }],
             mode: 'payment',
-            // 🔑 帶住單號入 Stripe，等 webhook 收到付款成功時，知道要改邊張單做 PAID
             metadata: { orderNo: orderNo },
             client_reference_id: orderNo,
-            // ✅ 後備機制：付完款跳返主頁時帶住 ?paid=單號，前端即刻補認 PAID（防 webhook 萬一漏接）
             success_url: `https://mirrorburger.com/?paid=${orderNo}`,
             cancel_url: `https://mirrorburger.com`,
         });
 
-        // 完美回傳支付網址
         return res.status(200).json({ paymentUrl: session.url });
 
     } catch (err) {
