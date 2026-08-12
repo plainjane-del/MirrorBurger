@@ -1,4 +1,4 @@
-const kpay = require('../_kpay.js');
+const kpay = require('./_kpay.js');
 
 // 必須設定 bodyParser: false 以獲取 KPay 驗簽用的 raw body
 export const config = { api: { bodyParser: false } };
