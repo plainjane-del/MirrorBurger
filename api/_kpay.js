@@ -1,16 +1,22 @@
 const crypto = require('crypto');
 const forge = require('node-forge');
 
-// 🛡️ 萬能 PEM 重組器：自動修復單行、換行走樣或有空格嘅 PEM 密鑰
-function normalizePem(rawPem) {
+// 🛡️ 智能 PEM 修復器：即使 Vercel 漏貼 -----BEGIN...----- 亦能自動補全並格式化
+function normalizePem(rawPem, defaultType = 'PRIVATE KEY') {
     if (!rawPem) return '';
     let text = String(rawPem).trim();
     text = text.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
+    // 如果完全沒有 -----BEGIN 標頭，自動加上頭尾與 64 字元換行
+    if (!text.includes('-----BEGIN')) {
+        const cleanBody = text.replace(/\s+/g, '');
+        const formattedBody = cleanBody.match(/.{1,64}/g)?.join('\n') || cleanBody;
+        return `-----BEGIN ${defaultType}\n${formattedBody}\n-----END ${defaultType}\n`;
+    }
+
     const match = text.match(/-----BEGIN ([A-Z ]+)-----\s*([\s\S]+?)\s*-----END \1-----/);
     if (match) {
         const type = match[1];
-        // 清走 Base64 亂碼入面所有空格與換行，然後每 64 個字元重新換行
         const body = match[2].replace(/\s+/g, '');
         const formattedBody = body.match(/.{1,64}/g)?.join('\n') || body;
         return `-----BEGIN ${type}\n${formattedBody}\n-----END ${type}\n`;
@@ -21,18 +27,12 @@ function normalizePem(rawPem) {
 function getKeyContent(envVar) {
     const val = process.env[envVar];
     if (!val) throw new Error(`Missing environment variable: ${envVar}`);
+    // 💡 已經移除了之前誤加的 '-----BEGIN' 攔截器，讓程式可以順利落去執行自動補全！
     return val;
 }
 
-function validatePrivateKey(pem) {
-    if (pem.includes('BEGIN PUBLIC KEY') || pem.includes('BEGIN CERTIFICATE')) {
-        throw new Error('Invalid Private Key: Provided PEM is a public key/certificate.');
-    }
-}
-
 function signWithRsaSha256(signatureText, rawPemKey) {
-    const normalizedPem = normalizePem(rawPemKey);
-    validatePrivateKey(normalizedPem);
+    const normalizedPem = normalizePem(rawPemKey, 'PRIVATE KEY');
     try {
         const signer = crypto.createSign('RSA-SHA256');
         signer.update(signatureText);
@@ -51,7 +51,7 @@ function signWithRsaSha256(signatureText, rawPemKey) {
 }
 
 function verifyKpaySignature(signatureB64, signatureText, rawPubKeyPem) {
-    const normalizedPem = normalizePem(rawPubKeyPem);
+    const normalizedPem = normalizePem(rawPubKeyPem, 'PUBLIC KEY');
     try {
         const verifier = crypto.createVerify('RSA-SHA256');
         verifier.update(signatureText);
