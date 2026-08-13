@@ -18,7 +18,9 @@ module.exports = async (req, res) => {
             payAmount: Number(amount),
             payCurrency: 'HKD',
             notifyUrl: `${hostUrl}/api/kpay-notify`,
-            returnUrl: `${hostUrl}/?paid=${orderNo}`,
+            // returnUrl = 離開付款頁後返回網站；唔代表已付款（取消都會返嚟）
+            // 真正標 PAID 只靠 kpay-notify webhook
+            returnUrl: `${hostUrl}/?order_return=${orderNo}`,
             orderRemark: `Mirror Burger Order #${orderNo}`,
             itemList: [{
                 itemNo: 'MB_ORDER',

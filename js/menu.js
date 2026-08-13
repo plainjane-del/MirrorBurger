@@ -925,18 +925,49 @@ function closeConfirmation() {
 async function confirmPaymentFromRedirect() {
     try {
         const params = new URLSearchParams(window.location.search);
-        const paidOrderNo = params.get('paid');
-        if (!paidOrderNo) return;
+        // order_return = KPay 返回（成功或取消都會用）；paid = 舊連結相容
+        const orderNo = params.get('order_return') || params.get('paid');
+        if (!orderNo) return;
 
-        await supabaseClient
-            .from('orders')
-            .update({ payment_status: 'PAID' })
-            .eq('order_no', paidOrderNo)
-            .eq('payment_status', 'PENDING');
-
+        params.delete('order_return');
         params.delete('paid');
         const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         window.history.replaceState({}, document.title, cleanUrl);
+
+        // ⚠️ 唔可以喺前端自行改成 PAID：KPay 取消付款都會打返 returnUrl，
+        // 只信任 webhook (kpay-notify / Stripe webhook) 先會標 PAID。
+        // Webhook 可能慢幾秒，所以短暫輪詢 DB。
+        let order = null;
+        for (let i = 0; i < 6; i++) {
+            const { data, error } = await supabaseClient
+                .from('orders')
+                .select('order_no, store_name, pickup_time, payment_status')
+                .eq('order_no', orderNo)
+                .maybeSingle();
+
+            if (error) throw error;
+            order = data;
+            if (order && String(order.payment_status || '').toUpperCase() === 'PAID') break;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (!order) return;
+
+        const pay = String(order.payment_status || '').toUpperCase();
+        if (pay === 'PAID') {
+            cart = [];
+            updateCartUI();
+            closeAllSheets();
+            const fakeBtn = { innerHTML: '', disabled: false };
+            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', fakeBtn, '');
+            return;
+        }
+
+        // 仍係 PENDING：客人取消／未完成付款 → 廚房唔會顯示，亦唔喺前端改狀態
+        showCustomAlert(lang(
+            'Payment was not completed. Your order was not sent to the kitchen.',
+            '付款未完成，訂單未有送去廚房。'
+        ));
     } catch (err) {
         console.warn('Redirect payment confirmation failed:', err);
     }
