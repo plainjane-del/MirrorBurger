@@ -1,4 +1,4 @@
-const CACHE = 'mirror-burger-v3';
+const CACHE = 'mirror-burger-v4';
 const APP_SHELL = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -24,7 +24,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Never intercept payments / APIs / third-party calls (KPay, Supabase, Telegram, etc.)
+  // Never intercept payments / APIs / third-party calls (KPay, Supabase, etc.)
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
     return;
   }
@@ -44,7 +44,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for other same-origin static assets.
+  // JS/CSS must stay fresh (payment + menu logic); network-first with cache fallback.
+  if (url.pathname.startsWith('/js/') || url.pathname.endsWith('.css') || url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Cache-first for other same-origin static assets (images, icons, etc.).
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;

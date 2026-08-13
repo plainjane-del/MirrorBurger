@@ -3,9 +3,9 @@
 // --- 1. SUPABASE & SERVER 設定 ---
 const SB_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbym1vHsZ3ggBc-FPxQ7CZLP7SaNkhR1arGoqhKOMJFmJ6Ix-PX-9kyM1QA_nkZztZMmvw/exec';
 
 const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
+let pendingPaymentOrderNo = null;
 
 // --- 2. GLOBAL STATE & CONFIG ---
 let currentLang = 'en';
@@ -818,87 +818,98 @@ function renderStores() {
     }
 }
 
-// --- TELEGRAM CHECKOUT LOGIC ---
-function processTelegramOrder() {
-    const store = getActiveStore();
-    let name = document.getElementById('cust-name').value.trim();
-    let phone = document.getElementById('cust-phone').value.trim();
-    const time = document.getElementById('cust-time').value;
-
-    if (!store || !name || !phone || !time || cart.length === 0) return;
-
-    name = sanitizeHTML(name); phone = sanitizeHTML(phone);
-
-    const btn = document.getElementById('checkout-btn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `<span class="en">Sending Order...</span><span class="zh">發送訂單中...</span>`;
-    btn.disabled = true;
-
-    const list = cart.map(i => `• ${i.nameEn} ${i.nameZh !== i.nameEn ? '('+i.nameZh+')' : ''} - ${i.price}\n  └ ${i.detailsEn} / ${i.detailsZh}`).join('\n');
-    let calcSubtotal = cart.reduce((sum, item) => sum + item.price, 0);
-    let hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo'));
-    let calcDiscount = 0;
-    
-    if (deliveryMode === 'pickup') {
-        if (store === 'Tsuen Wan (Takeaway Only)') { calcDiscount = Math.floor(calcSubtotal * 0.15); } 
-        else if (calcSubtotal >= 120 || hasCombo) { calcDiscount = Math.floor(calcSubtotal * 0.10); }
+function openPaymentChecking(orderNo) {
+    pendingPaymentOrderNo = orderNo;
+    const orderLabel = document.getElementById('payment-checking-order');
+    const refreshBtn = document.getElementById('payment-refresh-btn');
+    const msg = document.getElementById('payment-checking-msg');
+    if (orderLabel) orderLabel.textContent = `#${orderNo}`;
+    if (refreshBtn) refreshBtn.classList.add('hidden');
+    if (msg) {
+        msg.innerHTML = `<span class="en">Please wait a moment while we confirm your payment.</span><span class="zh">請稍候，我們正在確認你的付款。</span>`;
     }
-    
-    let delivery = 0; let calcTotal = calcSubtotal - calcDiscount + delivery;
-
-    const storeObj = stores.find(s => s.name === store);
-    const storeDisplay = storeObj ? `${store} (${storeObj.nameZh})` : store;
-
-    const msg = `🍔 <b>NEW ORDER: Mirror Burger</b>\n` +
-                `------------------\n` +
-                `<b>Customer Details:</b>\n` +
-                `Store: ${storeDisplay}\n` +
-                `Name: ${name}\n` +
-                `Phone: ${phone}\n` +
-                `Mode: ${deliveryMode.toUpperCase()}\n` +
-                `Time: ${time}\n` +
-                `------------------\n` +
-                `<b>Items:</b>\n${list}\n` +
-                `------------------\n` +
-                `Subtotal: ${calcSubtotal}\n` +
-                (calcDiscount > 0 ? `Discount: -${calcDiscount}\n` : '') +
-                `<b>Total: ${calcTotal}</b>`;
-
-    const TELEGRAM_CHAT_IDS = {
-        'Sai Ying Pun': '-1003968192417',
-        'Fortress Hill': '-5288271012',
-        'Tsuen Wan (Takeaway Only)': '-5178883118'
-    };
-    const chatId = TELEGRAM_CHAT_IDS[store];
-
-    fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ chat_id: chatId, text: msg })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.status === 'success' && data.data.ok) {
-            finishOrderSuccess(store, time, btn, originalText);
-        } else {
-            showCustomAlert('傳送失敗，請聯絡管理員。');
-            btn.innerHTML = originalText; btn.disabled = false;
-        }
-    })
-    .catch(err => {
-        showCustomAlert('網絡錯誤，請重試。');
-        btn.innerHTML = originalText; btn.disabled = false;
-    });
+    const modal = document.getElementById('payment-checking-modal');
+    const content = document.getElementById('payment-checking-content');
+    modal.classList.remove('hidden'); void modal.offsetWidth;
+    modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
 }
 
-function finishOrderSuccess(store, time, btn, originalText) {
+function closePaymentChecking() {
+    const modal = document.getElementById('payment-checking-modal');
+    const content = document.getElementById('payment-checking-content');
+    modal.classList.add('opacity-0'); content.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function showPaymentStillPending() {
+    const msg = document.getElementById('payment-checking-msg');
+    const refreshBtn = document.getElementById('payment-refresh-btn');
+    if (msg) {
+        msg.innerHTML = lang(
+            'Payment not confirmed yet. If you already paid, tap Refresh. If you cancelled, you can close this.',
+            '尚未確認付款。若你已付款，請按「重新整理狀態」。若已取消，可關閉此視窗。'
+        );
+    }
+    if (refreshBtn) refreshBtn.classList.remove('hidden');
+}
+
+async function fetchOrderPaymentStatus(orderNo) {
+    const { data, error } = await supabaseClient
+        .from('orders')
+        .select('order_no, store_name, pickup_time, payment_status, total_amount')
+        .eq('order_no', orderNo)
+        .maybeSingle();
+    if (error) throw error;
+    return data;
+}
+
+async function refreshPaymentStatus() {
+    if (!pendingPaymentOrderNo) return;
+    const refreshBtn = document.getElementById('payment-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = lang('Checking…', '檢查中…');
+    }
+    try {
+        const order = await fetchOrderPaymentStatus(pendingPaymentOrderNo);
+        if (order && String(order.payment_status || '').toUpperCase() === 'PAID') {
+            closePaymentChecking();
+            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
+                orderNo: order.order_no,
+                amount: order.total_amount
+            });
+            return;
+        }
+        showPaymentStillPending();
+    } catch (err) {
+        console.warn('refreshPaymentStatus failed:', err);
+        showCustomAlert(lang('Could not check payment status. Please try again.', '無法檢查付款狀態，請再試一次。'));
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = `<span class="en">Refresh status</span><span class="zh">重新整理狀態</span>`;
+        }
+    }
+}
+
+function finishOrderSuccess(store, time, btn, originalText, details = {}) {
     closeAllSheets(); cart = []; updateCartUI();
     
     const storeObj = stores.find(s => s.name === store);
     const storeZh = storeObj ? storeObj.nameZh : store;
+    const orderNo = details.orderNo || '';
+    const amountNum = Number(details.amount);
+    const amountText = Number.isFinite(amountNum) ? `HK$${Math.round(amountNum)}` : '—';
     
-    document.getElementById('confirm-modal-store').innerText = lang(store, storeZh);
-    document.getElementById('confirm-modal-time').innerText = time; 
+    const orderNoEl = document.getElementById('confirm-modal-order-no');
+    const amountEl = document.getElementById('confirm-modal-amount');
+    const storeEl = document.getElementById('confirm-modal-store');
+    const timeEl = document.getElementById('confirm-modal-time');
+    // 只改 value span，唔好整段覆寫外層 <p>（保留 單號／金額／分店／取餐 label）
+    if (orderNoEl) orderNoEl.textContent = orderNo ? `#${orderNo}` : '—';
+    if (amountEl) amountEl.textContent = amountText;
+    if (storeEl) storeEl.textContent = lang(store, storeZh) || '—';
+    if (timeEl) timeEl.textContent = time || '—';
     
     const dirBtn = document.getElementById('confirm-modal-direction-btn');
     if (dirBtn && storeObj && storeObj.lat && storeObj.lng) {
@@ -910,8 +921,12 @@ function finishOrderSuccess(store, time, btn, originalText) {
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
 
-    btn.innerHTML = originalText; btn.disabled = false;
-    document.getElementById('cust-name').value = ''; document.getElementById('cust-phone').value = '';
+    if (btn) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+    document.getElementById('cust-name').value = '';
+    document.getElementById('cust-phone').value = '';
 }
 
 function closeConfirmation() {
@@ -935,41 +950,36 @@ async function confirmPaymentFromRedirect() {
         window.history.replaceState({}, document.title, cleanUrl);
 
         // ⚠️ 唔可以喺前端自行改成 PAID：KPay 取消付款都會打返 returnUrl，
-        // 只信任 webhook (kpay-notify / Stripe webhook) 先會標 PAID。
-        // Webhook 可能慢幾秒，所以短暫輪詢 DB。
-        let order = null;
-        for (let i = 0; i < 6; i++) {
-            const { data, error } = await supabaseClient
-                .from('orders')
-                .select('order_no, store_name, pickup_time, payment_status')
-                .eq('order_no', orderNo)
-                .maybeSingle();
+        // 只信任 webhook (kpay-notify) 先會標 PAID。Webhook 可能慢，先顯示「確認中」。
+        openPaymentChecking(orderNo);
 
-            if (error) throw error;
-            order = data;
+        let order = null;
+        for (let i = 0; i < 12; i++) {
+            order = await fetchOrderPaymentStatus(orderNo);
             if (order && String(order.payment_status || '').toUpperCase() === 'PAID') break;
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (!order) return;
-
-        const pay = String(order.payment_status || '').toUpperCase();
-        if (pay === 'PAID') {
-            cart = [];
-            updateCartUI();
-            closeAllSheets();
-            const fakeBtn = { innerHTML: '', disabled: false };
-            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', fakeBtn, '');
+        if (!order) {
+            showPaymentStillPending();
             return;
         }
 
-        // 仍係 PENDING：客人取消／未完成付款 → 廚房唔會顯示，亦唔喺前端改狀態
-        showCustomAlert(lang(
-            'Payment was not completed. Your order was not sent to the kitchen.',
-            '付款未完成，訂單未有送去廚房。'
-        ));
+        const pay = String(order.payment_status || '').toUpperCase();
+        if (pay === 'PAID') {
+            closePaymentChecking();
+            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
+                orderNo: order.order_no,
+                amount: order.total_amount
+            });
+            return;
+        }
+
+        // 仍係 PENDING：可能取消，或 webhook 仍未到 → 畀人手動刷新
+        showPaymentStillPending();
     } catch (err) {
         console.warn('Redirect payment confirmation failed:', err);
+        showPaymentStillPending();
     }
 }
 

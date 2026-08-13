@@ -114,10 +114,60 @@
         }
         .wa-notify-btn:active { transform: scale(0.97); }
         .wa-notify-btn:hover { filter: brightness(1.08); }
+        .wa-notify-btn.is-sent {
+            background: #14532d;
+            box-shadow: none;
+            color: #bbf7d0;
+        }
+        .history-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: none;
+        }
+        .history-panel.is-open { display: block; }
+        .history-panel-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.65);
+        }
+        .history-panel-sheet {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: min(420px, 100%);
+            background: #141414;
+            border-left: 1px solid #2a2a2a;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.22s ease;
+        }
+        .history-panel.is-open .history-panel-sheet { transform: translateX(0); }
     </style>
 </head>
 <body class="antialiased">
 
+    <div id="kitchen-lock" class="fixed inset-0 z-[100] bg-kds-bg flex items-center justify-center px-6">
+        <form id="kitchen-login-form" class="w-full max-w-sm space-y-5" onsubmit="return submitKitchenLogin(event)">
+            <div class="text-center space-y-2">
+                <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
+                <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
+                <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
+            </div>
+            <input id="kitchen-password" type="password" autocomplete="current-password" required
+                placeholder="Password"
+                class="w-full rounded-2xl bg-kds-card border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-kds-yellow">
+            <p id="kitchen-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
+            <button type="submit" id="kitchen-login-btn"
+                class="w-full rounded-2xl bg-kds-yellow text-black py-4 text-base font-black uppercase tracking-widest">
+                進入廚房
+            </button>
+        </form>
+    </div>
+
+    <div id="kitchen-app" class="hidden">
     <header class="sticky top-0 z-50 bg-kds-bg/95 backdrop-blur border-b border-kds-border px-4 py-3 md:px-6 md:py-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex items-center justify-between gap-4">
@@ -136,12 +186,24 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <button type="button" onclick="openTodayStats()"
+                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-600 bg-kds-panel min-h-[64px]">
+                    今日統計
+                </button>
+                <button type="button" onclick="openCompletedToday()"
+                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-600 bg-kds-panel min-h-[64px]">
+                    今日已完成
+                </button>
                 <button id="store-status-btn" type="button" onclick="toggleStoreStatus()"
                     class="store-status-btn is-closed w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg" disabled>
                     載入中…
                 </button>
                 <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="shift-btn w-full lg:w-auto px-6 rounded-2xl text-base md:text-lg uppercase">
                     開班 / 啟用廚房響鈴
+                </button>
+                <button type="button" onclick="logoutKitchen()"
+                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-700 bg-neutral-900 min-h-[64px] text-neutral-300">
+                    登出
                 </button>
             </div>
         </div>
@@ -161,10 +223,41 @@
 
     <main id="orders-grid" class="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-5"></main>
 
+    <div id="completed-panel" class="history-panel" aria-hidden="true">
+        <div class="history-panel-backdrop" onclick="closeCompletedToday()"></div>
+        <aside class="history-panel-sheet" role="dialog" aria-label="今日已完成訂單">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
+                <div>
+                    <h2 class="text-xl font-black text-kds-yellow">今日已完成</h2>
+                    <p id="completed-count" class="text-sm font-bold text-neutral-400 mt-0.5">0 張</p>
+                </div>
+                <button type="button" onclick="closeCompletedToday()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
+            </div>
+            <div id="completed-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+        </aside>
+    </div>
+
+    <div id="stats-panel" class="history-panel" aria-hidden="true">
+        <div class="history-panel-backdrop" onclick="closeTodayStats()"></div>
+        <aside class="history-panel-sheet" role="dialog" aria-label="今日統計">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
+                <div>
+                    <h2 class="text-xl font-black text-kds-yellow">今日統計</h2>
+                    <p class="text-sm font-bold text-neutral-400 mt-0.5">依目前分店</p>
+                </div>
+                <button type="button" onclick="closeTodayStats()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
+            </div>
+            <div id="stats-body" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+        </aside>
+    </div>
+    </div><!-- /#kitchen-app -->
+
     <script>
         const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
         const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const KITCHEN_TOKEN_KEY = 'mb_kds_token';
+        let kitchenBooted = false;
 
         // 廚房活躍狀態：已付款但未完成
         const ACTIVE_STATUSES = ['PAID', 'PREPARING', 'READY'];
@@ -178,6 +271,47 @@
         let currentBranch = 'Sai Ying Pun';
         let audioUnlocked = false;
         let audioCtx = null;
+        const WA_NOTIFIED_KEY = 'mb_kds_wa_notified';
+        let waNotifiedSet = loadWaNotifiedSet();
+
+        function loadWaNotifiedSet() {
+            try {
+                const raw = localStorage.getItem(WA_NOTIFIED_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return new Set(Array.isArray(arr) ? arr : []);
+            } catch {
+                return new Set();
+            }
+        }
+
+        function persistWaNotified() {
+            try {
+                localStorage.setItem(WA_NOTIFIED_KEY, JSON.stringify([...waNotifiedSet]));
+            } catch (_) {}
+        }
+
+        function markWaNotified(orderNo) {
+            waNotifiedSet.add(orderNo);
+            persistWaNotified();
+        }
+
+        function formatAmount(order) {
+            const n = Number(order?.total_amount);
+            if (!Number.isFinite(n)) return '—';
+            return `HK$${Math.round(n)}`;
+        }
+
+        function startOfTodayHK() {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Hong_Kong',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(new Date());
+            const y = parts.find(p => p.type === 'year')?.value;
+            const m = parts.find(p => p.type === 'month')?.value;
+            const d = parts.find(p => p.type === 'day')?.value;
+            // HK midnight as UTC+8
+            return new Date(`${y}-${m}-${d}T00:00:00+08:00`).toISOString();
+        }
         /** @type {boolean|null} null = 未載入 / 查無資料 */
         let storeIsOpen = null;
         /** @type {Map<string, object>} */
@@ -277,6 +411,156 @@
                 `🍔 Mirror Burger【取餐通知】\n` +
                 `你好！閣下於【${store_name}】落單嘅訂單 #${order_no} 已經準備好啦！請憑此訊息前往分店取餐，多謝！`;
             window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+            markWaNotified(orderNo);
+            renderOrders();
+        }
+
+        function openCompletedToday() {
+            const panel = document.getElementById('completed-panel');
+            panel.classList.add('is-open');
+            panel.setAttribute('aria-hidden', 'false');
+            loadCompletedToday();
+        }
+
+        function closeCompletedToday() {
+            const panel = document.getElementById('completed-panel');
+            panel.classList.remove('is-open');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        async function loadCompletedToday() {
+            const listEl = document.getElementById('completed-list');
+            const countEl = document.getElementById('completed-count');
+            listEl.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
+
+            const since = startOfTodayHK();
+            const { data, error } = await client
+                .from('orders')
+                .select('order_no, customer_name, customer_phone, pickup_time, total_amount, payment_status, status, created_at')
+                .eq('store_name', currentBranch)
+                .gte('created_at', since)
+                .or('payment_status.eq.COMPLETED,status.eq.COMPLETED')
+                .order('created_at', { ascending: false })
+                .limit(80);
+
+            if (error) {
+                console.error(error);
+                listEl.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(error.message)}</p>`;
+                countEl.textContent = '—';
+                return;
+            }
+
+            const rows = data || [];
+            countEl.textContent = `${rows.length} 張`;
+            if (!rows.length) {
+                listEl.innerHTML = `<p class="text-neutral-500 font-bold py-10 text-center">今日未有已完成訂單</p>`;
+                return;
+            }
+
+            listEl.innerHTML = rows.map(o => `
+                <div class="rounded-2xl border border-neutral-700 bg-kds-card p-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
+                            <div class="text-2xl font-black text-white">#${escapeHtml(o.order_no)}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-black text-kds-yellow">${formatAmount(o)}</div>
+                            <div class="text-sm font-bold text-neutral-400 mt-1">${escapeHtml(o.pickup_time || '—')}</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-base font-bold text-neutral-200">
+                        ${escapeHtml(o.customer_name || '—')}
+                        <span class="text-neutral-600">·</span>
+                        ${escapeHtml(o.customer_phone || '—')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openTodayStats() {
+            const panel = document.getElementById('stats-panel');
+            panel.classList.add('is-open');
+            panel.setAttribute('aria-hidden', 'false');
+            loadTodayStats();
+        }
+
+        function closeTodayStats() {
+            const panel = document.getElementById('stats-panel');
+            panel.classList.remove('is-open');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        function statCard(label, value, sub = '') {
+            return `
+                <div class="rounded-2xl border border-neutral-700 bg-kds-card p-5">
+                    <div class="text-xs font-black uppercase tracking-widest text-neutral-500">${label}</div>
+                    <div class="mt-2 text-3xl font-black text-kds-yellow">${value}</div>
+                    ${sub ? `<div class="mt-1 text-sm font-bold text-neutral-400">${sub}</div>` : ''}
+                </div>`;
+        }
+
+        async function loadTodayStats() {
+            const body = document.getElementById('stats-body');
+            body.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
+
+            const since = startOfTodayHK();
+            const { data, error } = await client
+                .from('orders')
+                .select('order_no, total_amount, payment_status, status, created_at')
+                .eq('store_name', currentBranch)
+                .gte('created_at', since)
+                .limit(500);
+
+            if (error) {
+                console.error(error);
+                body.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(error.message)}</p>`;
+                return;
+            }
+
+            const rows = data || [];
+            let completed = 0;
+            let cancelled = 0;
+            let pending = 0;
+            let active = 0;
+            let paidLike = 0;
+            let revenue = 0;
+
+            rows.forEach(o => {
+                const pay = String(o.payment_status || '').toUpperCase();
+                const st = String(o.status || '').toUpperCase();
+                const amt = Number(o.total_amount) || 0;
+
+                if (st === 'COMPLETED' || pay === 'COMPLETED') {
+                    completed += 1;
+                    revenue += amt;
+                    return;
+                }
+                if (pay === 'CANCELLED' || st === 'CANCELLED') {
+                    cancelled += 1;
+                    return;
+                }
+                if (pay === 'PENDING') {
+                    pending += 1;
+                    return;
+                }
+                if (isActiveKitchenOrder(o)) {
+                    active += 1;
+                    paidLike += 1;
+                    return;
+                }
+                if (pay === 'PAID' || ['PREPARING', 'READY'].includes(pay) || ['PREPARING', 'READY', 'PAID'].includes(st)) {
+                    paidLike += 1;
+                }
+            });
+
+            body.innerHTML = [
+                statCard('已完成', `${completed} 張`, `營業額約 HK$${Math.round(revenue)}`),
+                statCard('廚房進行中', `${active} 張`, '已付款未完成'),
+                statCard('已取消 / 未付逾時', `${cancelled} 張`, '含取消同系統清走'),
+                statCard('仍待付款', `${pending} 張`, '客人可能仲喺 KPay'),
+                statCard('今日總單數', `${rows.length} 張`, `已付款相關約 ${paidLike + completed} 張`)
+            ].join('');
         }
 
         // --- Web Audio：開班解鎖 + 雙重嗶嗶 ---
@@ -339,6 +623,12 @@
             document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
             loadOrders();
             loadStoreStatus();
+            if (document.getElementById('completed-panel').classList.contains('is-open')) {
+                loadCompletedToday();
+            }
+            if (document.getElementById('stats-panel').classList.contains('is-open')) {
+                loadTodayStats();
+            }
         }
 
         function renderStoreStatusBtn() {
@@ -421,24 +711,28 @@
         function isActiveKitchenOrder(order) {
             const pay = (order.payment_status || '').toUpperCase();
             const st = (order.status || '').toUpperCase();
-            
-            // 🛡️ 關鍵防護：只要係未付款 (PENDING) 或取消，絕對回傳 false（唔會喺廚房顯示）
+
+            // 未付款 / 取消 / 已完成 → 唔上牆
             if (pay === 'PENDING' || st === 'PENDING') return false;
             if (pay === 'CANCELLED' || st === 'CANCELLED') return false;
-            if (pay === 'COMPLETED' || st === 'COMPLETED') return false;
-            
-            // 只有 已付款 (PAID) / 製作中 (PREPARING) / 可取餐 (READY) 先會顯示
-            if (ACTIVE_STATUSES.includes(pay) || ACTIVE_STATUSES.includes(st)) return true;
-            if (pay === 'PAID') return true;
-            return false;
+            if (st === 'COMPLETED' || pay === 'COMPLETED') return false;
+
+            // 必須已付款：新流程 payment_status=PAID；舊資料可能把廚房狀態寫入 payment_status
+            const paidOk = pay === 'PAID' || ACTIVE_STATUSES.includes(pay);
+            if (!paidOk) return false;
+
+            // 廚房狀態優先用 status；冇就 fallback payment_status（兼容舊單）
+            const kitchen = st || pay;
+            return ACTIVE_STATUSES.includes(kitchen);
         }
 
         async function loadOrders() {
+            // 新：payment_status 留 PAID；舊：payment_status 可能係 PREPARING/READY
             const { data, error } = await client
                 .from('orders')
                 .select('*')
                 .eq('store_name', currentBranch)
-                .in('payment_status', ['PAID', 'PREPARING', 'READY'])
+                .or('payment_status.in.(PAID,PREPARING,READY),status.in.(PAID,PREPARING,READY)')
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -510,6 +804,8 @@
             const name = escapeHtml(order.customer_name || '—');
             const phone = escapeHtml(order.customer_phone || '—');
             const pickup = escapeHtml(order.pickup_time || '—');
+            const amount = formatAmount(order);
+            const waSent = waNotifiedSet.has(order.order_no);
 
             const itemsHtml = items.length
                 ? items.map(item => {
@@ -535,6 +831,7 @@
                             <div>
                                 <div class="text-sm font-black uppercase tracking-widest text-neutral-400">單號 Order No.</div>
                                 <div class="text-3xl md:text-4xl font-black text-white tracking-tight">#${orderNo}</div>
+                                <div class="mt-1 text-2xl font-black text-kds-yellow">${amount}</div>
                             </div>
                             <div class="text-right">
                                 <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-black uppercase ${meta.badge}">${meta.label}</div>
@@ -557,9 +854,9 @@
                         </div>
 
                         ${(status === 'READY' || status === 'PREPARING') ? `
-                        <button type="button" class="wa-notify-btn w-full rounded-xl px-4 text-base md:text-lg"
+                        <button type="button" class="wa-notify-btn ${waSent ? 'is-sent' : ''} w-full rounded-xl px-4 text-base md:text-lg"
                             onclick="notifyCustomerWhatsApp('${orderNoJs}')">
-                            📱 WhatsApp 通知客人
+                            ${waSent ? '✓ 已通知（再傳一次）' : '📱 WhatsApp 通知客人'}
                         </button>` : ''}
                     </div>
 
@@ -575,28 +872,24 @@
         }
 
         async function updateOrderStatus(orderNo, nextStatus) {
-            // 同時寫 status + payment_status，兼容現有資料庫同你要求嘅 status 欄位
-            const payload = { status: nextStatus, payment_status: nextStatus };
-            let { error } = await client.from('orders').update(payload).eq('order_no', orderNo);
-
-            // 若 status 欄位唔存在，退回只更新 payment_status
-            if (error) {
-                console.warn('status update fallback → payment_status only', error.message);
-                ({ error } = await client.from('orders').update({ payment_status: nextStatus }).eq('order_no', orderNo));
-            }
+            // 只改廚房 status；payment_status 保持 PAID（RLS/trigger 亦唔准前端改）
+            const { error } = await client.from('orders').update({ status: nextStatus }).eq('order_no', orderNo);
 
             if (error) {
                 console.error(error);
-                alert('更新狀態失敗：' + error.message);
+                alert('更新狀態失敗：' + error.message + '\n（請確認 orders 表有 status 欄位）');
                 return;
             }
 
             const existing = ordersMap.get(orderNo);
             if (existing) {
-                const merged = { ...existing, status: nextStatus, payment_status: nextStatus };
+                const merged = { ...existing, status: nextStatus };
                 if (nextStatus === 'COMPLETED') {
                     ordersMap.delete(orderNo);
                     renderOrders();
+                    if (document.getElementById('completed-panel').classList.contains('is-open')) {
+                        loadCompletedToday();
+                    }
                 } else {
                     ordersMap.set(orderNo, merged);
                     renderOrders();
@@ -606,12 +899,29 @@
             }
         }
 
+        let ordersPollTimer = null;
+        let realtimeOnline = false;
+
+        function scheduleOrdersPoll() {
+            if (ordersPollTimer) clearInterval(ordersPollTimer);
+            // Realtime 正常：每 60 秒兜底；斷線：每 10 秒拉一次，減少漏單
+            const ms = realtimeOnline ? 60000 : 10000;
+            ordersPollTimer = setInterval(() => {
+                loadOrders();
+                if (document.getElementById('stats-panel')?.classList.contains('is-open')) {
+                    loadTodayStats();
+                }
+            }, ms);
+        }
+
         function setConn(online) {
+            realtimeOnline = !!online;
             const dot = document.getElementById('conn-dot');
             const label = document.getElementById('conn-label');
             dot.classList.toggle('online', online);
             dot.classList.toggle('offline', !online);
-            label.textContent = online ? 'Realtime 已連接' : '連線中斷 / 重連中';
+            label.textContent = online ? 'Realtime 已連接' : '連線中斷（密頻刷新中）';
+            scheduleOrdersPoll();
         }
 
         function handleRealtime(payload) {
@@ -670,12 +980,90 @@
                 });
         }
 
-        window.onload = () => {
+        function showKitchenApp() {
+            document.getElementById('kitchen-lock').classList.add('hidden');
+            document.getElementById('kitchen-app').classList.remove('hidden');
+        }
+
+        function showKitchenLock(msg) {
+            document.getElementById('kitchen-app').classList.add('hidden');
+            document.getElementById('kitchen-lock').classList.remove('hidden');
+            const err = document.getElementById('kitchen-login-error');
+            if (msg) {
+                err.textContent = msg;
+                err.classList.remove('hidden');
+            } else {
+                err.classList.add('hidden');
+            }
+        }
+
+        function bootKitchen() {
+            if (kitchenBooted) return;
+            kitchenBooted = true;
+            showKitchenApp();
             loadOrders();
             loadStoreStatus();
             startRealtime();
-            // 安全網：每分鐘重拉一次，防漏單
-            setInterval(loadOrders, 60000);
+            scheduleOrdersPoll();
+        }
+
+        async function verifyKitchenToken(token) {
+            const res = await fetch('/api/kitchen-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token })
+            });
+            return res.ok;
+        }
+
+        async function submitKitchenLogin(event) {
+            event.preventDefault();
+            const btn = document.getElementById('kitchen-login-btn');
+            const err = document.getElementById('kitchen-login-error');
+            const password = document.getElementById('kitchen-password').value;
+            btn.disabled = true;
+            btn.textContent = '驗證中…';
+            err.classList.add('hidden');
+            try {
+                const res = await fetch('/api/kitchen-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.error || '密碼錯誤');
+                }
+                sessionStorage.setItem(KITCHEN_TOKEN_KEY, data.token);
+                bootKitchen();
+            } catch (e) {
+                err.textContent = e.message || '登入失敗';
+                err.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '進入廚房';
+            }
+            return false;
+        }
+
+        function logoutKitchen() {
+            sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
+            location.reload();
+        }
+
+        window.onload = async () => {
+            const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY);
+            if (token) {
+                try {
+                    if (await verifyKitchenToken(token)) {
+                        bootKitchen();
+                        return;
+                    }
+                } catch (_) {}
+                sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
+            }
+            showKitchenLock();
+            document.getElementById('kitchen-password')?.focus();
         };
     </script>
 </body>

@@ -1,4 +1,5 @@
 // api/webhook.js
+const { markOrderPaid } = require('./_orders.js');
 const config = { api: { bodyParser: false } };
 
 function getRawBody(req) {
@@ -8,35 +9,6 @@ function getRawBody(req) {
         req.on('end', () => resolve(Buffer.concat(chunks)));
         req.on('error', reject);
     });
-}
-
-async function markOrderPaid(orderNo) {
-    if (!orderNo) return;
-
-    // 🛡️ 由環境變數安全讀取 Supabase 設定
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY');
-    }
-
-    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&payment_status=eq.PENDING`;
-    const resp = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify({ payment_status: 'PAID' }),
-    });
-
-    if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Supabase update failed (${resp.status}): ${text}`);
-    }
 }
 
 const handler = async (req, res) => {

@@ -408,18 +408,40 @@
             </div>
         </div>
 
+        <div id="payment-checking-modal" class="fixed inset-0 bg-black/60 z-[4000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
+            <div class="bg-white w-full max-w-[360px] rounded-[2.5rem] p-8 space-y-5 transform scale-95 transition-all duration-300 text-center" id="payment-checking-content" role="dialog" aria-modal="true">
+                <div class="w-16 h-16 border-4 border-burger-gold border-t-transparent rounded-full animate-spin mx-auto" aria-hidden="true"></div>
+                <h3 class="text-2xl font-black italic uppercase tracking-tighter">
+                    <span class="en">Confirming payment…</span><span class="zh">確認付款中…</span>
+                </h3>
+                <p class="text-xs font-medium text-gray-500 leading-relaxed" id="payment-checking-msg">
+                    <span class="en">Please wait a moment while we confirm your payment.</span>
+                    <span class="zh">請稍候，我們正在確認你的付款。</span>
+                </p>
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest" id="payment-checking-order"></p>
+                <button type="button" id="payment-refresh-btn" onclick="refreshPaymentStatus()" class="hidden w-full bg-black text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl">
+                    <span class="en">Refresh status</span><span class="zh">重新整理狀態</span>
+                </button>
+                <button type="button" onclick="closePaymentChecking()" class="w-full bg-apple-bg text-black py-3 rounded-xl text-xs font-black uppercase tracking-widest border border-gray-200">
+                    <span class="en">Close</span><span class="zh">關閉</span>
+                </button>
+            </div>
+        </div>
+
         <div id="order-confirmed-modal" class="fixed inset-0 bg-black/60 z-[4000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
             <div class="bg-white w-full max-w-[360px] rounded-[2.5rem] p-8 space-y-6 transform scale-95 transition-all duration-300 text-center" id="order-confirmed-content" role="dialog" aria-modal="true">
                 <div class="w-20 h-20 bg-burger-gold/20 text-burger-gold rounded-full flex items-center justify-center mx-auto mb-4 text-4xl" aria-hidden="true">🎉</div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter"><span class="en">Order Sent!</span><span class="zh">訂單已發送！</span></h3>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter"><span class="en">Payment Confirmed!</span><span class="zh">付款成功！</span></h3>
                 <p class="text-xs font-medium text-gray-500 leading-relaxed" id="confirm-modal-desc">
-                    <span class="en">Your order has been sent directly to the kitchen. Please pick it up at the designated time!</span>
-                    <span class="zh">你的訂單已直接發送至廚房。請準時前往分店取餐！</span>
+                    <span class="en">Your paid order has been sent to the kitchen. Please pick it up at the designated time!</span>
+                    <span class="zh">已付款訂單已送去廚房。請準時前往分店取餐！</span>
                 </p>
-                <div class="bg-apple-bg p-4 rounded-xl border border-gray-100 text-left mt-4 mb-4">
-                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1"><span class="en">Pick up details:</span><span class="zh">取餐詳情：</span></p>
-                    <p class="text-sm font-bold text-black" id="confirm-modal-store"></p>
-                    <p class="text-sm font-bold text-black" id="confirm-modal-time"></p>
+                <div class="bg-apple-bg p-4 rounded-xl border border-gray-100 text-left mt-4 mb-4 space-y-2">
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1"><span class="en">Order details:</span><span class="zh">訂單詳情：</span></p>
+                    <p class="text-sm font-bold text-black"><span class="en">Order No.</span><span class="zh">單號</span>：<span id="confirm-modal-order-no">—</span></p>
+                    <p class="text-sm font-bold text-black"><span class="en">Total</span><span class="zh">金額</span>：<span id="confirm-modal-amount">—</span></p>
+                    <p class="text-sm font-bold text-black"><span class="en">Store</span><span class="zh">分店</span>：<span id="confirm-modal-store">—</span></p>
+                    <p class="text-sm font-bold text-black"><span class="en">Pickup</span><span class="zh">取餐</span>：<span id="confirm-modal-time">—</span></p>
                 </div>
                 <div class="space-y-3 mt-2">
                     <a href="#" id="confirm-modal-direction-btn" target="_blank" aria-label="Open maps for directions" class="w-full bg-burger-gold text-black py-4 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shadow-xl flex items-center justify-center gap-2 block">
@@ -693,7 +715,7 @@
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=1.0"></script>
-    <script src="js/order-handler.js?v=1.0"></script>
+    <script src="js/menu.js?v=1.2"></script>
+    <script src="js/order-handler.js?v=1.2"></script>
 </body>
 </html>
