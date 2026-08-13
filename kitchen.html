@@ -421,11 +421,14 @@
         function isActiveKitchenOrder(order) {
             const pay = (order.payment_status || '').toUpperCase();
             const st = (order.status || '').toUpperCase();
-            // 必須已付款（或已進入廚房流程）；COMPLETED 唔顯示
-            if (pay === 'PENDING') return false;
+            
+            // 🛡️ 關鍵防護：只要係未付款 (PENDING) 或取消，絕對回傳 false（唔會喺廚房顯示）
+            if (pay === 'PENDING' || st === 'PENDING') return false;
+            if (pay === 'CANCELLED' || st === 'CANCELLED') return false;
             if (pay === 'COMPLETED' || st === 'COMPLETED') return false;
+            
+            // 只有 已付款 (PAID) / 製作中 (PREPARING) / 可取餐 (READY) 先會顯示
             if (ACTIVE_STATUSES.includes(pay) || ACTIVE_STATUSES.includes(st)) return true;
-            // 已付款但 status 仍空 → 當新單
             if (pay === 'PAID') return true;
             return false;
         }
@@ -454,6 +457,8 @@
 
         function upsertOrder(order, { ring = false, highlight = false } = {}) {
             if (!matchesBranch(order)) return;
+            
+            // 如果此單不符合已付款條件，確保將其從廚房畫面移除
             if (!isActiveKitchenOrder(order)) {
                 if (ordersMap.has(order.order_no)) {
                     ordersMap.delete(order.order_no);
@@ -461,8 +466,10 @@
                 }
                 return;
             }
+            
             const isNewCard = !ordersMap.has(order.order_no);
             ordersMap.set(order.order_no, order);
+            
             if (highlight || isNewCard) {
                 highlightedOrders.add(order.order_no);
                 setTimeout(() => {
@@ -470,6 +477,7 @@
                     renderOrders();
                 }, 8000);
             }
+            
             if (ring && isNewCard) ringNewOrder();
             renderOrders();
         }
@@ -608,6 +616,7 @@
 
         function handleRealtime(payload) {
             const row = payload.new;
+            
             if (!row) {
                 if (payload.old && payload.old.order_no) {
                     ordersMap.delete(payload.old.order_no);
@@ -616,24 +625,24 @@
                 return;
             }
 
-            // INSERT：新單即時置頂 + 響鈴（同舖先計）
+            // 新單 (INSERT)：只有當狀態係「已付款 (PAID)」先會上牆同響鈴
             if (payload.eventType === 'INSERT') {
-                // PENDING 未付款唔響鈴、唔上牆；PAID / PREPARING / READY 先上牆
                 if (matchesBranch(row) && isActiveKitchenOrder(row)) {
                     upsertOrder(row, { ring: true, highlight: true });
                 }
                 return;
             }
 
-            // UPDATE：付款成功變 PAID → 當新單響鈴；其他狀態同步畫面
+            // 狀態更新 (UPDATE)：例如由 PENDING 轉為 PAID 嗰一刻，當作新單響鈴提醒廚房
             if (payload.eventType === 'UPDATE') {
                 const prev = payload.old || {};
                 const becamePaid =
                     (prev.payment_status || '').toUpperCase() !== 'PAID' &&
                     (row.payment_status || '').toUpperCase() === 'PAID';
+                
                 const isNewToBoard = becamePaid || (!ordersMap.has(row.order_no) && isActiveKitchenOrder(row));
 
-                if (matchesBranch(row)) {
+                if (matchesBranch(row) && isActiveKitchenOrder(row)) {
                     upsertOrder(row, { ring: isNewToBoard, highlight: isNewToBoard });
                 } else if (ordersMap.has(row.order_no)) {
                     ordersMap.delete(row.order_no);
