@@ -27,6 +27,288 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="shortcut icon" href="/favicon.ico">
 
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://mirrorburger.com/#organization",
+          "name": "Mirror Burger",
+          "alternateName": "Mirror Burger 清真漢堡",
+          "url": "https://mirrorburger.com",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://mirrorburger.com/apple-touch-icon.png"
+          },
+          "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
+          "description": "Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
+          "areaServed": {
+            "@type": "City",
+            "name": "Hong Kong"
+          }
+        },
+        {
+          "@type": "Menu",
+          "@id": "https://mirrorburger.com/#menu",
+          "name": "Mirror Burger Menu",
+          "url": "https://mirrorburger.com/#menu-section",
+          "inLanguage": ["en", "zh-HK"],
+          "hasMenuSection": [
+            {
+              "@type": "MenuSection",
+              "name": "Beef Burgers",
+              "hasMenuItem": [
+                {
+                  "@type": "MenuItem",
+                  "name": "Classic Beef",
+                  "alternateName": "經典芝士牛肉",
+                  "description": "Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam",
+                  "suitableForDiet": "https://schema.org/HalalDiet",
+                  "offers": { "@type": "Offer", "price": "65", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Hottest Beef",
+                  "alternateName": "墨辣芝士牛肉",
+                  "offers": { "@type": "Offer", "price": "68", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Hottest Blue Cheese",
+                  "alternateName": "墨辣藍紋芝士牛肉",
+                  "offers": { "@type": "Offer", "price": "82", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "3.2.1",
+                  "description": "Double patty, bacon, triple cheese",
+                  "offers": { "@type": "Offer", "price": "99", "priceCurrency": "HKD" }
+                }
+              ]
+            },
+            {
+              "@type": "MenuSection",
+              "name": "Other Burgers",
+              "hasMenuItem": [
+                {
+                  "@type": "MenuItem",
+                  "name": "Smoked Salmon & Egg",
+                  "alternateName": "煙三文魚煎蛋",
+                  "offers": { "@type": "Offer", "price": "60", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Buffalo Chicken",
+                  "alternateName": "水牛城脆雞",
+                  "offers": { "@type": "Offer", "price": "69", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Soft Shell Crab",
+                  "alternateName": "脆炸軟殼蟹",
+                  "offers": { "@type": "Offer", "price": "99", "priceCurrency": "HKD" }
+                }
+              ]
+            },
+            {
+              "@type": "MenuSection",
+              "name": "Veggie Burgers",
+              "hasMenuItem": [
+                {
+                  "@type": "MenuItem",
+                  "name": "Mushroom Schnitzel",
+                  "alternateName": "燕麥吉列大啡菇",
+                  "suitableForDiet": "https://schema.org/VegetarianDiet",
+                  "offers": { "@type": "Offer", "price": "58", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Housemade Veggie",
+                  "alternateName": "自家製素肉",
+                  "suitableForDiet": "https://schema.org/VegetarianDiet",
+                  "offers": { "@type": "Offer", "price": "61", "priceCurrency": "HKD" }
+                },
+                {
+                  "@type": "MenuItem",
+                  "name": "Hottest Veggie",
+                  "alternateName": "墨辣素",
+                  "suitableForDiet": "https://schema.org/VegetarianDiet",
+                  "offers": { "@type": "Offer", "price": "65", "priceCurrency": "HKD" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "@type": "Restaurant",
+          "@id": "https://mirrorburger.com/#sai-ying-pun",
+          "name": "Mirror Burger Sai Ying Pun",
+          "alternateName": "Mirror Burger 西營盤",
+          "url": "https://mirrorburger.com",
+          "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
+          "logo": "https://mirrorburger.com/apple-touch-icon.png",
+          "description": "Premium Halal burgers in Sai Ying Pun, Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
+          "servesCuisine": ["Burger", "Halal", "American"],
+          "suitableForDiet": ["https://schema.org/HalalDiet", "https://schema.org/VegetarianDiet"],
+          "priceRange": "$$",
+          "currenciesAccepted": "HKD",
+          "paymentAccepted": "Cash, Credit Card",
+          "acceptsReservations": "False",
+          "menu": "https://mirrorburger.com/#menu-section",
+          "hasMenu": { "@id": "https://mirrorburger.com/#menu" },
+          "parentOrganization": { "@id": "https://mirrorburger.com/#organization" },
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "G/F, 194 Queen's Road West",
+            "addressLocality": "Sai Ying Pun",
+            "addressRegion": "Hong Kong Island",
+            "addressCountry": "HK"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 22.286866,
+            "longitude": 114.144379
+          },
+          "hasMap": "https://maps.app.goo.gl/MnNp3yi6eyedsFfM9",
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+              "opens": "11:15",
+              "closes": "24:00"
+            }
+          ],
+          "potentialAction": {
+            "@type": "OrderAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mirrorburger.com",
+              "inLanguage": ["en", "zh-HK"],
+              "actionPlatform": [
+                "http://schema.org/DesktopWebPlatform",
+                "http://schema.org/MobileWebPlatform"
+              ]
+            },
+            "deliveryMethod": ["http://purl.org/goodrelations/v1#DeliveryModePickUp"]
+          }
+        },
+        {
+          "@type": "Restaurant",
+          "@id": "https://mirrorburger.com/#fortress-hill",
+          "name": "Mirror Burger Fortress Hill",
+          "alternateName": "Mirror Burger 天后",
+          "url": "https://mirrorburger.com",
+          "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
+          "logo": "https://mirrorburger.com/apple-touch-icon.png",
+          "description": "Premium Halal burgers in Tin Hau / Fortress Hill, Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
+          "servesCuisine": ["Burger", "Halal", "American"],
+          "suitableForDiet": ["https://schema.org/HalalDiet", "https://schema.org/VegetarianDiet"],
+          "priceRange": "$$",
+          "currenciesAccepted": "HKD",
+          "paymentAccepted": "Cash, Credit Card",
+          "acceptsReservations": "False",
+          "menu": "https://mirrorburger.com/#menu-section",
+          "hasMenu": { "@id": "https://mirrorburger.com/#menu" },
+          "parentOrganization": { "@id": "https://mirrorburger.com/#organization" },
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "1A Merlin Street",
+            "addressLocality": "Tin Hau",
+            "addressRegion": "Hong Kong Island",
+            "addressCountry": "HK"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 22.287105,
+            "longitude": 114.192261
+          },
+          "hasMap": "https://maps.app.goo.gl/8944PrWNxNKrNXaZ9",
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+              "opens": "11:15",
+              "closes": "21:30"
+            },
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Friday", "Saturday"],
+              "opens": "11:15",
+              "closes": "23:30"
+            }
+          ],
+          "potentialAction": {
+            "@type": "OrderAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mirrorburger.com",
+              "inLanguage": ["en", "zh-HK"],
+              "actionPlatform": [
+                "http://schema.org/DesktopWebPlatform",
+                "http://schema.org/MobileWebPlatform"
+              ]
+            },
+            "deliveryMethod": ["http://purl.org/goodrelations/v1#DeliveryModePickUp"]
+          }
+        },
+        {
+          "@type": "Restaurant",
+          "@id": "https://mirrorburger.com/#tsuen-wan",
+          "name": "Mirror Burger Tsuen Wan",
+          "alternateName": "Mirror Burger 荃灣 (只限外賣自取)",
+          "url": "https://mirrorburger.com",
+          "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
+          "logo": "https://mirrorburger.com/apple-touch-icon.png",
+          "description": "Premium Halal burgers in Tsuen Wan, Hong Kong. Takeaway only. Michelin recipe, Aussie Black Angus & Wagyu.",
+          "servesCuisine": ["Burger", "Halal", "American"],
+          "suitableForDiet": ["https://schema.org/HalalDiet", "https://schema.org/VegetarianDiet"],
+          "priceRange": "$$",
+          "currenciesAccepted": "HKD",
+          "paymentAccepted": "Cash, Credit Card",
+          "acceptsReservations": "False",
+          "menu": "https://mirrorburger.com/#menu-section",
+          "hasMenu": { "@id": "https://mirrorburger.com/#menu" },
+          "parentOrganization": { "@id": "https://mirrorburger.com/#organization" },
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Flat 01, 13/F, Yue Fung Industrial Building, 35-45 Chai Wan Kok Street",
+            "addressLocality": "Tsuen Wan",
+            "addressRegion": "New Territories",
+            "addressCountry": "HK"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 22.373556,
+            "longitude": 114.107284
+          },
+          "hasMap": "https://maps.app.goo.gl/6oxTsRNSUwmtibUx9",
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+              "opens": "11:30",
+              "closes": "23:30"
+            }
+          ],
+          "potentialAction": {
+            "@type": "OrderAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mirrorburger.com",
+              "inLanguage": ["en", "zh-HK"],
+              "actionPlatform": [
+                "http://schema.org/DesktopWebPlatform",
+                "http://schema.org/MobileWebPlatform"
+              ]
+            },
+            "deliveryMethod": ["http://purl.org/goodrelations/v1#DeliveryModePickUp"]
+          }
+        }
+      ]
+    }
+    </script>
+
     <link href="./output.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
