@@ -1,4 +1,5 @@
 // 將超過 N 分鐘仍未付款嘅 PENDING 單標為 CANCELLED
+// 注意：Vercel Hobby 只准一日跑一次 cron（見 vercel.json），所以 TTL 用長啲更穩
 const PENDING_TTL_MINUTES = 45;
 
 module.exports = async (req, res) => {
