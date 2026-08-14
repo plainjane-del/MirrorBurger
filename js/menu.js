@@ -289,6 +289,7 @@ function updateStoreModalButtons() {
 function applyStoreOpenUI() {
     updateStoreModalButtons();
     populateStoresDropdown();
+    renderStores();
 
     if (flowSelectedStore && !isStoreOpen(flowSelectedStore)) {
         flowSelectedStore = '';
@@ -365,13 +366,14 @@ function showCustomAlert(msg) {
     const content = document.getElementById('custom-alert-content');
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closeCustomAlert() {
     const modal = document.getElementById('custom-alert-modal');
     const content = document.getElementById('custom-alert-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function renderMenuByCategory(cat) {
@@ -402,7 +404,7 @@ function renderMenuByCategory(cat) {
         const soldOutOverlay = item.isSoldOut ? `<div class="menu-card-sold absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
         const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
 
-        return `<div ${clickAction} class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
+        return `<div ${clickAction} tabindex="${item.isSoldOut ? '-1' : '0'}" role="button" onkeydown="if((event.key==='Enter'||event.key===' ') && !${item.isSoldOut ? 'true' : 'false'}){event.preventDefault(); openConfig('${cat}', '${item.id}');}" class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
             ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
             <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
@@ -443,7 +445,7 @@ function openConfig(cat, id) {
     updateConfigPrice();
     document.getElementById('config-scroll-area').scrollTop = 0;
     document.getElementById('sheet-overlay').classList.remove('hidden');
-    setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('config-sheet').classList.add('sheet-open'); }, 10);
+    setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('config-sheet').classList.add('sheet-open'); syncPageLock(); }, 10);
 }
 
 function updateConfigPrice() {
@@ -572,13 +574,14 @@ function showOrderFlow() {
     document.getElementById('flow-step-2').classList.add('hidden');
     modal.classList.remove('hidden'); void modal.offsetWidth; 
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closeOrderFlow() {
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function setFlowStore(storeName) {
@@ -680,6 +683,7 @@ function showAddedSuccessModal() {
     renderUpsellBlock();
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function renderUpsellBlock() {
@@ -832,10 +836,10 @@ function goToCartFromSuccess() { hideAddedSuccessModal(); setTimeout(() => { tog
 function continueShopping() { hideAddedSuccessModal(); }
 
 // --- HELPERS ---
-function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => m.classList.add('hidden'), 300); }
+function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden'); syncPageLock(); }, 300); }
 function toggleComboDetails() { document.getElementById('combo-details').classList.toggle('hidden', !document.getElementById('opt-combo').checked); updateConfigPrice(); }
-function closeAllSheets() { document.getElementById('sheet-overlay').classList.add('opacity-0'); document.getElementById('cart-sheet').classList.remove('sheet-open'); document.getElementById('config-sheet').classList.remove('sheet-open'); setTimeout(() => document.getElementById('sheet-overlay').classList.add('hidden'), 400); }
-function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); }, 10); } }
+function closeAllSheets() { document.getElementById('sheet-overlay').classList.add('opacity-0'); document.getElementById('cart-sheet').classList.remove('sheet-open'); document.getElementById('config-sheet').classList.remove('sheet-open'); setTimeout(() => { document.getElementById('sheet-overlay').classList.add('hidden'); syncPageLock(); }, 400); syncPageLock(); }
+function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); syncPageLock(); }, 10); } }
 
 function updateCartUI() {
     const container = document.getElementById('cart-items');
@@ -957,9 +961,34 @@ function generateTimeOptions() {
 
 function renderStores() { 
     const container = document.getElementById('stores-container');
-    if(container) {
-        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p><p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+    if (!container) return;
+    container.innerHTML = stores.map((s) => {
+        const open = isStoreOpen(s.name);
+        const safeName = s.name.replace(/'/g, "\\'");
+        return `<div class="store-card bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4">
+            <div>
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3>
+                    <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
+                </div>
+                <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
+                <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+            </div>
+            <div class="store-actions">
+                <a href="${s.mapLink}" target="_blank" rel="noopener">${lang('Map', '地圖')}</a>
+                <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function orderFromStore(storeName) {
+    if (!isStoreOpen(storeName)) {
+        showCustomAlert(lang('This store is closed today.', '此分店今日休息。'));
+        return;
     }
+    showOrderFlow();
+    setFlowStore(storeName);
 }
 
 function openPaymentChecking(orderNo) {
@@ -976,13 +1005,14 @@ function openPaymentChecking(orderNo) {
     const content = document.getElementById('payment-checking-content');
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closePaymentChecking() {
     const modal = document.getElementById('payment-checking-modal');
     const content = document.getElementById('payment-checking-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function showPaymentStillPending() {
@@ -1077,7 +1107,7 @@ function closeConfirmation() {
     const modal = document.getElementById('order-confirmed-modal');
     const content = document.getElementById('order-confirmed-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
@@ -1127,6 +1157,56 @@ async function confirmPaymentFromRedirect() {
     }
 }
 
+function isHidden(el) {
+    return !el || el.classList.contains('hidden');
+}
+
+function anyOverlayOpen() {
+    return document.getElementById('cart-sheet')?.classList.contains('sheet-open')
+        || document.getElementById('config-sheet')?.classList.contains('sheet-open')
+        || !isHidden(document.getElementById('order-flow-modal'))
+        || !isHidden(document.getElementById('custom-alert-modal'))
+        || !isHidden(document.getElementById('added-success-modal'))
+        || !isHidden(document.getElementById('payment-checking-modal'))
+        || !isHidden(document.getElementById('order-confirmed-modal'));
+}
+
+function syncPageLock() {
+    document.body.classList.toggle('page-locked', anyOverlayOpen());
+}
+
+function closeTopOverlay() {
+    if (!isHidden(document.getElementById('custom-alert-modal'))) { closeCustomAlert(); return; }
+    if (!isHidden(document.getElementById('added-success-modal'))) { hideAddedSuccessModal(); return; }
+    if (!isHidden(document.getElementById('order-confirmed-modal'))) { closeConfirmation(); return; }
+    if (!isHidden(document.getElementById('payment-checking-modal'))) { closePaymentChecking(); return; }
+    if (!isHidden(document.getElementById('order-flow-modal'))) { closeOrderFlow(); return; }
+    if (document.getElementById('cart-sheet')?.classList.contains('sheet-open')
+        || document.getElementById('config-sheet')?.classList.contains('sheet-open')) {
+        closeAllSheets();
+    }
+}
+
+function startDesktopNavSpy() {
+    const links = document.querySelectorAll('.desktop-topbar nav a[data-nav]');
+    if (!links.length) return;
+    const sections = [...links].map((link) => document.getElementById(link.dataset.nav)).filter(Boolean);
+    const setActive = (id) => {
+        links.forEach((link) => link.classList.toggle('is-active', link.dataset.nav === id));
+    };
+    const io = new IntersectionObserver((entries) => {
+        const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActive(visible.target.id);
+    }, { rootMargin: '-20% 0px -55% 0px', threshold: [0.15, 0.4, 0.7] });
+    sections.forEach((section) => io.observe(section));
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTopOverlay();
+});
+
 document.addEventListener('DOMContentLoaded', () => { 
     const userLang = navigator.language || navigator.userLanguage;
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
@@ -1143,6 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startStoreSettingsRealtime();
 
     confirmPaymentFromRedirect();
+    startDesktopNavSpy();
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW registration failed', err));

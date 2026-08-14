@@ -327,7 +327,41 @@
         body.lang-en .zh { display: none !important; }
         body.lang-zh .en { display: none !important; }
 
-        @media (min-width: 1024px) {
+        body.page-locked { overflow: hidden; }
+        .store-status {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 9999px;
+        }
+        .store-status.is-open { background: #ecfdf3; color: #067647; }
+        .store-status.is-closed { background: #fef3f2; color: #b42318; }
+        .store-actions { display: flex; gap: 8px; }
+        .store-actions a, .store-actions button {
+            flex: 1;
+            text-align: center;
+            padding: 8px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            color: #1d1d1f;
+        }
+        .store-actions .store-order {
+            background: #1d1d1f;
+            color: #fff;
+            border-color: #1d1d1f;
+        }
+        .store-actions .store-order:disabled { opacity: 0.35; cursor: not-allowed; }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, .menu-card:focus-visible {
+            outline: 2px solid #FFD131;
+            outline-offset: 3px;
+        }
+
+        @media (min-width: 900px) {
             body, .app-shell {
                 background: #F4F9F9;
                 color: #1d1d1f;
@@ -390,14 +424,28 @@
                 flex: 1;
             }
             .desktop-topbar nav a {
+                position: relative;
                 font-size: 13px;
                 font-weight: 600;
                 letter-spacing: -0.01em;
                 text-transform: none;
                 color: #1d1d1f;
                 opacity: 1;
+                padding-bottom: 5px;
             }
-            .desktop-topbar nav a:hover { color: #000; }
+            .desktop-topbar nav a::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 2px;
+                background: #FFD131;
+                transform: scaleX(0);
+                transition: transform 0.2s ease;
+            }
+            .desktop-topbar nav a:hover::after,
+            .desktop-topbar nav a.is-active::after { transform: scaleX(1); }
             .desktop-actions {
                 display: flex;
                 align-items: center;
@@ -417,7 +465,21 @@
                 opacity: 1;
             }
             .desktop-text-btn:hover { color: #000; }
-            .desktop-order-btn { display: none !important; }
+            .desktop-order-btn {
+                display: inline-flex !important;
+                align-items: center;
+                justify-content: center;
+                height: 34px !important;
+                padding: 0 16px !important;
+                background: #1d1d1f !important;
+                color: #fff !important;
+                border-radius: 9999px !important;
+                font-size: 12px !important;
+                font-weight: 600 !important;
+                letter-spacing: 0 !important;
+                text-transform: none !important;
+            }
+            .desktop-order-btn:hover { background: #000 !important; }
             .desktop-bag {
                 width: 32px !important;
                 height: 32px !important;
@@ -485,17 +547,17 @@
                 margin-top: 0 !important;
             }
             .hero-copy .inline-flex {
-                display: inline-flex;
-                background: rgba(255, 209, 49, 0.9);
-                border: 1px solid #facc15;
-                box-shadow: 0 10px 15px rgba(0,0,0,0.1);
-                color: #000;
-                font-size: 13px;
-                font-weight: 800;
-                letter-spacing: 0.14em;
-                text-transform: uppercase;
-                padding: 10px 16px;
-                border-radius: 12px;
+                display: block;
+                background: none;
+                border: none;
+                box-shadow: none;
+                color: #1d1d1f;
+                font-size: 15px;
+                font-weight: 500;
+                letter-spacing: 0;
+                text-transform: none;
+                padding: 0;
+                border-radius: 0;
             }
             .hero-copy .inline-flex br { display: none; }
             .hero-copy button {
@@ -557,23 +619,30 @@
             }
             #menu-section .sticky {
                 top: 52px;
+                z-index: 55;
                 justify-content: center;
-                gap: 0.5rem;
-                margin: 8px 0 36px;
-                padding: 18px 0;
-                background: rgba(244, 249, 249, 0.9);
-                backdrop-filter: blur(15px);
+                gap: 8px;
+                margin: 0 -24px 32px;
+                padding: 12px 24px;
+                background: rgba(244, 249, 249, 0.72);
+                backdrop-filter: saturate(180%) blur(20px);
+                -webkit-backdrop-filter: saturate(180%) blur(20px);
+                border-bottom: 1px solid rgba(0,0,0,0.04);
             }
             .category-tab {
-                background: #fff !important;
-                border: 1px solid #e5e7eb !important;
+                background: transparent !important;
+                border: 1px solid transparent !important;
                 border-radius: 9999px !important;
-                padding: 10px 24px !important;
-                font-size: 11px !important;
-                font-weight: 800 !important;
-                letter-spacing: 0.14em !important;
-                text-transform: uppercase !important;
+                padding: 8px 18px !important;
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                letter-spacing: 0 !important;
+                text-transform: none !important;
+                color: #6b7280 !important;
+            }
+            .category-tab:hover {
                 color: #1d1d1f !important;
+                background: rgba(255,255,255,0.7) !important;
             }
             .category-tab.active {
                 background: #1d1d1f !important;
@@ -582,7 +651,7 @@
                 box-shadow: none;
             }
             #menu-container {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 48px 28px;
             }
             #menu-container .lg-span-all,
@@ -592,13 +661,25 @@
                 border: none !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
+                overflow: visible !important;
             }
-            .menu-card:hover { transform: none; }
+            .menu-card:hover { transform: translateY(-6px); }
             .menu-card-img {
                 background: #fff;
                 border-radius: 28px;
                 aspect-ratio: 1 / 1;
                 padding: 28px;
+                overflow: hidden;
+                transition: box-shadow 0.3s ease;
+            }
+            .menu-card:hover .menu-card-img {
+                box-shadow: 0 18px 40px rgba(0,0,0,0.08);
+            }
+            .menu-card-img img {
+                transition: transform 0.45s ease;
+            }
+            .menu-card:hover .menu-card-img img {
+                transform: scale(1.08);
             }
             .menu-card-body {
                 padding: 18px 8px 0 !important;
@@ -628,7 +709,12 @@
                 font-weight: 400 !important;
                 font-style: normal !important;
             }
-            .menu-card-add { display: none !important; }
+            .menu-card-add {
+                display: flex !important;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+            .menu-card:hover .menu-card-add { opacity: 1; }
             .menu-card-tag {
                 background: rgba(255, 209, 49, 0.9) !important;
                 border: 1px solid #facc15 !important;
@@ -703,7 +789,7 @@
             #stores-section { padding-bottom: 120px; }
             #stores-container {
                 display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: 1fr;
                 gap: 20px;
             }
             #stores-container > div {
@@ -711,7 +797,11 @@
                 border: none;
                 border-radius: 28px;
                 box-shadow: none;
-                padding: 36px 28px;
+                padding: 32px 28px;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
             }
             #stores-container h3 {
                 font-size: 21px;
@@ -727,31 +817,105 @@
                 text-transform: none;
                 color: #6b7280;
             }
+            .store-status {
+                display: inline-flex;
+                align-items: center;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 4px 10px;
+                border-radius: 9999px;
+            }
+            .store-status.is-open { background: #ecfdf3; color: #067647; }
+            .store-status.is-closed { background: #fef3f2; color: #b42318; }
+            .store-actions { display: flex; gap: 8px; margin-top: auto; }
+            .store-actions a, .store-actions button {
+                flex: 1;
+                text-align: center;
+                padding: 10px 12px;
+                border-radius: 9999px;
+                font-size: 13px;
+                font-weight: 600;
+                border: 1px solid #e5e7eb;
+                background: #fff;
+                color: #1d1d1f;
+            }
+            .store-actions .store-order {
+                background: #1d1d1f;
+                color: #fff;
+                border-color: #1d1d1f;
+            }
+            .store-actions .store-order:disabled {
+                opacity: 0.35;
+                cursor: not-allowed;
+            }
 
-            footer {
+            footer.site-footer {
                 max-width: none;
                 margin: 0;
-                padding: 28px 24px 56px;
+                padding: 48px 24px 56px;
                 background: #F4F9F9;
                 border-top: 1px solid rgba(0,0,0,0.05);
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 400;
                 letter-spacing: 0;
                 text-transform: none;
-                color: #9ca3af;
+                color: #6b7280;
+                text-align: left;
             }
-            footer .text-black, footer p.text-black { color: #1d1d1f !important; }
+            .footer-grid {
+                max-width: 1120px;
+                margin: 0 auto;
+                display: grid;
+                grid-template-columns: 1.2fr 1fr 1fr;
+                gap: 40px;
+            }
+            .footer-grid h3 {
+                color: #1d1d1f;
+                font-size: 13px;
+                font-weight: 700;
+                margin-bottom: 12px;
+            }
+            .footer-grid a { color: #1d1d1f; }
+            .footer-grid a:hover { color: #000; }
 
-            #cart-sheet, #config-sheet {
+            #cart-sheet {
                 left: auto;
                 right: 0;
                 top: 0;
                 bottom: 0;
-                width: 420px;
-                max-width: 420px;
+                width: min(860px, 94vw);
+                max-width: min(860px, 94vw);
                 height: 100dvh;
                 border-radius: 0;
                 transform: translateX(100%);
+            }
+            #cart-sheet .cart-head,
+            #cart-sheet .cart-foot {
+                padding-bottom: 20px !important;
+            }
+            #cart-sheet .cart-scroll {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                overflow: hidden;
+            }
+            #cart-sheet #cart-items,
+            #cart-sheet .cart-form {
+                overflow-y: auto;
+                max-height: 100%;
+            }
+            #cart-sheet #cart-items > div,
+            #cart-sheet .cart-form,
+            #cart-sheet input,
+            #cart-sheet select,
+            #cart-sheet button {
+                font-size: 14px;
+            }
+            #cart-sheet .text-\[9px\],
+            #cart-sheet .text-\[10px\],
+            #cart-sheet .text-\[11px\] {
+                font-size: 13px !important;
+                letter-spacing: 0 !important;
+                text-transform: none !important;
             }
             #config-sheet {
                 width: min(860px, 90vw);
@@ -785,8 +949,32 @@
                 margin: 0;
                 border-radius: 18px;
             }
+            #config-sheet .config-foot {
+                padding-bottom: 20px !important;
+            }
+            #config-sheet h2 { font-size: 28px !important; }
+            #config-sheet h3,
+            #config-sheet label,
+            #config-sheet span {
+                letter-spacing: 0;
+            }
             #floating-cart-btn { display: none; }
             #menu-section, #story-section, #stores-section { scroll-margin-top: 52px; }
+        }
+
+        @media (min-width: 1100px) {
+            #menu-container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            #stores-container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (min-width: 900px) and (max-height: 820px) {
+            .hero-section {
+                min-height: 0;
+                padding: 64px 24px 28px;
+            }
+            .hero-copy { gap: 10px; }
+            .hero-copy h1 { font-size: clamp(36px, 5vw, 56px); }
+            .hero-copy > p { font-size: 16px; }
+            .hero-copy button { padding: 12px 24px; }
         }
     </style>
 </head>
@@ -800,9 +988,9 @@
                 <span>Mirror Burger</span>
             </a>
             <nav>
-                <a href="#menu-section"><span class="en">Menu</span><span class="zh">菜單</span></a>
-                <a href="#story-section"><span class="en">Reviews</span><span class="zh">評價</span></a>
-                <a href="#stores-section"><span class="en">Stores</span><span class="zh">分店</span></a>
+                <a href="#menu-section" data-nav="menu-section"><span class="en">Menu</span><span class="zh">菜單</span></a>
+                <a href="#story-section" data-nav="story-section"><span class="en">Reviews</span><span class="zh">評價</span></a>
+                <a href="#stores-section" data-nav="stores-section"><span class="en">Stores</span><span class="zh">分店</span></a>
             </nav>
             <div class="desktop-actions">
                 <button type="button" onclick="toggleLang()" class="js-lang-btn desktop-text-btn">中文</button>
@@ -941,13 +1129,13 @@
         </div>
 
         <div id="cart-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[85dvh] bg-white z-[1001] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Shopping Cart">
-            <div class="px-6 py-5 border-b flex justify-between items-center bg-white flex-shrink-0 z-20 relative">
+            <div class="cart-head px-6 py-5 border-b flex justify-between items-center bg-white flex-shrink-0 z-20 relative">
                 <h2 class="text-xl font-black italic uppercase tracking-tighter"><span class="en">Your Bag</span><span class="zh">你的購物車</span></h2>
                 <button onclick="closeAllSheets()" aria-label="Close Cart" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
             </div>
-            <div class="flex-grow overflow-y-auto no-scrollbar relative flex flex-col bg-white">
+            <div class="cart-scroll flex-grow overflow-y-auto no-scrollbar relative flex flex-col bg-white">
                 <div id="cart-items" class="p-6 flex flex-col gap-4 flex-shrink-0"></div>
-                <div class="p-6 bg-apple-bg space-y-4 flex-grow border-t">
+                <div class="cart-form p-6 bg-apple-bg space-y-4 flex-grow border-t">
                     <div class="flex bg-gray-200/50 p-1 rounded-2xl">
                         <button onclick="setDeliveryMode('pickup')" id="mode-pickup" class="flex-1 py-3 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-black"><span class="en">Pickup</span><span class="zh">外賣自取</span></button>
                         <button id="mode-delivery" disabled class="flex-1 py-3 rounded-xl text-xs font-bold transition-all text-gray-400 opacity-60 cursor-not-allowed bg-transparent"><span class="en">Delivery (Soon)</span><span class="zh">外送 (即將推出)</span></button>
@@ -989,7 +1177,7 @@
                     </div>
                 </div>
             </div>
-            <div class="p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
+            <div class="cart-foot p-6 bg-white border-t flex-shrink-0 z-20 relative pb-10"><button id="checkout-btn" class="w-full bg-black text-white rounded-full py-5 text-xs font-black uppercase tracking-widest disabled:opacity-20 shadow-xl transition-all flex items-center justify-center gap-2" disabled><span class="en">Place Order Now</span><span class="zh">立即落單</span></button></div>
         </div>
 
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
@@ -1054,7 +1242,7 @@
                 </div>
             </div>
             </div>
-            <div class="absolute bottom-0 w-full p-6 bg-white/90 backdrop-blur-md border-t pb-10"><button onclick="addCurrentToBag()" aria-label="Add item to cart" class="w-full bg-black text-white rounded-full py-5 px-8 flex justify-between items-center text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform"><span><span class="en">Add to Bag</span><span class="zh">加入購物車</span></span><span id="config-total-btn">0</span></button></div>
+            <div class="config-foot absolute bottom-0 w-full p-6 bg-white/90 backdrop-blur-md border-t pb-10"><button onclick="addCurrentToBag()" aria-label="Add item to cart" class="w-full bg-black text-white rounded-full py-5 px-8 flex justify-between items-center text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform"><span><span class="en">Add to Bag</span><span class="zh">加入購物車</span></span><span id="config-total-btn">0</span></button></div>
         </div>
 
         <div id="floating-cart-btn" class="fixed bottom-[88px] left-0 w-full px-6 z-[45] translate-y-20 opacity-0 pointer-events-none transition-all duration-300 ease-out pb-safe">
@@ -1101,7 +1289,7 @@
                 <button onclick="renderMenuByCategory('sauces')" role="tab" class="category-tab px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all whitespace-nowrap"><span class="en">Sauces</span><span class="zh">醬汁</span></button>
             </div>
             <div id="menu-container" class="grid grid-cols-2 gap-3 px-1">
-                 <div class="col-span-2 lg-span-all text-center py-20 text-gray-400 font-black animate-pulse">CONNECTING TO DATABASE...</div>
+                 <div class="col-span-2 lg-span-all text-center py-20 text-gray-400 font-semibold">Loading menu…</div>
             </div>
         </section>
 
@@ -1197,14 +1385,29 @@
             <div class="space-y-4" id="stores-container"></div>
         </section>
 
-        <footer class="p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px] space-y-4 border-t">
-            <p class="text-black mb-1">Mirror Burger © 2026</p>
-            <p><span class="en">Michelin Standard | ☪️ Halal Certified</span><span class="zh">米芝蓮標準 | ☪️ 清真認證</span></p>
+        <footer class="site-footer p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px] space-y-4 border-t">
+            <div class="footer-grid">
+                <div>
+                    <h3>Mirror Burger</h3>
+                    <p class="text-black mb-2" style="text-transform:none;letter-spacing:0;font-weight:600">Mirror Burger © 2026</p>
+                    <p><span class="en">Michelin Standard · ☪️ Halal Certified</span><span class="zh">米芝蓮標準 · ☪️ 清真認證</span></p>
+                </div>
+                <div>
+                    <h3><span class="en">Stores</span><span class="zh">分店</span></h3>
+                    <p>Sai Ying Pun · 西營盤</p>
+                    <p>Fortress Hill · 天后</p>
+                    <p>Tsuen Wan · 荃灣</p>
+                </div>
+                <div>
+                    <h3><span class="en">Contact</span><span class="zh">聯絡</span></h3>
+                    <p><a href="mailto:mirrorshk@gmail.com">mirrorshk@gmail.com</a></p>
+                </div>
+            </div>
         </footer>
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=1.8"></script>
-    <script src="js/order-handler.js?v=1.8"></script>
+    <script src="js/menu.js?v=1.9"></script>
+    <script src="js/order-handler.js?v=1.9"></script>
 </body>
 </html>
