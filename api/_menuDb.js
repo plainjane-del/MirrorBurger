@@ -35,15 +35,32 @@ async function sbFetch(path, options = {}) {
 }
 
 async function listMenuItems({ includeInactive = false } = {}) {
-    let q = 'menu_items?select=*&order=category.asc,sort_order.asc,id.asc';
-    if (!includeInactive) q += '&is_active=eq.true';
-    return sbFetch(q);
+    // Prefer sort_order when column exists; fall back if schema not migrated yet
+    const filters = includeInactive ? '' : '&is_active=eq.true';
+    try {
+        return await sbFetch(
+            `menu_items?select=*${filters}&order=category.asc,sort_order.asc,id.asc`
+        );
+    } catch (err) {
+        const msg = String(err.message || '');
+        if (msg.includes('sort_order') || msg.includes('is_active')) {
+            return sbFetch('menu_items?select=*&order=category.asc,id.asc');
+        }
+        throw err;
+    }
 }
 
 async function listModifiers({ includeInactive = false } = {}) {
-    let q = 'menu_modifiers?select=*&order=kind.asc,sort_order.asc,id.asc';
-    if (!includeInactive) q += '&is_active=eq.true';
-    return sbFetch(q);
+    const filters = includeInactive ? '' : '&is_active=eq.true';
+    try {
+        return await sbFetch(
+            `menu_modifiers?select=*${filters}&order=kind.asc,sort_order.asc,id.asc`
+        );
+    } catch (err) {
+        // Table may not exist until menu-full.sql is run — don't blank the whole admin
+        console.warn('menu_modifiers list skipped:', err.message);
+        return [];
+    }
 }
 
 async function upsertMenuItem(item) {

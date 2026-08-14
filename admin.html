@@ -29,17 +29,19 @@
         <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
     </div>
 
-    <div id="app-view" class="hidden max-w-5xl mx-auto px-4 py-8">
+        <div id="app-view" class="hidden max-w-5xl mx-auto px-4 py-8">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
                 <h1 class="text-2xl font-black">Menu Admin</h1>
-                <p class="text-neutral-500 text-sm">改完即寫入 Supabase；顧客頁 refresh 後見到</p>
+                <p class="text-neutral-500 text-sm">撳產品 → 編輯 → 儲存。改完顧客 refresh 就見到。</p>
             </div>
             <div class="flex gap-2">
                 <button type="button" class="btn btn-ghost" onclick="loadAll()">重新載入</button>
                 <button type="button" class="btn btn-ghost" onclick="logout()">登出</button>
             </div>
         </div>
+        <p id="load-err" class="hidden mb-4 text-sm text-red-300 bg-red-950/50 border border-red-900 rounded-xl px-4 py-3"></p>
+        <p id="load-hint" class="mb-4 text-sm text-neutral-400"></p>
 
         <div class="flex gap-2 mb-6">
             <button type="button" id="tab-items" class="btn tab-on" onclick="setTab('items')">餐點</button>
@@ -188,6 +190,35 @@
             document.getElementById('app-view').classList.remove('hidden');
         }
 
+        async function loadAll() {
+            const errEl = document.getElementById('load-err');
+            const hintEl = document.getElementById('load-hint');
+            errEl.classList.add('hidden');
+            hintEl.textContent = '載入中…';
+            try {
+                const data = await api('/api/admin-menu', { token, action: 'list' });
+                items = data.items || [];
+                modifiers = data.modifiers || [];
+                hintEl.textContent = `共 ${items.length} 個餐點 · ${modifiers.length} 個加料／套餐選項`;
+                if (!items.length) {
+                    errEl.textContent =
+                        '資料庫未有餐點。請去 Supabase → SQL Editor 跑 supabase/menu-full.sql（同 restore-menu-prices.sql），再撳「重新載入」。';
+                    errEl.classList.remove('hidden');
+                }
+                renderItems();
+                renderMods();
+            } catch (e) {
+                items = [];
+                modifiers = [];
+                renderItems();
+                renderMods();
+                hintEl.textContent = '';
+                errEl.textContent = '載入失敗：' + (e.message || e) +
+                    ' — 多數係未跑 menu-full.sql，或者 Vercel 未設 SUPABASE_URL / SUPABASE_KEY。';
+                errEl.classList.remove('hidden');
+            }
+        }
+
         async function doLogin() {
             const err = document.getElementById('login-err');
             err.classList.add('hidden');
@@ -209,14 +240,6 @@
             token = '';
             localStorage.removeItem(TOKEN_KEY);
             showLogin();
-        }
-
-        async function loadAll() {
-            const data = await api('/api/admin-menu', { token, action: 'list' });
-            items = data.items || [];
-            modifiers = data.modifiers || [];
-            renderItems();
-            renderMods();
         }
 
         function setTab(which) {
