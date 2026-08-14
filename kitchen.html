@@ -48,70 +48,72 @@
             to { transform: translateY(0) scale(1); opacity: 1; }
         }
         .status-btn {
-            min-height: 56px;
-            font-size: 1rem;
-            font-weight: 900;
-            letter-spacing: 0.04em;
+            min-height: 44px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
             transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
         }
         .status-btn:active { transform: scale(0.97); }
         .status-btn.is-active { outline: 3px solid #FFD131; outline-offset: 2px; }
         .branch-tab {
-            min-height: 52px;
-            font-weight: 900;
-            letter-spacing: 0.02em;
-            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            min-height: 34px;
+            font-weight: 800;
+            font-size: 13px;
+            line-height: 1.1;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #a3a3a3;
         }
         .branch-tab.is-active {
             background: #FFD131;
             color: #0a0a0a;
             border-color: #FFD131;
         }
+        .chip-btn {
+            min-height: 34px;
+            font-weight: 800;
+            font-size: 12px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #e5e5e5;
+            white-space: nowrap;
+        }
         .shift-btn {
-            min-height: 64px;
-            background: #FFD131;
-            color: #0a0a0a;
-            font-weight: 900;
-            letter-spacing: 0.03em;
-            border: 4px solid #0a0a0a;
-            box-shadow: 0 0 0 3px #FFD131;
-            transition: transform 0.12s ease, filter 0.15s ease;
+            background: #3f3f00;
+            color: #fde047;
+            border-color: #854d0e;
         }
-        .shift-btn:active { transform: scale(0.98); }
         .shift-btn.is-on {
-            background: #16a34a;
-            color: #fff;
-            box-shadow: 0 0 0 3px #16a34a;
+            background: #14532d;
+            color: #bbf7d0;
+            border-color: #16a34a;
         }
-        .store-status-btn {
-            min-height: 64px;
-            font-weight: 900;
-            letter-spacing: 0.02em;
-            border: 4px solid #0a0a0a;
-            transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
-        }
-        .store-status-btn:active { transform: scale(0.98); }
-        .store-status-btn:disabled { opacity: 0.6; cursor: wait; }
+        .store-status-btn:disabled { opacity: 0.55; }
         .store-status-btn.is-open {
-            background: #16a34a;
-            color: #fff;
-            box-shadow: 0 0 0 3px #16a34a;
+            background: #14532d;
+            color: #bbf7d0;
+            border-color: #16a34a;
         }
         .store-status-btn.is-closed {
-            background: #dc2626;
-            color: #fff;
-            box-shadow: 0 0 0 3px #dc2626;
+            background: #7f1d1d;
+            color: #fecaca;
+            border-color: #dc2626;
         }
         .items-scroll::-webkit-scrollbar { width: 6px; }
         .items-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 999px; }
         #conn-dot.online { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
         #conn-dot.offline { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
         .wa-notify-btn {
-            min-height: 52px;
+            min-height: 40px;
             background: #22c55e;
             color: #fff;
-            font-weight: 900;
-            letter-spacing: 0.02em;
+            font-weight: 800;
+            font-size: 0.9rem;
             box-shadow: 0 0 16px rgba(34, 197, 94, 0.45);
             transition: transform 0.12s ease, filter 0.15s ease;
         }
@@ -149,11 +151,11 @@
         }
         .history-panel.is-open .history-panel-sheet { transform: translateX(0); }
         .mode-tab {
-            min-height: 52px;
-            font-weight: 900;
-            font-size: 1.05rem;
-            border-radius: 0.9rem;
-            border: 2px solid #333;
+            min-height: 36px;
+            font-weight: 800;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid #333;
             background: #1a1a1a;
             color: #a3a3a3;
         }
@@ -162,38 +164,66 @@
             color: #0a0a0a;
             border-color: #FFD131;
         }
+        .board-filter {
+            min-height: 38px;
+            font-weight: 800;
+            font-size: 13px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #a3a3a3;
+        }
+        .board-filter.is-active.new { background: #422006; color: #fde68a; border-color: #f59e0b; }
+        .board-filter.is-active.prep { background: #0c4a6e; color: #bae6fd; border-color: #38bdf8; }
+        .board-filter.is-active.ready { background: #14532d; color: #bbf7d0; border-color: #22c55e; }
         .board-col {
             background: #101010;
             border: 1px solid #2a2a2a;
-            border-radius: 1.25rem;
-            min-height: 50vh;
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
+            min-height: 0;
         }
         .board-col-h {
-            position: sticky;
-            top: 0;
-            z-index: 5;
-            padding: 0.85rem 1rem;
+            padding: 8px 12px;
             border-bottom: 1px solid #2a2a2a;
-            border-radius: 1.25rem 1.25rem 0 0;
-            font-weight: 900;
+            font-weight: 800;
+            font-size: 13px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
         }
-        .board-col-h.new { background: #422006; color: #fde68a; }
-        .board-col-h.prep { background: #0c4a6e; color: #bae6fd; }
-        .board-col-h.ready { background: #14532d; color: #bbf7d0; }
+        .board-col-h.new { background: #422006; color: #fde68a; border-radius: 12px 12px 0 0; }
+        .board-col-h.prep { background: #0c4a6e; color: #bae6fd; border-radius: 12px 12px 0 0; }
+        .board-col-h.ready { background: #14532d; color: #bbf7d0; border-radius: 12px 12px 0 0; }
         .board-col-body {
-            padding: 0.75rem;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 8px;
             flex: 1;
             overflow-y: auto;
-            max-height: calc(100dvh - 280px);
+        }
+        @media (max-width: 1023px) {
+            .board-col { display: none; min-height: calc(100dvh - 168px); }
+            .board-col.is-shown { display: flex; }
+            .board-col-h { display: none; }
+        }
+        .more-sheet {
+            position: fixed;
+            inset: 0;
+            z-index: 90;
+            display: none;
+        }
+        .more-sheet.is-open { display: block; }
+        .more-sheet-panel {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            background: #141414;
+            border-top: 1px solid #333;
+            border-radius: 16px 16px 0 0;
+            padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
         }
         .sold-chip {
             min-height: 72px;
@@ -225,7 +255,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · Tablet UI · v2026.08.14</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.14b</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -239,88 +269,60 @@
     </div>
 
     <div id="kitchen-app" class="hidden">
-    <header class="sticky top-0 z-50 bg-kds-bg/95 backdrop-blur border-b border-kds-border px-4 py-3 md:px-6 md:py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex items-center justify-between gap-4">
-                <div class="flex items-center gap-3 min-w-0">
-                    <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-10 w-auto shrink-0">
-                    <div class="min-w-0">
-                        <h1 class="text-xl md:text-2xl font-black tracking-tight text-kds-yellow uppercase leading-none">Mirror Burger 廚房</h1>
-                        <p class="text-xs md:text-sm text-neutral-400 font-bold mt-1 flex items-center gap-2">
-                            <span id="conn-dot" class="inline-block w-2.5 h-2.5 rounded-full offline"></span>
-                            <span id="conn-label">連線中…</span>
-                            <span class="text-neutral-600">·</span>
-                            <span id="order-count">0 張活躍單</span>
-                        </p>
-                    </div>
-                </div>
+    <header class="sticky top-0 z-50 bg-kds-bg border-b border-kds-border px-3 py-2">
+        <div class="flex items-center gap-2">
+            <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
+            <div class="min-w-0 flex-1">
+                <div class="text-sm font-black text-kds-yellow leading-none">廚房</div>
+                <p class="text-[11px] text-neutral-400 font-bold mt-0.5 flex items-center gap-1.5 truncate">
+                    <span id="conn-dot" class="inline-block w-2 h-2 rounded-full offline"></span>
+                    <span id="conn-label">連線中…</span>
+                    <span class="text-neutral-600">·</span>
+                    <span id="order-count">0 單</span>
+                </p>
             </div>
-
-            <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-                <button type="button" onclick="openTodayStats()"
-                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-600 bg-kds-panel min-h-[64px]">
-                    今日統計
-                </button>
-                <button type="button" onclick="openCompletedToday()"
-                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-600 bg-kds-panel min-h-[64px]">
-                    今日已完成
-                </button>
-                <button id="store-status-btn" type="button" onclick="toggleStoreStatus()"
-                    class="store-status-btn is-closed w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg" disabled>
-                    載入中…
-                </button>
-                <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="shift-btn w-full lg:w-auto px-6 rounded-2xl text-base md:text-lg uppercase">
-                    開班 / 啟用廚房響鈴
-                </button>
-                <button id="push-btn" type="button" onclick="enableKitchenPush()"
-                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-sky-600 bg-sky-950 text-sky-200 min-h-[64px]">
-                    開啟手機推送
-                </button>
-                <button type="button" onclick="logoutKitchen()"
-                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-700 bg-neutral-900 min-h-[64px] text-neutral-300">
-                    登出
-                </button>
-            </div>
+            <button id="store-status-btn" type="button" onclick="toggleStoreStatus()" class="chip-btn store-status-btn is-closed" disabled>…</button>
+            <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="chip-btn shift-btn">開鈴</button>
+            <button type="button" onclick="openMoreMenu()" class="chip-btn">更多</button>
         </div>
 
-        <div class="mt-3 grid grid-cols-3 gap-2" role="tablist" aria-label="分店篩選">
-            <button type="button" class="branch-tab is-active rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Sai Ying Pun" onclick="selectBranch(this)">
-                西營盤<br><span class="text-[11px] md:text-xs font-bold opacity-80">Sai Ying Pun</span>
-            </button>
-            <button type="button" class="branch-tab rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Fortress Hill" onclick="selectBranch(this)">
-                天后<br><span class="text-[11px] md:text-xs font-bold opacity-80">Fortress Hill</span>
-            </button>
-            <button type="button" class="branch-tab rounded-xl border-2 border-neutral-700 bg-kds-panel px-2 py-2 text-sm md:text-base" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">
-                荃灣<br><span class="text-[11px] md:text-xs font-bold opacity-80">Tsuen Wan</span>
-            </button>
+        <div class="mt-2 grid grid-cols-3 gap-1" role="tablist" aria-label="分店">
+            <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)">西營盤</button>
+            <button type="button" class="branch-tab" data-branch="Fortress Hill" onclick="selectBranch(this)">天后</button>
+            <button type="button" class="branch-tab" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">荃灣</button>
         </div>
 
-        <div class="mt-3 grid grid-cols-2 gap-2" role="tablist" aria-label="廚房模式">
-            <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')">📋 訂單</button>
-            <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')">🚫 沽清／賣晒</button>
+        <div class="mt-2 grid grid-cols-2 gap-1" role="tablist" aria-label="模式">
+            <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')">訂單</button>
+            <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')">沽清</button>
         </div>
     </header>
 
-    <section id="view-orders" class="p-3 md:p-5">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-            <div class="board-col">
+    <section id="view-orders" class="p-2 md:p-4">
+        <div class="lg:hidden grid grid-cols-3 gap-1 mb-2">
+            <button type="button" id="filter-paid" class="board-filter is-active new" onclick="setBoardFilter('PAID')">新單 <span id="count-paid-m">0</span></button>
+            <button type="button" id="filter-prep" class="board-filter prep" onclick="setBoardFilter('PREPARING')">製作中 <span id="count-prep-m">0</span></button>
+            <button type="button" id="filter-ready" class="board-filter ready" onclick="setBoardFilter('READY')">可取 <span id="count-ready-m">0</span></button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3">
+            <div id="col-paid-wrap" class="board-col is-shown">
                 <div class="board-col-h new">
-                    <span>新單 · NEW</span>
-                    <span id="count-paid" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                    <span>新單</span>
+                    <span id="count-paid" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
                 </div>
                 <div id="col-paid" class="board-col-body"></div>
             </div>
-            <div class="board-col">
+            <div id="col-prep-wrap" class="board-col">
                 <div class="board-col-h prep">
-                    <span>製作中 · PREP</span>
-                    <span id="count-prep" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                    <span>製作中</span>
+                    <span id="count-prep" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
                 </div>
                 <div id="col-prep" class="board-col-body"></div>
             </div>
-            <div class="board-col">
+            <div id="col-ready-wrap" class="board-col">
                 <div class="board-col-h ready">
-                    <span>可取餐 · READY</span>
-                    <span id="count-ready" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                    <span>可取餐</span>
+                    <span id="count-ready" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
                 </div>
                 <div id="col-ready" class="board-col-body"></div>
             </div>
@@ -368,6 +370,22 @@
             </div>
             <div id="stats-body" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
         </aside>
+    </div>
+
+    <div id="more-sheet" class="more-sheet" aria-hidden="true">
+        <div class="history-panel-backdrop" onclick="closeMoreMenu()"></div>
+        <div class="more-sheet-panel">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-black">更多</h2>
+                <button type="button" onclick="closeMoreMenu()" class="w-9 h-9 rounded-full bg-neutral-800 font-black">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
+                <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
+                <button id="push-btn" type="button" onclick="enableKitchenPush()" class="chip-btn min-h-[44px] col-span-2 border-sky-700 text-sky-200">開啟手機推送</button>
+                <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
+            </div>
+        </div>
     </div>
     </div><!-- /#kitchen-app -->
 
@@ -722,7 +740,7 @@
                 audioUnlocked = true;
                 const btn = document.getElementById('shift-btn');
                 btn.classList.add('is-on');
-                btn.textContent = '✓ 廚房響鈴已啟用（開班中）';
+                btn.textContent = '已開鈴';
             } catch (err) {
                 console.error('Audio unlock failed', err);
                 alert('無法啟用響鈴，請再試一次。');
@@ -782,11 +800,11 @@
             btn.classList.remove('is-open', 'is-closed');
             if (storeIsOpen === true) {
                 btn.classList.add('is-open');
-                btn.textContent = '🟢 營業中（點擊暫停接單）';
+                btn.textContent = '營業中';
                 btn.disabled = false;
             } else if (storeIsOpen === false) {
                 btn.classList.add('is-closed');
-                btn.textContent = '🔴 暫停接單中（點擊恢復營業）';
+                btn.textContent = '已暫停';
                 btn.disabled = false;
             } else {
                 btn.classList.add('is-closed');
@@ -928,24 +946,35 @@
                 }, 8000);
             }
             
-            if (ring && isNewCard) ringNewOrder();
+            if (ring && isNewCard) {
+                ringNewOrder();
+                setBoardFilter('PAID');
+                setKitchenMode('orders');
+            }
             renderOrders();
         }
 
         function renderOrders() {
             const list = sortOrders([...ordersMap.values()]);
-            document.getElementById('order-count').textContent = `${list.length} 張活躍單`;
+            document.getElementById('order-count').textContent = `${list.length} 單`;
 
             const paid = list.filter((o) => getKitchenStatus(o) === 'PAID');
             const prep = list.filter((o) => getKitchenStatus(o) === 'PREPARING');
             const ready = list.filter((o) => getKitchenStatus(o) === 'READY');
 
-            document.getElementById('count-paid').textContent = String(paid.length);
-            document.getElementById('count-prep').textContent = String(prep.length);
-            document.getElementById('count-ready').textContent = String(ready.length);
+            const setCount = (id, n) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(n);
+            };
+            setCount('count-paid', paid.length);
+            setCount('count-prep', prep.length);
+            setCount('count-ready', ready.length);
+            setCount('count-paid-m', paid.length);
+            setCount('count-prep-m', prep.length);
+            setCount('count-ready-m', ready.length);
 
             const empty = (msg) =>
-                `<div class="text-center py-10 px-3 text-neutral-600 font-black text-lg">${msg}</div>`;
+                `<div class="text-center py-12 px-3 text-neutral-600 font-bold">${msg}</div>`;
 
             document.getElementById('col-paid').innerHTML =
                 paid.length ? paid.map(renderCard).join('') : empty('暫無新單');
@@ -953,6 +982,44 @@
                 prep.length ? prep.map(renderCard).join('') : empty('暫無製作中');
             document.getElementById('col-ready').innerHTML =
                 ready.length ? ready.map(renderCard).join('') : empty('暫無可取餐');
+
+            applyBoardFilter();
+        }
+
+        let boardFilter = 'PAID';
+        function setBoardFilter(status) {
+            boardFilter = status;
+            applyBoardFilter();
+        }
+        function applyBoardFilter() {
+            const map = {
+                PAID: 'col-paid-wrap',
+                PREPARING: 'col-prep-wrap',
+                READY: 'col-ready-wrap',
+            };
+            Object.entries(map).forEach(([status, id]) => {
+                const col = document.getElementById(id);
+                if (col) col.classList.toggle('is-shown', status === boardFilter);
+            });
+            const paidBtn = document.getElementById('filter-paid');
+            const prepBtn = document.getElementById('filter-prep');
+            const readyBtn = document.getElementById('filter-ready');
+            if (paidBtn) paidBtn.classList.toggle('is-active', boardFilter === 'PAID');
+            if (prepBtn) prepBtn.classList.toggle('is-active', boardFilter === 'PREPARING');
+            if (readyBtn) readyBtn.classList.toggle('is-active', boardFilter === 'READY');
+        }
+
+        function openMoreMenu() {
+            const el = document.getElementById('more-sheet');
+            if (!el) return;
+            el.classList.add('is-open');
+            el.setAttribute('aria-hidden', 'false');
+        }
+        function closeMoreMenu() {
+            const el = document.getElementById('more-sheet');
+            if (!el) return;
+            el.classList.remove('is-open');
+            el.setAttribute('aria-hidden', 'true');
         }
 
         let kitchenMode = 'orders';
@@ -1088,12 +1155,12 @@
                     const qty = itemQty(item);
                     const notes = itemNotes(item);
                     return `
-                        <div class="border-b border-neutral-700/80 py-3 last:border-0">
-                            <div class="flex items-start gap-3">
-                                <span class="shrink-0 min-w-[2.5rem] text-center text-2xl font-black text-kds-yellow leading-none">${qty}×</span>
+                        <div class="border-b border-neutral-700/80 py-2 last:border-0">
+                            <div class="flex items-start gap-2">
+                                <span class="shrink-0 min-w-[2rem] text-center text-lg font-black text-kds-yellow leading-none">${qty}×</span>
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-xl md:text-2xl font-black text-white leading-tight">${escapeHtml(itemName(item))}</div>
-                                    ${notes ? `<div class="mt-1 text-base md:text-lg font-bold text-kds-yellow/95 leading-snug">${escapeHtml(notes)}</div>` : ''}
+                                    <div class="text-base font-black text-white leading-tight">${escapeHtml(itemName(item))}</div>
+                                    ${notes ? `<div class="mt-0.5 text-sm font-bold text-kds-yellow/95 leading-snug">${escapeHtml(notes)}</div>` : ''}
                                 </div>
                             </div>
                         </div>`;
@@ -1101,48 +1168,48 @@
                 : `<div class="text-neutral-500 font-bold py-4">無餐點資料</div>`;
 
             return `
-                <article class="order-card ${isNew ? 'is-new' : ''} bg-kds-card border-4 ${meta.color} rounded-3xl flex flex-col overflow-hidden shadow-2xl" data-order="${orderNo}">
-                    <div class="p-4 md:p-5 flex-1 flex flex-col gap-3">
-                        <div class="flex items-start justify-between gap-3">
+                <article class="order-card ${isNew ? 'is-new' : ''} bg-kds-card border-2 ${meta.color} rounded-2xl flex flex-col overflow-hidden" data-order="${orderNo}">
+                    <div class="p-3 flex-1 flex flex-col gap-2">
+                        <div class="flex items-start justify-between gap-2">
                             <div>
-                                <div class="text-sm font-black uppercase tracking-widest text-neutral-400">單號 Order No.</div>
-                                <div class="text-3xl md:text-4xl font-black text-white tracking-tight">#${orderNo}</div>
-                                <div class="mt-1 text-2xl font-black text-kds-yellow">${amount}</div>
+                                <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
+                                <div class="text-xl font-black text-white tracking-tight">#${orderNo}</div>
+                                <div class="text-lg font-black text-kds-yellow">${amount}</div>
                             </div>
                             <div class="text-right">
-                                <div class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-black uppercase ${meta.badge}">${meta.label}</div>
-                                <div class="mt-2 text-3xl md:text-4xl font-black text-kds-yellow leading-none">${pickup}</div>
-                                <div class="text-xs font-bold text-neutral-400 uppercase mt-1">取餐時間 Pickup</div>
+                                <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-black uppercase ${meta.badge}">${meta.label}</div>
+                                <div class="mt-1 text-2xl font-black text-kds-yellow leading-none">${pickup}</div>
+                                <div class="text-[10px] font-bold text-neutral-400 uppercase">取餐</div>
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-2 text-base md:text-lg font-bold">
+                        <div class="flex flex-wrap items-center gap-2 text-sm font-bold">
                             <span class="text-white">${name}</span>
                             <span class="text-neutral-500">·</span>
-                            <a href="tel:${phone}" class="text-sky-300 underline-offset-2 hover:underline">${phone}</a>
-                            <span class="ml-auto inline-flex items-center px-3 py-1 rounded-lg text-sm font-black uppercase ${fulfill.cls}">
-                                ${fulfill.zh} / ${fulfill.label}
+                            <a href="tel:${phone}" class="text-sky-300">${phone}</a>
+                            <span class="ml-auto inline-flex items-center px-2 py-0.5 rounded text-xs font-black uppercase ${fulfill.cls}">
+                                ${fulfill.zh}
                             </span>
                         </div>
 
-                        <div class="items-scroll bg-black/50 border border-neutral-800 rounded-2xl px-3 md:px-4 max-h-[280px] overflow-y-auto flex-1">
+                        <div class="items-scroll bg-black/50 border border-neutral-800 rounded-xl px-3 max-h-[220px] overflow-y-auto flex-1">
                             ${itemsHtml}
                         </div>
 
                         ${(status === 'READY' || status === 'PREPARING') ? `
-                        <button type="button" class="wa-notify-btn ${waSent ? 'is-sent' : ''} w-full rounded-xl px-4 text-base md:text-lg"
+                        <button type="button" class="wa-notify-btn ${waSent ? 'is-sent' : ''} w-full rounded-lg px-3"
                             onclick="notifyCustomerWhatsApp('${orderNoJs}')">
-                            ${waSent ? '✓ 已通知（再傳一次）' : '📱 WhatsApp 通知客人'}
+                            ${waSent ? '✓ 已通知' : 'WhatsApp 通知'}
                         </button>` : ''}
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 p-3 md:p-4 bg-black/40 border-t border-neutral-800">
-                        <button type="button" class="status-btn rounded-xl bg-sky-600 text-white ${status === 'PREPARING' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'PREPARING')">製作中<br><span class="text-xs font-bold opacity-90">PREPARING</span></button>
-                        <button type="button" class="status-btn rounded-xl bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'READY')">可取餐<br><span class="text-xs font-bold opacity-90">READY</span></button>
-                        <button type="button" class="status-btn rounded-xl bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'COMPLETED')">已完成<br><span class="text-xs font-bold opacity-90">COMPLETED</span></button>
+                    <div class="grid grid-cols-3 gap-1 p-2 bg-black/40 border-t border-neutral-800">
+                        <button type="button" class="status-btn rounded-lg bg-sky-600 text-white ${status === 'PREPARING' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNoJs}', 'PREPARING')">製作中</button>
+                        <button type="button" class="status-btn rounded-lg bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNoJs}', 'READY')">可取餐</button>
+                        <button type="button" class="status-btn rounded-lg bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
+                            onclick="updateOrderStatus('${orderNoJs}', 'COMPLETED')">完成</button>
                     </div>
                 </article>`;
         }
@@ -1187,6 +1254,7 @@
                     }
                 } else {
                     ordersMap.set(orderNo, merged);
+                    setBoardFilter(nextStatus);
                     renderOrders();
                 }
             } else {
