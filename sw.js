@@ -1,5 +1,5 @@
-const CACHE = 'mirror-burger-v4';
-const APP_SHELL = ['/', '/index.html', '/manifest.json'];
+const CACHE = 'mirror-burger-v5';
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/kitchen-manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -18,33 +18,67 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('push', (event) => {
+  let data = { title: 'Mirror Burger', body: '你有新訂單', url: '/kitchen.html' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch (_) {
+    try {
+      data.body = event.data.text();
+    } catch (_) {}
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Mirror Burger 新單', {
+      body: data.body || '你有新訂單',
+      icon: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_192,h_192,b_black/v1777801810/logo_only_kqxyfg.png',
+      badge: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_192,h_192,b_black/v1777801810/logo_only_kqxyfg.png',
+      data: { url: data.url || '/kitchen.html', orderNo: data.orderNo },
+      vibrate: [200, 100, 200, 100, 200],
+      requireInteraction: true,
+      tag: data.orderNo ? `order-${data.orderNo}` : 'mirror-burger-order',
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/kitchen.html';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if (client.url.includes('kitchen') && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(target);
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
 
-  // Never intercept payments / APIs / third-party calls (KPay, Supabase, etc.)
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) {
     return;
   }
 
-  // Network-first for page navigations so customers always get the freshest menu/prices,
-  // falling back to the cached shell only when offline.
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put('/index.html', copy));
+          const key = url.pathname.includes('kitchen') ? '/kitchen.html' : '/index.html';
+          caches.open(CACHE).then((cache) => cache.put(key, copy));
           return res;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(() => caches.match(url.pathname.includes('kitchen') ? '/kitchen.html' : '/index.html'))
     );
     return;
   }
 
-  // JS/CSS must stay fresh (payment + menu logic); network-first with cache fallback.
   if (url.pathname.startsWith('/js/') || url.pathname.endsWith('.css') || url.pathname.endsWith('.js')) {
     event.respondWith(
       fetch(req)
@@ -60,7 +94,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for other same-origin static assets (images, icons, etc.).
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;

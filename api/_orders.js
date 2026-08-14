@@ -1,3 +1,5 @@
+const { notifyOrderPaid } = require('./_notify.js');
+
 async function getOrderByNo(orderNo) {
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -6,7 +8,20 @@ async function getOrderByNo(orderNo) {
     }
     if (!orderNo) throw new Error('Missing orderNo');
 
-    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&select=order_no,total_amount,payment_status,status,store_name`;
+    // 唔 select status：舊 DB 可能未加呢欄；通知唔需要
+    const select = [
+        'order_no',
+        'total_amount',
+        'payment_status',
+        'store_name',
+        'customer_name',
+        'customer_phone',
+        'pickup_time',
+        'items_json',
+        'created_at',
+    ].join(',');
+
+    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&select=${select}`;
     const resp = await fetch(url, {
         headers: {
             apikey: SUPABASE_KEY,
@@ -22,7 +37,7 @@ async function getOrderByNo(orderNo) {
 }
 
 async function markOrderPaid(orderNo) {
-    if (!orderNo) return;
+    if (!orderNo) return { updated: false };
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_KEY = process.env.SUPABASE_KEY;
@@ -38,7 +53,7 @@ async function markOrderPaid(orderNo) {
             apikey: SUPABASE_KEY,
             Authorization: `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
+            Prefer: 'return=representation',
         },
         body: JSON.stringify({ payment_status: 'PAID' }),
     });
@@ -47,6 +62,22 @@ async function markOrderPaid(orderNo) {
         const text = await resp.text();
         throw new Error(`Supabase update failed (${resp.status}): ${text}`);
     }
+
+    const rows = await resp.json();
+    const updated = Array.isArray(rows) && rows.length > 0;
+    if (!updated) {
+        // 可能已係 PAID（重試 webhook）→ 唔重複發通知
+        return { updated: false };
+    }
+
+    // 再拉齊欄位（items 等）再通知
+    const order = (await getOrderByNo(orderNo)) || rows[0];
+    // 通知失敗唔好令 webhook 失敗
+    await notifyOrderPaid(order).catch((err) => {
+        console.error('notifyOrderPaid failed:', err);
+    });
+
+    return { updated: true, order };
 }
 
 module.exports = { getOrderByNo, markOrderPaid };

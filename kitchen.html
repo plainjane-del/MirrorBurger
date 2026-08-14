@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MB Kitchen">
     <meta name="theme-color" content="#0a0a0a">
+    <link rel="manifest" href="/kitchen-manifest.json">
     <title>Mirror Burger | Kitchen Display System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -201,6 +204,10 @@
                 </button>
                 <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="shift-btn w-full lg:w-auto px-6 rounded-2xl text-base md:text-lg uppercase">
                     開班 / 啟用廚房響鈴
+                </button>
+                <button id="push-btn" type="button" onclick="enableKitchenPush()"
+                    class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-sky-600 bg-sky-950 text-sky-200 min-h-[64px]">
+                    開啟手機推送
                 </button>
                 <button type="button" onclick="logoutKitchen()"
                     class="w-full lg:w-auto px-5 rounded-2xl text-base md:text-lg font-black border-2 border-neutral-700 bg-neutral-900 min-h-[64px] text-neutral-300">
@@ -1052,6 +1059,105 @@
             }
         }
 
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        }
+
+        function setPushBtnState(state, detail = '') {
+            const btn = document.getElementById('push-btn');
+            if (!btn) return;
+            if (state === 'on') {
+                btn.textContent = '✓ 手機推送已開啟';
+                btn.classList.add('border-emerald-500', 'text-emerald-200');
+            } else if (state === 'busy') {
+                btn.textContent = '開啟中…';
+                btn.disabled = true;
+            } else if (state === 'unsupported') {
+                btn.textContent = detail || '此裝置不支援推送';
+                btn.disabled = true;
+            } else {
+                btn.disabled = false;
+                btn.textContent = '開啟手機推送';
+            }
+        }
+
+        async function ensureKitchenServiceWorker() {
+            if (!('serviceWorker' in navigator)) return null;
+            const reg = await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+            return reg;
+        }
+
+        async function enableKitchenPush() {
+            if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
+                alert(
+                    '此瀏覽器／裝置暫不支援網頁推送。\n\n' +
+                    'iPhone：用 Safari 打開本頁 → 分享 → 「加入主畫面」→ 由主畫面圖示開啟 → 再撳呢個掣。\n' +
+                    '（iOS 16.4+）'
+                );
+                setPushBtnState('unsupported', '請用主畫面 App 開啟');
+                return;
+            }
+
+            // iOS：未加主畫面時 standalone 係 false，推送會唔穩
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                || window.navigator.standalone === true;
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            if (isIOS && !isStandalone) {
+                alert('iPhone 請先：Safari → 分享 →「加入主畫面」，再用主畫面圖示打開廚房，然後再撳「開啟手機推送」。');
+                return;
+            }
+
+            setPushBtnState('busy');
+            try {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') {
+                    alert('你拒絕咗通知權限。可去系統設定重新開啟。');
+                    setPushBtnState('off');
+                    return;
+                }
+
+                const keyRes = await fetch('/api/push-vapid-public');
+                const keyData = await keyRes.json().catch(() => ({}));
+                if (!keyRes.ok || !keyData.publicKey) {
+                    throw new Error(keyData.error || '伺服器尚未設定推送（VAPID）');
+                }
+
+                const reg = await ensureKitchenServiceWorker();
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+                    });
+                }
+
+                const saveRes = await fetch('/api/push-subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subscription: sub.toJSON(),
+                        store_name: currentBranch || 'all'
+                    })
+                });
+                const saveData = await saveRes.json().catch(() => ({}));
+                if (!saveRes.ok) throw new Error(saveData.error || '儲存訂閱失敗');
+
+                localStorage.setItem('mb_kds_push_on', '1');
+                setPushBtnState('on');
+                alert('已開啟。之後呢部分店有新付款單，熄芒都應收到通知（視乎系統設定）。');
+            } catch (err) {
+                console.error(err);
+                alert('開啟推送失敗：' + (err.message || err));
+                setPushBtnState('off');
+            }
+        }
+
         function bootKitchen() {
             if (kitchenBooted) return;
             kitchenBooted = true;
@@ -1060,6 +1166,8 @@
             loadStoreStatus();
             startRealtime();
             scheduleOrdersPoll();
+            ensureKitchenServiceWorker().catch(() => {});
+            if (localStorage.getItem('mb_kds_push_on') === '1') setPushBtnState('on');
         }
 
         async function verifyKitchenToken(token) {
