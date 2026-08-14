@@ -415,9 +415,15 @@ function addCurrentToBag() {
     const bunVal = document.querySelector('input[name="opt-bun"]:checked')?.value || 'Standard';
     const bunEn = bunVal, bunZh = (bunVal === 'Nissin Bun' ? '日清麵包' : '生菜包');
     let finalPrice = activeItem.price, detailsEn = [], detailsZh = [];
-    
+    const addonIds = [];
+    const sauceIds = [];
+    let sizeLabel = null;
+    let comboSnackId = null;
+    let comboDrinkId = null;
+
     if (activeItem.sizes) {
         const s = document.querySelector('input[name="opt-size"]:checked');
+        sizeLabel = s ? s.value : null;
         finalPrice += parseInt(s.dataset.price);
         detailsEn.push(`Size: ${s.value}`); detailsZh.push(`份量: ${s.dataset.zh}`);
     }
@@ -430,16 +436,44 @@ function addCurrentToBag() {
         detailsEn.push(t.value); detailsZh.push(t.dataset.zh);
     }
     if (['beef', 'others', 'veggie'].includes(currentCategory)) { detailsEn.push(bunEn); detailsZh.push(bunZh); }
-    document.querySelectorAll('input[name="addon"]:checked').forEach(cb => { const a = addons.find(x => x.id === cb.value); finalPrice += a.p; detailsEn.push(a.nameEn); detailsZh.push(a.nameZh); });
-    document.querySelectorAll('input[name="sauce"]:checked').forEach(cb => { const s = sauces.find(x => x.id === cb.value); finalPrice += s.p; detailsEn.push(s.nameEn); detailsZh.push(s.nameZh); });
-    
+    document.querySelectorAll('input[name="addon"]:checked').forEach(cb => {
+        const a = addons.find(x => x.id === cb.value);
+        addonIds.push(cb.value);
+        finalPrice += a.p;
+        detailsEn.push(a.nameEn);
+        detailsZh.push(a.nameZh);
+    });
+    document.querySelectorAll('input[name="sauce"]:checked').forEach(cb => {
+        const s = sauces.find(x => x.id === cb.value);
+        sauceIds.push(cb.value);
+        finalPrice += s.p;
+        detailsEn.push(s.nameEn);
+        detailsZh.push(s.nameZh);
+    });
+
     if (document.getElementById('opt-combo').checked) {
         const sEl = document.getElementById('combo-snack'), dEl = document.getElementById('combo-drink');
         const s = comboSnacks.find(x => x.id === sEl.value), d = comboDrinks.find(x => x.id === dEl.value);
         finalPrice += 19 + parseInt(sEl.options[sEl.selectedIndex].dataset.price) + parseInt(dEl.options[dEl.selectedIndex].dataset.price);
         detailsEn.push(`Combo [${s.nameEn}, ${d.nameEn}]`); detailsZh.push(`套餐 [${s.nameZh}, ${d.nameZh}]`);
+        comboSnackId = sEl.value;
+        comboDrinkId = dEl.value;
     }
-    cart.push({ id: Date.now(), nameEn: activeItem.nameEn, nameZh: activeItem.nameZh, price: finalPrice, detailsEn: detailsEn.join(' • '), detailsZh: detailsZh.join(' • ') });
+    // price = display only; server recalculates from menuId + options before KPay
+    cart.push({
+        id: Date.now(),
+        menuId: activeItem.id,
+        nameEn: activeItem.nameEn,
+        nameZh: activeItem.nameZh,
+        price: finalPrice,
+        size: sizeLabel,
+        addonIds,
+        sauceIds,
+        comboSnackId,
+        comboDrinkId,
+        detailsEn: detailsEn.join(' • '),
+        detailsZh: detailsZh.join(' • '),
+    });
     updateCartUI(); closeAllSheets(); showAddedSuccessModal();
 }
 
@@ -672,6 +706,8 @@ function addUpsell(type) {
             lastItem.price += comboPrice;
             lastItem.detailsEn += ` • Combo [${s.nameEn}, ${d.nameEn}]`;
             lastItem.detailsZh += ` • 套餐 [${s.nameZh}, ${d.nameZh}]`;
+            lastItem.comboSnackId = snackSelect.value;
+            lastItem.comboDrinkId = drinkSelect.value;
         }
         updateCartUI();
         const upsellBlock = document.getElementById('upsell-block');
@@ -686,7 +722,19 @@ function addUpsell(type) {
     let itemToAdd;
     if (type === 'sauce') {
         const s = sauces.find(x => x.id === select.value);
-        if (s) { itemToAdd = { id: Date.now(), nameEn: s.nameEn, nameZh: s.nameZh, price: price, detailsEn: 'Extra Sauce', detailsZh: '額外醬汁', qty: 1 }; }
+        if (s) {
+            itemToAdd = {
+                id: Date.now(),
+                kind: 'extra_sauce',
+                sauceId: s.id,
+                nameEn: s.nameEn,
+                nameZh: s.nameZh,
+                price: price,
+                detailsEn: 'Extra Sauce',
+                detailsZh: '額外醬汁',
+                qty: 1,
+            };
+        }
     }
     if (itemToAdd) cart.push(itemToAdd);
     updateCartUI();

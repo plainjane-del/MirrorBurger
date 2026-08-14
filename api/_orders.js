@@ -80,4 +80,33 @@ async function markOrderPaid(orderNo) {
     return { updated: true, order };
 }
 
-module.exports = { getOrderByNo, markOrderPaid };
+async function updateOrderTotalAmount(orderNo, totalAmount) {
+    if (!orderNo || !Number.isFinite(Number(totalAmount))) {
+        throw new Error('Invalid updateOrderTotalAmount args');
+    }
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_KEY = process.env.SUPABASE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY');
+    }
+
+    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&payment_status=eq.PENDING`;
+    const resp = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+        },
+        body: JSON.stringify({ total_amount: Number(totalAmount) }),
+    });
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Supabase total update failed (${resp.status}): ${text}`);
+    }
+    const rows = await resp.json();
+    return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+module.exports = { getOrderByNo, markOrderPaid, updateOrderTotalAmount };

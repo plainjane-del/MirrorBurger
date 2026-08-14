@@ -1,5 +1,6 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount } = require('./_orders.js');
+const { recalculateOrderTotal } = require('./_pricing.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -8,7 +9,7 @@ module.exports = async (req, res) => {
         const { orderNo } = req.body || {};
         if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
 
-        // 金額只信資料庫，唔信前端传来嘅 amount（防改成 $1）
+        // 金額唔信前端 body，亦唔信客戶端寫入 DB 嘅 total —— 用菜單價重計
         const order = await getOrderByNo(orderNo);
         if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -17,9 +18,21 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'Order is not awaiting payment' });
         }
 
-        const payAmount = Number(order.total_amount);
-        if (!Number.isFinite(payAmount) || payAmount <= 0) {
-            return res.status(400).json({ error: 'Invalid order amount in database' });
+        let priced;
+        try {
+            priced = await recalculateOrderTotal(order);
+        } catch (priceErr) {
+            console.error('Price recalculation failed:', priceErr);
+            return res.status(400).json({ error: priceErr.message || 'Unable to price order' });
+        }
+
+        const payAmount = priced.total;
+        const stored = Number(order.total_amount);
+        if (stored !== payAmount) {
+            console.warn(
+                `Order ${orderNo}: client total ${stored} → server ${payAmount} (sub ${priced.subtotal}, disc ${priced.discount})`
+            );
+            await updateOrderTotalAmount(orderNo, payAmount);
         }
 
         const host = req.headers['x-forwarded-host'] || req.headers.host;
