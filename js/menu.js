@@ -1034,14 +1034,15 @@ function renderStores() {
                     <h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3>
                     <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
                 </div>
-                <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
-                <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+                <div class="store-addr-row">
+                    <div class="min-w-0">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
+                        <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+                    </div>
+                    <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
+                </div>
             </div>
             <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapSrc}"></iframe>
-            <div class="store-actions">
-                <a href="${s.mapLink}" target="_blank" rel="noopener">${lang('Map', '地圖')}</a>
-                <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
-            </div>
         </div>`;
     }).join('');
 }

@@ -338,24 +338,23 @@
         }
         .store-status.is-open { background: #ecfdf3; color: #067647; }
         .store-status.is-closed { background: #fef3f2; color: #b42318; }
-        .store-actions { display: flex; gap: 8px; }
-        .store-actions a, .store-actions button {
-            flex: 1;
-            text-align: center;
-            padding: 8px 10px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 700;
-            border: 1px solid #e5e7eb;
-            background: #fff;
-            color: #1d1d1f;
+        .store-addr-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
         }
-        .store-actions .store-order {
+        .store-order {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            border-radius: 9999px;
             background: #1d1d1f;
             color: #fff;
-            border-color: #1d1d1f;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #1d1d1f;
         }
-        .store-actions .store-order:disabled { opacity: 0.35; cursor: not-allowed; }
+        .store-order:disabled { opacity: 0.35; cursor: not-allowed; }
         .store-map {
             width: 100%;
             height: 140px;
@@ -869,26 +868,10 @@
             }
             .store-status.is-open { background: #ecfdf3; color: #067647; }
             .store-status.is-closed { background: #fef3f2; color: #b42318; }
-            .store-actions { display: flex; gap: 8px; margin-top: auto; }
-            .store-actions a, .store-actions button {
-                flex: 1;
-                text-align: center;
-                padding: 10px 12px;
-                border-radius: 9999px;
+            .store-order {
                 font-size: 13px;
                 font-weight: 600;
-                border: 1px solid #e5e7eb;
-                background: #fff;
-                color: #1d1d1f;
-            }
-            .store-actions .store-order {
-                background: #1d1d1f;
-                color: #fff;
-                border-color: #1d1d1f;
-            }
-            .store-actions .store-order:disabled {
-                opacity: 0.35;
-                cursor: not-allowed;
+                padding: 8px 16px;
             }
 
             footer.site-footer {
@@ -1374,7 +1357,7 @@
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=2.0"></script>
+    <script src="js/menu.js?v=2.3"></script>
     <script src="js/order-handler.js?v=2.0"></script>
 </body>
 </html>
