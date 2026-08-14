@@ -124,6 +124,23 @@ const stores = [
     { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://maps.app.goo.gl/6oxTsRNSUwmtibUx9', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
 ];
 
+const googleReviews = [
+    {
+        name: 'Omar G',
+        langLabel: 'EN',
+        stars: 5,
+        quote: 'Amazing. Top quality food! Kept coming back. I got the smoked salmon burger almost every day I was in HK, and it didn’t disappoint. Excellent portion and lots of add ons and sides to choose from.',
+        link: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9'
+    },
+    {
+        name: 'Google レビュー',
+        langLabel: '日本語',
+        stars: 5,
+        quote: '以前店内で食べて、今回はテイクアウトしました。お肉がジューシーですごく美味しいのに値段は他に比べて手頃で嬉しい。何より、スタッフの笑顔が最高！日本人とわかったら、「こんにちは！」って日本語で挨拶してくれました。香港でこういうスタッフがいる店ってなかなかないから絶対にまた行きます。',
+        link: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9'
+    }
+];
+
 const storeOpenMap = {};
 stores.forEach(s => { storeOpenMap[s.name] = true; });
 
@@ -289,6 +306,7 @@ function updateStoreModalButtons() {
 function applyStoreOpenUI() {
     updateStoreModalButtons();
     populateStoresDropdown();
+    renderStores();
 
     if (flowSelectedStore && !isStoreOpen(flowSelectedStore)) {
         flowSelectedStore = '';
@@ -349,6 +367,7 @@ function toggleLang() {
     generateTimeOptions();
     renderMenuByCategory(currentCategory);
     renderStores();
+    renderGoogleReviews();
     updateCartStoreUI();
     updateCartUI();
     closeAllSheets();
@@ -365,13 +384,14 @@ function showCustomAlert(msg) {
     const content = document.getElementById('custom-alert-content');
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closeCustomAlert() {
     const modal = document.getElementById('custom-alert-modal');
     const content = document.getElementById('custom-alert-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function renderMenuByCategory(cat) {
@@ -402,7 +422,7 @@ function renderMenuByCategory(cat) {
         const soldOutOverlay = item.isSoldOut ? `<div class="menu-card-sold absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
         const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
 
-        return `<div ${clickAction} class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
+        return `<div ${clickAction} tabindex="${item.isSoldOut ? '-1' : '0'}" role="button" onkeydown="if((event.key==='Enter'||event.key===' ') && !${item.isSoldOut ? 'true' : 'false'}){event.preventDefault(); openConfig('${cat}', '${item.id}');}" class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
             ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
             <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
@@ -443,7 +463,7 @@ function openConfig(cat, id) {
     updateConfigPrice();
     document.getElementById('config-scroll-area').scrollTop = 0;
     document.getElementById('sheet-overlay').classList.remove('hidden');
-    setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('config-sheet').classList.add('sheet-open'); }, 10);
+    setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('config-sheet').classList.add('sheet-open'); syncPageLock(); }, 10);
 }
 
 function updateConfigPrice() {
@@ -559,7 +579,10 @@ function addCurrentToBag() {
         detailsEn: detailsEn.join(' • '),
         detailsZh: detailsZh.join(' • '),
     });
-    updateCartUI(); closeAllSheets(); showAddedSuccessModal();
+    updateCartUI();
+    bounceBagIcons();
+    closeAllSheets();
+    showAddedSuccessModal();
 }
 
 // --- ORDER FLOW MODALS ---
@@ -572,13 +595,14 @@ function showOrderFlow() {
     document.getElementById('flow-step-2').classList.add('hidden');
     modal.classList.remove('hidden'); void modal.offsetWidth; 
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closeOrderFlow() {
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function setFlowStore(storeName) {
@@ -680,6 +704,7 @@ function showAddedSuccessModal() {
     renderUpsellBlock();
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function renderUpsellBlock() {
@@ -832,10 +857,10 @@ function goToCartFromSuccess() { hideAddedSuccessModal(); setTimeout(() => { tog
 function continueShopping() { hideAddedSuccessModal(); }
 
 // --- HELPERS ---
-function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => m.classList.add('hidden'), 300); }
+function hideAddedSuccessModal() { const m=document.getElementById('added-success-modal'); const c=document.getElementById('added-success-content'); m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden'); syncPageLock(); }, 300); }
 function toggleComboDetails() { document.getElementById('combo-details').classList.toggle('hidden', !document.getElementById('opt-combo').checked); updateConfigPrice(); }
-function closeAllSheets() { document.getElementById('sheet-overlay').classList.add('opacity-0'); document.getElementById('cart-sheet').classList.remove('sheet-open'); document.getElementById('config-sheet').classList.remove('sheet-open'); setTimeout(() => document.getElementById('sheet-overlay').classList.add('hidden'), 400); }
-function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); }, 10); } }
+function closeAllSheets() { document.getElementById('sheet-overlay').classList.add('opacity-0'); document.getElementById('cart-sheet').classList.remove('sheet-open'); document.getElementById('config-sheet').classList.remove('sheet-open'); setTimeout(() => { document.getElementById('sheet-overlay').classList.add('hidden'); syncPageLock(); }, 400); syncPageLock(); }
+function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); syncPageLock(); }, 10); } }
 
 function updateCartUI() {
     const container = document.getElementById('cart-items');
@@ -955,11 +980,79 @@ function generateTimeOptions() {
     validateCheckout();
 }
 
+function bounceBagIcons() {
+    document.querySelectorAll('.js-bag-bounce').forEach((el) => {
+        el.classList.remove('bag-bounce');
+        void el.offsetWidth;
+        el.classList.add('bag-bounce');
+        el.addEventListener('animationend', () => el.classList.remove('bag-bounce'), { once: true });
+    });
+}
+
+function renderGoogleReviews() {
+    const container = document.getElementById('reviews-track');
+    if (!container) return;
+    const cards = googleReviews.map((r) => {
+        const initial = sanitizeHTML((r.name || 'G').trim().charAt(0).toUpperCase());
+        const stars = '⭐'.repeat(r.stars);
+        return `<article class="review-card bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+            <div class="flex text-burger-gold text-[10px] mb-4" aria-label="${r.stars} stars">${stars}</div>
+            <p class="text-sm font-medium leading-relaxed text-gray-200 mb-6">“${sanitizeHTML(r.quote)}”</p>
+            <div class="mt-auto flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-8 h-8 bg-white/10 text-white rounded-full flex items-center justify-center text-[10px] font-bold">${initial}</div>
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-bold uppercase truncate">${sanitizeHTML(r.name)}</p>
+                        <p class="text-[8px] text-gray-400 font-bold uppercase mt-0.5">Google · ${sanitizeHTML(r.langLabel)}</p>
+                    </div>
+                </div>
+                <a href="${sanitizeHTML(r.link)}" target="_blank" rel="noopener" class="text-[10px] font-bold text-burger-gold whitespace-nowrap">${lang('Google', 'Google')}</a>
+            </div>
+        </article>`;
+    }).join('');
+    const moreLinks = stores.map((s) => `<a href="${sanitizeHTML(s.mapLink)}" target="_blank" rel="noopener">${sanitizeHTML(lang(s.name.replace(' (Takeaway Only)', ''), s.nameZh.replace(' (只限外賣自取)', '')))}</a>`).join('');
+    const moreCard = `<article class="review-card reviews-more bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col justify-center gap-4">
+        <p class="text-lg font-semibold leading-snug text-white">${lang('300+ more reviews on Google', 'Google 上還有 300+ 則評價')}</p>
+        <p class="text-sm text-gray-400">${lang('Shown in the language they were written — English, 日本語, 中文, and more.', '以食客原文顯示：英文、日文、中文等。')}</p>
+        <div class="flex flex-wrap gap-2">${moreLinks}</div>
+    </article>
+    <div class="reviews-spacer w-4 shrink-0"></div>`;
+    container.innerHTML = cards + moreCard;
+}
+
 function renderStores() { 
     const container = document.getElementById('stores-container');
-    if(container) {
-        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p><p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+    if (!container) return;
+    const mapHl = currentLang === 'zh' ? 'zh-TW' : 'en';
+    container.innerHTML = stores.map((s) => {
+        const open = isStoreOpen(s.name);
+        const safeName = s.name.replace(/'/g, "\\'");
+        const mapSrc = `https://maps.google.com/maps?q=${s.lat},${s.lng}&z=16&hl=${mapHl}&output=embed`;
+        return `<div class="store-card bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4">
+            <div>
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3>
+                    <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
+                </div>
+                <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
+                <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+            </div>
+            <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapSrc}"></iframe>
+            <div class="store-actions">
+                <a href="${s.mapLink}" target="_blank" rel="noopener">${lang('Map', '地圖')}</a>
+                <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function orderFromStore(storeName) {
+    if (!isStoreOpen(storeName)) {
+        showCustomAlert(lang('This store is closed today.', '此分店今日休息。'));
+        return;
     }
+    showOrderFlow();
+    setFlowStore(storeName);
 }
 
 function openPaymentChecking(orderNo) {
@@ -976,13 +1069,14 @@ function openPaymentChecking(orderNo) {
     const content = document.getElementById('payment-checking-content');
     modal.classList.remove('hidden'); void modal.offsetWidth;
     modal.classList.remove('opacity-0'); content.classList.remove('scale-95');
+    syncPageLock();
 }
 
 function closePaymentChecking() {
     const modal = document.getElementById('payment-checking-modal');
     const content = document.getElementById('payment-checking-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
 }
 
 function showPaymentStillPending() {
@@ -1077,7 +1171,7 @@ function closeConfirmation() {
     const modal = document.getElementById('order-confirmed-modal');
     const content = document.getElementById('order-confirmed-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => { modal.classList.add('hidden'); syncPageLock(); }, 300);
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
@@ -1127,6 +1221,56 @@ async function confirmPaymentFromRedirect() {
     }
 }
 
+function isHidden(el) {
+    return !el || el.classList.contains('hidden');
+}
+
+function anyOverlayOpen() {
+    return document.getElementById('cart-sheet')?.classList.contains('sheet-open')
+        || document.getElementById('config-sheet')?.classList.contains('sheet-open')
+        || !isHidden(document.getElementById('order-flow-modal'))
+        || !isHidden(document.getElementById('custom-alert-modal'))
+        || !isHidden(document.getElementById('added-success-modal'))
+        || !isHidden(document.getElementById('payment-checking-modal'))
+        || !isHidden(document.getElementById('order-confirmed-modal'));
+}
+
+function syncPageLock() {
+    document.body.classList.toggle('page-locked', anyOverlayOpen());
+}
+
+function closeTopOverlay() {
+    if (!isHidden(document.getElementById('custom-alert-modal'))) { closeCustomAlert(); return; }
+    if (!isHidden(document.getElementById('added-success-modal'))) { hideAddedSuccessModal(); return; }
+    if (!isHidden(document.getElementById('order-confirmed-modal'))) { closeConfirmation(); return; }
+    if (!isHidden(document.getElementById('payment-checking-modal'))) { closePaymentChecking(); return; }
+    if (!isHidden(document.getElementById('order-flow-modal'))) { closeOrderFlow(); return; }
+    if (document.getElementById('cart-sheet')?.classList.contains('sheet-open')
+        || document.getElementById('config-sheet')?.classList.contains('sheet-open')) {
+        closeAllSheets();
+    }
+}
+
+function startDesktopNavSpy() {
+    const links = document.querySelectorAll('.desktop-topbar nav a[data-nav]');
+    if (!links.length) return;
+    const sections = [...links].map((link) => document.getElementById(link.dataset.nav)).filter(Boolean);
+    const setActive = (id) => {
+        links.forEach((link) => link.classList.toggle('is-active', link.dataset.nav === id));
+    };
+    const io = new IntersectionObserver((entries) => {
+        const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target?.id) setActive(visible.target.id);
+    }, { rootMargin: '-20% 0px -55% 0px', threshold: [0.15, 0.4, 0.7] });
+    sections.forEach((section) => io.observe(section));
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTopOverlay();
+});
+
 document.addEventListener('DOMContentLoaded', () => { 
     const userLang = navigator.language || navigator.userLanguage;
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
@@ -1137,12 +1281,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     renderMenuByCategory(currentCategory);
-    updatePlaceholders(); populateStoresDropdown(); renderStores();
+    updatePlaceholders(); populateStoresDropdown(); renderStores(); renderGoogleReviews();
     fetchLiveMenu();
     fetchStoreSettings();
     startStoreSettingsRealtime();
 
     confirmPaymentFromRedirect();
+    startDesktopNavSpy();
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('SW registration failed', err));
