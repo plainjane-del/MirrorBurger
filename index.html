@@ -317,6 +317,7 @@
     <style>
         body { background-color: #e5e7eb; color: #1d1d1f; overflow-x: hidden; font-family: 'Inter', sans-serif; }
         .app-shell { max-width: 480px; margin: 0 auto; background-color: #F4F9F9; min-height: 100dvh; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.1); }
+        .desktop-topbar { display: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .bottom-sheet { transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); transform: translateY(100%); }
@@ -325,11 +326,186 @@
         .category-tab.active { background-color: #1d1d1f; color: white; border-color: #1d1d1f; }
         body.lang-en .zh { display: none !important; }
         body.lang-zh .en { display: none !important; }
+
+        @media (min-width: 1024px) {
+            body { background-color: #F4F9F9; }
+            .app-shell {
+                max-width: none;
+                margin: 0;
+                box-shadow: none;
+                padding-bottom: 0 !important;
+            }
+            .desktop-topbar {
+                display: flex;
+                position: sticky;
+                top: 0;
+                z-index: 60;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1.5rem;
+                padding: 0.85rem 2rem;
+                background: rgba(244, 249, 249, 0.92);
+                backdrop-filter: blur(16px);
+                border-bottom: 1px solid rgba(0,0,0,0.06);
+            }
+            .desktop-topbar nav { display: flex; align-items: center; gap: 1.75rem; }
+            .desktop-topbar nav a {
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: #1d1d1f;
+            }
+            .desktop-topbar nav a:hover { color: #111; }
+            .mobile-header, .glass-nav { display: none !important; }
+            .hero-section {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                align-items: center;
+                gap: 3rem;
+                height: auto;
+                min-height: 560px;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 4.5rem 2rem 3.5rem;
+                justify-content: unset;
+            }
+            .hero-media {
+                position: relative !important;
+                height: 520px !important;
+                width: 100%;
+                border-radius: 2rem;
+                overflow: hidden;
+                order: 2;
+            }
+            .hero-media img { object-position: center; }
+            .hero-media > div { display: none; }
+            .hero-copy {
+                padding: 0;
+                max-width: 36rem;
+            }
+            .hero-copy h1 {
+                font-size: 4.25rem;
+                line-height: 0.88;
+            }
+            #menu-section, #stores-section, footer {
+                max-width: 1200px;
+                margin-left: auto;
+                margin-right: auto;
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+            #menu-container {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 1.25rem;
+            }
+            #menu-container .lg-span-all,
+            #menu-container > .col-span-2 { grid-column: 1 / -1; }
+            #menu-section .sticky {
+                top: 4.25rem;
+                margin-left: 0;
+                margin-right: 0;
+                padding-left: 0;
+                padding-right: 0;
+            }
+            .menu-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0,0,0,0.08); }
+            #story-section { padding-left: 2rem; padding-right: 2rem; }
+            #story-section > .mb-8 {
+                max-width: 1200px;
+                margin-left: auto;
+                margin-right: auto;
+                width: 100%;
+            }
+            .reviews-track {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                overflow: visible;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 0;
+                gap: 1.25rem;
+            }
+            .reviews-track > .review-card {
+                width: auto;
+                max-width: none;
+            }
+            .reviews-spacer { display: none; }
+            #stores-container {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 1rem;
+            }
+            #cart-sheet, #config-sheet {
+                left: auto;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: 440px;
+                max-width: 440px;
+                height: 100dvh;
+                border-radius: 0;
+                transform: translateX(100%);
+            }
+            #config-sheet {
+                width: min(920px, 92vw);
+                max-width: min(920px, 92vw);
+                height: min(860px, 90dvh);
+                top: 50%;
+                left: 50%;
+                right: auto;
+                bottom: auto;
+                border-radius: 2rem;
+                transform: translate(-50%, -46%) scale(0.98);
+                opacity: 0;
+                pointer-events: none;
+            }
+            #cart-sheet.sheet-open { transform: translateX(0) !important; }
+            #config-sheet.sheet-open {
+                transform: translate(-50%, -50%) scale(1) !important;
+                opacity: 1;
+                pointer-events: auto;
+            }
+            #config-sheet .config-layout {
+                display: grid;
+                grid-template-columns: 280px minmax(0, 1fr);
+                gap: 1.5rem;
+                align-items: start;
+            }
+            #config-sheet #config-hero,
+            #config-sheet .config-hero-wrap {
+                height: 280px;
+                margin: 0;
+                border-radius: 1.5rem;
+            }
+            #floating-cart-btn { display: none; }
+        }
     </style>
 </head>
 <body class="antialiased lang-en">
 
     <div class="app-shell pb-24">
+        <div class="desktop-topbar">
+            <a href="#" class="flex items-center gap-3 shrink-0" onclick="window.scrollTo({top:0,behavior:'smooth'}); return false;">
+                <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-9 w-auto">
+                <span class="text-sm font-black uppercase tracking-tighter">Mirror Burger</span>
+            </a>
+            <nav>
+                <a href="#menu-section"><span class="en">Menu</span><span class="zh">菜單</span></a>
+                <a href="#story-section"><span class="en">Reviews</span><span class="zh">評價</span></a>
+                <a href="#stores-section"><span class="en">Stores</span><span class="zh">分店</span></a>
+            </nav>
+            <div class="flex items-center gap-3 shrink-0">
+                <button type="button" onclick="toggleLang()" class="js-lang-btn h-9 px-4 bg-black/5 rounded-full text-[10px] font-black uppercase tracking-widest border border-black/10">中文</button>
+                <button type="button" onclick="showOrderFlow()" class="h-9 px-5 bg-black text-white rounded-full text-[10px] font-black uppercase tracking-widest">
+                    <span class="en">Order Now</span><span class="zh">立即點餐</span>
+                </button>
+                <button type="button" onclick="toggleCart()" aria-label="Open Cart" class="relative h-9 w-9 bg-black text-white rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                    <span class="js-cart-badge absolute -top-1 -right-1 bg-burger-gold text-black text-[10px] font-black w-5 h-5 rounded-full hidden flex items-center justify-center">0</span>
+                </button>
+            </div>
+        </div>
+
         <div id="sheet-overlay" class="fixed inset-0 bg-black/40 z-[1000] hidden opacity-0 transition-opacity" onclick="closeAllSheets()"></div>
 
         <div id="custom-alert-modal" class="fixed inset-0 bg-black/60 z-[5000] hidden opacity-0 transition-opacity flex items-center justify-center px-6">
@@ -508,7 +684,8 @@
         <div id="config-sheet" class="bottom-sheet fixed bottom-0 w-full max-w-[480px] h-[90dvh] bg-white z-[1002] rounded-t-[2.5rem] flex flex-col shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Item Configurator">
     <button onclick="closeAllSheets()" aria-label="Close Options" class="absolute top-4 right-4 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center font-bold text-gray-600 border border-gray-100 shadow-sm z-[1005]">✕</button>
     <div id="config-scroll-area" class="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32 pt-0">
-        <div class="relative h-48 -mx-6 mb-6 shrink-0 bg-[#f8f9fa] flex items-center justify-center overflow-hidden rounded-t-[2.5rem]">
+        <div class="config-layout">
+        <div class="config-hero-wrap relative h-48 -mx-6 mb-6 shrink-0 bg-[#f8f9fa] flex items-center justify-center overflow-hidden rounded-t-[2.5rem]">
             <img id="config-hero" src="" alt="Item Image" loading="lazy" class="h-full w-full object-contain object-center drop-shadow-sm mix-blend-multiply scale-[1.15]">
         </div>
                 <div>
@@ -565,6 +742,7 @@
                     </div>
                 </div>
             </div>
+            </div>
             <div class="absolute bottom-0 w-full p-6 bg-white/90 backdrop-blur-md border-t pb-10"><button onclick="addCurrentToBag()" aria-label="Add item to cart" class="w-full bg-black text-white rounded-full py-5 px-8 flex justify-between items-center text-xs font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform"><span><span class="en">Add to Bag</span><span class="zh">加入購物車</span></span><span id="config-total-btn">0</span></button></div>
         </div>
 
@@ -575,25 +753,25 @@
             </button>
         </div>
 
-        <header class="absolute top-0 w-full z-40 px-6 pb-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center pointer-events-none">
+        <header class="mobile-header absolute top-0 w-full z-40 px-6 pb-6 pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center pointer-events-none">
             <div class="w-20 flex justify-start pointer-events-auto"></div>
             <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger Logo" class="h-9 w-auto drop-shadow-sm mx-auto pointer-events-auto">
-            <div class="w-20 flex justify-end pointer-events-auto"><button onclick="toggleLang()" id="lang-btn" aria-label="Switch Language" class="h-8 px-3 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center border border-white/20 shadow-sm active:scale-95 transition-all">中文</button></div>
+            <div class="w-20 flex justify-end pointer-events-auto"><button onclick="toggleLang()" class="js-lang-btn h-8 px-3 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center border border-white/20 shadow-sm active:scale-95 transition-all">中文</button></div>
         </header>
 
         <nav class="glass-nav fixed bottom-0 w-full max-w-[480px] z-50 h-20 flex items-center px-6 pb-safe">
             <div class="w-full flex justify-between items-center px-2">
                 <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" aria-label="Go to Home" class="flex flex-col items-center gap-1 text-gray-400 hover:text-black"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg><span class="text-[8px] font-black uppercase tracking-widest"><span class="en">Home</span><span class="zh">主頁</span></span></button>
                 <button onclick="document.getElementById('menu-section').scrollIntoView({behavior:'smooth'})" aria-label="Go to Menu" class="flex flex-col items-center gap-1 hover:text-black relative"><div class="absolute inset-0 bg-burger-gold/20 rounded-full blur-md"></div><svg class="w-6 h-6 text-burger-gold drop-shadow-sm relative z-10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h7"></path></svg><span class="text-[8px] font-black uppercase tracking-widest text-burger-gold relative z-10"><span class="en">Menu</span><span class="zh">菜單</span></span></button>
-                <button onclick="toggleCart()" aria-label="Open Cart" class="relative -mt-12 bg-black text-white w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-[6px] border-[#F4F9F9]"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg><div id="cart-badge" class="absolute -top-1 -right-1 bg-burger-gold text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center hidden">0</div></button>
+                <button onclick="toggleCart()" aria-label="Open Cart" class="relative -mt-12 bg-black text-white w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-[6px] border-[#F4F9F9]"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg><div id="cart-badge" class="js-cart-badge absolute -top-1 -right-1 bg-burger-gold text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center hidden">0</div></button>
                 <button onclick="document.getElementById('story-section').scrollIntoView({behavior:'smooth'})" aria-label="View Reviews" class="flex flex-col items-center gap-1 text-gray-400 hover:text-black"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"></path></svg><span class="text-[8px] font-black uppercase tracking-widest"><span class="en">Reviews</span><span class="zh">評價</span></span></button>
                 <button onclick="document.getElementById('stores-section').scrollIntoView({behavior:'smooth'})" aria-label="View Stores" class="flex flex-col items-center gap-1 text-gray-400 hover:text-black"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg><span class="text-[8px] font-black uppercase tracking-widest"><span class="en">Stores</span><span class="zh">分店</span></span></button>
             </div>
         </nav>
 
-        <section class="relative h-[85dvh] flex flex-col justify-end px-8 pb-12 bg-apple-bg overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-[75svh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
-            <div class="relative z-10 space-y-6">
+        <section class="hero-section relative h-[85dvh] flex flex-col justify-end px-8 pb-12 bg-apple-bg overflow-hidden">
+            <div class="hero-media absolute top-0 left-0 w-full h-[75svh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" srcset="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 800w, https://res.cloudinary.com/dnuhe2uwy/image/upload/w_1400,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 1400w" sizes="(min-width: 1024px) 560px, 100vw" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
+            <div class="hero-copy relative z-10 space-y-6">
                 <h1 class="text-5xl md:text-6xl font-black tracking-tighter text-[#1d1d1f] leading-[0.9] uppercase"><span class="en">FRESHNESS<br>YOU CAN<br>SEE.</span><span class="zh">新鮮，<br>肉眼可見。</span></h1>
                 <p class="text-[10px] font-bold text-gray-800 uppercase tracking-widest leading-relaxed mt-2"><span class="en">Michelin Recipe • ☪️ Halal Certified<br>Nissin Flour Bun • Aussie Black Angus + Wagyu</span><span class="zh">米芝蓮配方 • ☪️ 清真認證<br>日清麵包 • 澳洲黑安格斯及和牛</span></p>
                 <div><div class="inline-flex bg-burger-gold/90 backdrop-blur-sm text-black px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border border-yellow-400 text-center"><span class="en">🎉 10% OFF TAKEAWAY OVER $120 OR ANY COMBO<br>(TSUEN WAN: 15% OFF)</span><span class="zh">🎉 外賣自取滿 $120 或任何套餐 即享 9折<br>(荃灣分店：85折)</span></div></div>
@@ -612,14 +790,14 @@
                 <button onclick="renderMenuByCategory('sauces')" role="tab" class="category-tab px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all whitespace-nowrap"><span class="en">Sauces</span><span class="zh">醬汁</span></button>
             </div>
             <div id="menu-container" class="grid grid-cols-2 gap-3 px-1">
-                 <div class="col-span-2 text-center py-20 text-gray-400 font-black animate-pulse">CONNECTING TO DATABASE...</div>
+                 <div class="col-span-2 lg-span-all text-center py-20 text-gray-400 font-black animate-pulse">CONNECTING TO DATABASE...</div>
             </div>
         </section>
 
         <section id="story-section" class="px-6 py-12 bg-[#1d1d1f] text-white overflow-hidden">
             <div class="mb-8 flex justify-between items-end"><h2 class="text-4xl font-black tracking-tighter uppercase italic leading-none"><span class="en">Word on<br>the street.</span><span class="zh">食客真實<br>評價。</span></h2></div>
-            <div class="flex overflow-x-auto gap-4 pb-8 no-scrollbar snap-x snap-mandatory -mx-6 px-6">
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+            <div class="reviews-track flex overflow-x-auto gap-4 pb-8 no-scrollbar snap-x snap-mandatory -mx-6 px-6">
+                <div class="review-card bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                     <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
@@ -639,7 +817,7 @@
                     </div>
                 </div>
 
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+                <div class="review-card bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                     <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
@@ -659,7 +837,7 @@
                     </div>
                 </div>
 
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+                <div class="review-card bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                     <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
@@ -679,7 +857,7 @@
                     </div>
                 </div>
                 
-                <div class="bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
+                <div class="review-card bg-[#2a2a2c] p-6 rounded-[2rem] w-[85vw] max-w-[320px] snap-start shrink-0 border border-white/5 relative flex flex-col">
                     <div class="absolute top-6 right-6 text-burger-gold text-2xl opacity-20" aria-hidden="true">"</div>
                     <div class="flex text-burger-gold text-[10px] mb-4" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                     <p class="text-sm font-medium italic leading-relaxed text-gray-200 mb-6">
@@ -699,7 +877,7 @@
                     </div>
                 </div>
 
-                <div class="w-4 shrink-0"></div>
+                <div class="reviews-spacer w-4 shrink-0"></div>
             </div>
         </section>
 
@@ -715,7 +893,7 @@
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=1.5"></script>
-    <script src="js/order-handler.js?v=1.5"></script>
+    <script src="js/menu.js?v=1.6"></script>
+    <script src="js/order-handler.js?v=1.6"></script>
 </body>
 </html>
