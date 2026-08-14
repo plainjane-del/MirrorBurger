@@ -590,6 +590,7 @@ function showOrderFlow() {
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     if (!modal || !content) return;
+    prefetchStoreLocation();
     updateStoreModalButtons();
     document.getElementById('flow-step-1').classList.remove('hidden');
     document.getElementById('flow-step-2').classList.add('hidden');
@@ -657,33 +658,73 @@ function selectPickup() {
     document.getElementById('menu-section').scrollIntoView({behavior: 'smooth'});
 }
 
-function getGeoPosition(options) {
-    return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, options);
-    });
-}
+let cachedStorePosition = null;
+let storeGeoWatchId = null;
+
+const STORE_GEO_OPTS = { enableHighAccuracy: false, maximumAge: 300000, timeout: 25000 };
 
 function locateFailMessage(error) {
-    const denied = error && error.code === 1;
     if (!window.isSecureContext) {
         return lang(
             'Location needs HTTPS. Open mirrorburger.com and try again.',
             '定位需要安全連線。請用 mirrorburger.com 再開一次。'
         );
     }
-    if (denied) {
+    if (error && error.code === 1) {
         return lang(
-            'This browser blocked location. Click the lock icon in the address bar → Location → Allow, then try again. On a Mac, also turn on System Settings → Privacy & Security → Location Services for your browser.',
-            '電腦瀏覽器封鎖咗定位。請撳網址列個鎖頭 → 位置 → 允許，然後再試。Mac 要喺系統設定 → 私隱與保安 → 定位服務，開埋你用緊嘅瀏覽器。'
+            'This browser blocked location. Click the lock icon in the address bar → Location → Allow, then try again.',
+            '瀏覽器封鎖咗定位。請撳網址列個鎖頭 → 位置 → 允許，然後再試。'
         );
     }
-    if (error && error.code === 3) {
-        return lang('Location timed out. Please pick a store below.', '定位逾時，請喺下面手動揀分店。');
-    }
-    return lang('Could not get your location. Please select manually.', '無法獲取你的位置，請手動選擇。');
+    return lang(
+        'Desktop often has no GPS, so the browser could not pinpoint you. Please pick a store below.',
+        '電腦多數冇 GPS，瀏覽器搵唔到你喺邊。請喺下面手動揀分店。'
+    );
 }
 
-async function autoLocateStore() {
+function applyNearestStore(position) {
+    cachedStorePosition = position;
+    const userLat = position.coords.latitude;
+    const userLng = position.coords.longitude;
+    let nearestStore = null;
+    let minDistance = Infinity;
+    stores.forEach((store) => {
+        if (!isStoreOpen(store.name)) return;
+        const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
+        if (dist < minDistance) {
+            minDistance = dist;
+            nearestStore = store.name;
+        }
+    });
+    if (nearestStore) {
+        setFlowStore(nearestStore);
+        return true;
+    }
+    showCustomAlert(lang(
+        'No open stores nearby. Please try again later.',
+        '附近暫時沒有營業中的分店，請稍後再試。'
+    ));
+    return false;
+}
+
+function stopStoreGeoWatch() {
+    if (storeGeoWatchId != null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(storeGeoWatchId);
+        storeGeoWatchId = null;
+    }
+}
+
+// Must run inside the click handler — do not await first. Desktop Chrome drops the gesture.
+function prefetchStoreLocation() {
+    if (!navigator.geolocation || !window.isSecureContext || cachedStorePosition) return;
+    navigator.geolocation.getCurrentPosition(
+        (pos) => { cachedStorePosition = pos; },
+        () => {},
+        STORE_GEO_OPTS
+    );
+}
+
+function autoLocateStore() {
     const btn = document.getElementById('btn-locate');
     if (!btn || btn.dataset.locating === '1') return;
     const originalText = btn.innerHTML;
@@ -693,6 +734,7 @@ async function autoLocateStore() {
     if (hint) hint.classList.remove('hidden');
 
     const finish = () => {
+        stopStoreGeoWatch();
         btn.dataset.locating = '';
         btn.innerHTML = originalText;
         if (hint) hint.classList.add('hidden');
@@ -704,53 +746,29 @@ async function autoLocateStore() {
         return;
     }
 
-    try {
-        if (navigator.permissions && navigator.permissions.query) {
-            try {
-                const status = await navigator.permissions.query({ name: 'geolocation' });
-                if (status.state === 'denied') {
-                    showCustomAlert(locateFailMessage({ code: 1 }));
-                    finish();
-                    return;
-                }
-            } catch (_) { /* Safari may not support this query */ }
-        }
-
-        let position;
-        try {
-            // Desktop has no GPS — Wi‑Fi / IP first, reuse a recent fix if the browser has one.
-            position = await getGeoPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
-        } catch (firstErr) {
-            if (firstErr && firstErr.code === 1) throw firstErr;
-            position = await getGeoPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-        }
-
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
-        let nearestStore = null;
-        let minDistance = Infinity;
-        stores.forEach((store) => {
-            if (!isStoreOpen(store.name)) return;
-            const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
-            if (dist < minDistance) {
-                minDistance = dist;
-                nearestStore = store.name;
-            }
-        });
-
-        if (nearestStore) {
-            setFlowStore(nearestStore);
-        } else {
-            showCustomAlert(lang(
-                'No open stores nearby. Please try again later.',
-                '附近暫時沒有營業中的分店，請稍後再試。'
-            ));
-        }
-    } catch (error) {
-        showCustomAlert(locateFailMessage(error));
-    } finally {
+    if (cachedStorePosition) {
+        applyNearestStore(cachedStorePosition);
         finish();
+        return;
     }
+
+    const onOk = (pos) => {
+        applyNearestStore(pos);
+        finish();
+    };
+    const onErr = (error) => {
+        showCustomAlert(locateFailMessage(error));
+        finish();
+    };
+
+    navigator.geolocation.getCurrentPosition(onOk, (error) => {
+        if (error && error.code === 1) {
+            onErr(error);
+            return;
+        }
+        stopStoreGeoWatch();
+        storeGeoWatchId = navigator.geolocation.watchPosition(onOk, onErr, STORE_GEO_OPTS);
+    }, STORE_GEO_OPTS);
 }
 
 // --- UPSELL MODALS ---
