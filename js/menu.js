@@ -399,17 +399,17 @@ function renderMenuByCategory(cat) {
             else displayPrice = `${item.price}`;
         }
 
-        const soldOutOverlay = item.isSoldOut ? `<div class="absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
+        const soldOutOverlay = item.isSoldOut ? `<div class="menu-card-sold absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
         const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
 
         return `<div ${clickAction} class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
-            ${item.tag ? `<span class="absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
-            <div class="relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
-            <div class="p-3 flex-grow flex flex-col">
-                <div class="flex justify-between items-start gap-1"><h3 class="text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
-                ${item.desc ? `<p class="text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
-                <div class="mt-auto pt-3 flex justify-between items-end"><div class="text-xs font-black italic tracking-tight">${displayPrice}</div><div class="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center font-bold text-base leading-none shadow-md pb-0.5">+</div></div>
+            ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
+            <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
+            <div class="menu-card-body p-3 flex-grow flex flex-col">
+                <div class="flex justify-between items-start gap-1"><h3 class="menu-card-name text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
+                ${item.desc ? `<p class="menu-card-desc text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
+                <div class="menu-card-footer mt-auto pt-3 flex justify-between items-end"><div class="menu-card-price text-xs font-black italic tracking-tight">${displayPrice}</div><div class="menu-card-add w-6 h-6 rounded-full bg-black text-white flex items-center justify-center font-bold text-base leading-none shadow-md pb-0.5">+</div></div>
             </div>
         </div>`;
     }).join('');
