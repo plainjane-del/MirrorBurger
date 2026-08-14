@@ -20,10 +20,10 @@ const lang = (en, zh) => currentLang === 'en' ? en : zh;
 // --- 3. DATA DICTIONARY ---
 let menuData = {
     beef: [
-        { id: 'b1', nameEn: 'Classic Beef', nameZh: '經典芝士牛肉', price: 65, desc: 'Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam', descZh: '火山石燒 4oz 澳洲安斯及和牛、紅酒洋蔥醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545605/classic_beef_b5lcwl.png', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false },
-        { id: 'b3', nameEn: 'Hottest Beef', nameZh: '墨辣芝士牛肉', price: 68, desc: 'Double jalapenos: smoked and pickled. Spicy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。辣！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801224/hottest_beef2_flpfqk.jpg', dietary: ['🌶️'], isSoldOut: false },
+        { id: 'b1', nameEn: 'Classic Beef', nameZh: '經典芝士牛肉', price: 68, desc: 'Lava-grilled 4oz Angus & Wagyu beef & red wine onion jam', descZh: '火山石燒 4oz 澳洲安斯及和牛、紅酒洋蔥醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545605/classic_beef_b5lcwl.png', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false },
+        { id: 'b3', nameEn: 'Hottest Beef', nameZh: '墨辣芝士牛肉', price: 71, desc: 'Double jalapenos: smoked and pickled. Spicy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。辣！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801224/hottest_beef2_flpfqk.jpg', dietary: ['🌶️'], isSoldOut: false },
         { id: 'b4', nameEn: 'Hottest Blue Cheese', nameZh: '墨辣藍紋芝士牛肉', price: 82, desc: 'For true blue cheese lovers. Mouth-watering.', descZh: '藍芝士愛好者必選。惹味濃郁。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/IMG_1624_ljwuo6.png', dietary: ['🌶️'], tag: '👨‍🍳 Chef\'s Pick', tagZh: '👨‍🍳 主廚推薦', isSoldOut: false },
-        { id: 'b2', nameEn: '3.2.1', nameZh: '3.2.1', price: 99, desc: 'Double patty, bacon, triple cheese. Extreme flavor.', descZh: '雙層漢堡扒、煙肉、三重芝士。極致滋味。', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/321_2_spjsm1', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false }
+        { id: 'b2', nameEn: '3.2.1', nameZh: '3.2.1', price: 102, desc: 'Double patty, bacon, triple cheese. Extreme flavor.', descZh: '雙層漢堡扒、煙肉、三重芝士。極致滋味。', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/321_2_spjsm1', tag: '🔥 Best Seller', tagZh: '🔥 人氣必點', isSoldOut: false }
     ],
     others: [
         { id: 'v2', nameEn: 'Smoked Salmon & Egg', nameZh: '煙三文魚煎蛋', price: 60, desc: 'Healthy avo & fried egg combo.', descZh: '健康牛油果與煎蛋的完美配搭。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777825358/unnamed_zsvj4k.jpg', isSoldOut: false },
@@ -31,9 +31,9 @@ let menuData = {
         { id: 'c2', nameEn: 'Soft Shell Crab', nameZh: '脆炸軟殼蟹', price: 99, desc: 'Crispy whole crab with secret tartar sauce', descZh: '原隻香脆軟殼蟹配秘製他他醬', img: 'https://res.cloudinary.com/dxtmqjdxh/image/upload/f_auto,q_auto/v1777545604/soft_shell_crab_dsrxqx.jpg', isSoldOut: false }
     ],
     veggie: [
-        { id: 'v1', nameEn: 'Mushroom Schnitzel', nameZh: '燕麥吉列大啡菇', price: 58, desc: 'Vegetarian chicken-style schnitzel. Soft and crispy.', descZh: '素食炸雞排，外脆內軟。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg', dietary: ['🌱'], isSoldOut: false },
-        { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素肉', price: 61, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'], isSoldOut: false },
-        { id: 'v4', nameEn: 'Hottest Veggie', nameZh: '墨辣素', price: 65, desc: 'Double jalapenos: smoked and pickled. Spicy plant-based joy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。惹味植物肉！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801210/hot_veggie_qtszvh.jpg', dietary: ['🌱', '🌶️'], isSoldOut: false }
+        { id: 'v1', nameEn: 'Mushroom Schnitzel', nameZh: '燕麥吉列大啡菇', price: 61, desc: 'Vegetarian chicken-style schnitzel. Soft and crispy.', descZh: '素食炸雞排，外脆內軟。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg', dietary: ['🌱'], isSoldOut: false },
+        { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素肉', price: 64, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'], isSoldOut: false },
+        { id: 'v4', nameEn: 'Hottest Veggie', nameZh: '墨辣素', price: 67, desc: 'Double jalapenos: smoked and pickled. Spicy plant-based joy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。惹味植物肉！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801210/hot_veggie_qtszvh.jpg', dietary: ['🌱', '🌶️'], isSoldOut: false }
     ],
     snacks: [
         { id: 's1', nameEn: 'Crispy Fries M/L', nameZh: '脆炸薯條 M/L', price: 15, sizes: [{label: 'M', labelZh: 'M', upcharge: 0}, {label: 'L', labelZh: 'L', upcharge: 8}], isSide: true, dietary: ['🌱'], desc: 'A customer complained he cracked his teeth by having just one!', descZh: '脆到連客客人都投訴話差啲咬崩牙！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778137380/2a85989b-f02f-47df-82c7-df7af2fd84bf_b84fak.jpg', isSoldOut: false },
@@ -160,18 +160,41 @@ async function fetchLiveMenu() {
         const { data, error } = await supabaseClient
             .from('menu_items')
             .select('*')
-            .eq('is_active', true)
             .order('sort_order', { ascending: true });
         if (error) throw error;
 
+        // Merge into existing catalog — never wipe fallback sizes / missing drinks
+        // when DB row is incomplete. Prefer DB price/name/img/sold-out.
         if (Array.isArray(data) && data.length) {
-            const next = emptyMenuBuckets();
             data.forEach((row) => {
-                if (!row.category || !next[row.category]) return;
-                next[row.category].push(mapDbItem(row));
+                if (!row?.id || !row.category || !menuData[row.category]) return;
+                if (row.is_active === false) {
+                    // hide inactive from customer menu
+                    menuData[row.category] = menuData[row.category].filter((i) => i.id !== row.id);
+                    return;
+                }
+                const mapped = mapDbItem(row);
+                const idx = menuData[row.category].findIndex((i) => i.id === row.id);
+                if (idx === -1) {
+                    menuData[row.category].push(mapped);
+                    return;
+                }
+                const prev = menuData[row.category][idx];
+                menuData[row.category][idx] = {
+                    ...prev,
+                    ...mapped,
+                    // keep local sizes/dietary/side/temp if DB left them empty
+                    sizes: mapped.sizes || prev.sizes,
+                    dietary: (mapped.dietary && mapped.dietary.length) ? mapped.dietary : prev.dietary,
+                    isSide: row.is_side != null ? !!row.is_side : prev.isSide,
+                    hasTemp: row.has_temp != null ? !!row.has_temp : prev.hasTemp,
+                    img: mapped.img || prev.img,
+                    desc: mapped.desc || prev.desc,
+                    descZh: mapped.descZh || prev.descZh,
+                    tag: mapped.tag || prev.tag,
+                    tagZh: mapped.tagZh || prev.tagZh,
+                };
             });
-            const hasAny = Object.values(next).some((arr) => arr.length);
-            if (hasAny) menuData = next;
         }
 
         const { data: mods, error: modErr } = await supabaseClient
@@ -181,14 +204,14 @@ async function fetchLiveMenu() {
             .order('sort_order', { ascending: true });
         if (!modErr && Array.isArray(mods) && mods.length) {
             const toUi = (m) => ({ id: m.id, nameEn: m.name_en, nameZh: m.name_zh, p: Number(m.price) || 0 });
-            addons = mods.filter((m) => m.kind === 'addon').map(toUi);
-            sauces = mods.filter((m) => m.kind === 'sauce').map(toUi);
-            comboSnacks = mods.filter((m) => m.kind === 'combo_snack').map(toUi);
-            comboDrinks = mods.filter((m) => m.kind === 'combo_drink').map(toUi);
-            if (!addons.length) addons = addonsFallback.slice();
-            if (!sauces.length) sauces = saucesFallback.slice();
-            if (!comboSnacks.length) comboSnacks = comboSnacksFallback.slice();
-            if (!comboDrinks.length) comboDrinks = comboDrinksFallback.slice();
+            const nextAddons = mods.filter((m) => m.kind === 'addon').map(toUi);
+            const nextSauces = mods.filter((m) => m.kind === 'sauce').map(toUi);
+            const nextCs = mods.filter((m) => m.kind === 'combo_snack').map(toUi);
+            const nextCd = mods.filter((m) => m.kind === 'combo_drink').map(toUi);
+            if (nextAddons.length) addons = nextAddons;
+            if (nextSauces.length) sauces = nextSauces;
+            if (nextCs.length) comboSnacks = nextCs;
+            if (nextCd.length) comboDrinks = nextCd;
         }
 
         const { data: settings } = await supabaseClient
