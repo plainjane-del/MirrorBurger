@@ -130,6 +130,18 @@ async function getSetting(key) {
     return Array.isArray(rows) && rows[0] ? rows[0].value : null;
 }
 
+async function setMenuItemSoldOut(id, isSoldOut) {
+    if (!id) throw new Error('Missing item id');
+    return sbFetch(`menu_items?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        prefer: 'return=representation',
+        body: JSON.stringify({
+            is_sold_out: !!isSoldOut,
+            updated_at: new Date().toISOString(),
+        }),
+    });
+}
+
 module.exports = {
     listMenuItems,
     listModifiers,
@@ -138,4 +150,5 @@ module.exports = {
     upsertModifier,
     deleteModifier,
     getSetting,
+    setMenuItemSoldOut,
 };

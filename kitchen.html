@@ -148,6 +148,73 @@
             transition: transform 0.22s ease;
         }
         .history-panel.is-open .history-panel-sheet { transform: translateX(0); }
+        .mode-tab {
+            min-height: 52px;
+            font-weight: 900;
+            font-size: 1.05rem;
+            border-radius: 0.9rem;
+            border: 2px solid #333;
+            background: #1a1a1a;
+            color: #a3a3a3;
+        }
+        .mode-tab.is-active {
+            background: #FFD131;
+            color: #0a0a0a;
+            border-color: #FFD131;
+        }
+        .board-col {
+            background: #101010;
+            border: 1px solid #2a2a2a;
+            border-radius: 1.25rem;
+            min-height: 50vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .board-col-h {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #2a2a2a;
+            border-radius: 1.25rem 1.25rem 0 0;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .board-col-h.new { background: #422006; color: #fde68a; }
+        .board-col-h.prep { background: #0c4a6e; color: #bae6fd; }
+        .board-col-h.ready { background: #14532d; color: #bbf7d0; }
+        .board-col-body {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex: 1;
+            overflow-y: auto;
+            max-height: calc(100dvh - 280px);
+        }
+        .sold-chip {
+            min-height: 72px;
+            border-radius: 1rem;
+            border: 3px solid #333;
+            background: #1a1a1a;
+            font-weight: 900;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+        .sold-chip:active { transform: scale(0.98); }
+        .sold-chip.is-available {
+            border-color: #16a34a;
+            background: #052e16;
+        }
+        .sold-chip.is-sold {
+            border-color: #dc2626;
+            background: #450a0a;
+            opacity: 0.95;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -158,7 +225,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">KDS Auth · v2026.08.13</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · Tablet UI · v2026.08.14</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -178,7 +245,7 @@
                 <div class="flex items-center gap-3 min-w-0">
                     <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-10 w-auto shrink-0">
                     <div class="min-w-0">
-                        <h1 class="text-xl md:text-2xl font-black tracking-tight text-kds-yellow uppercase leading-none">Mirror Burger KDS</h1>
+                        <h1 class="text-xl md:text-2xl font-black tracking-tight text-kds-yellow uppercase leading-none">Mirror Burger 廚房</h1>
                         <p class="text-xs md:text-sm text-neutral-400 font-bold mt-1 flex items-center gap-2">
                             <span id="conn-dot" class="inline-block w-2.5 h-2.5 rounded-full offline"></span>
                             <span id="conn-label">連線中…</span>
@@ -227,9 +294,53 @@
                 荃灣<br><span class="text-[11px] md:text-xs font-bold opacity-80">Tsuen Wan</span>
             </button>
         </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-2" role="tablist" aria-label="廚房模式">
+            <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')">📋 訂單</button>
+            <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')">🚫 沽清／賣晒</button>
+        </div>
     </header>
 
-    <main id="orders-grid" class="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-5"></main>
+    <section id="view-orders" class="p-3 md:p-5">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+            <div class="board-col">
+                <div class="board-col-h new">
+                    <span>新單 · NEW</span>
+                    <span id="count-paid" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                </div>
+                <div id="col-paid" class="board-col-body"></div>
+            </div>
+            <div class="board-col">
+                <div class="board-col-h prep">
+                    <span>製作中 · PREP</span>
+                    <span id="count-prep" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                </div>
+                <div id="col-prep" class="board-col-body"></div>
+            </div>
+            <div class="board-col">
+                <div class="board-col-h ready">
+                    <span>可取餐 · READY</span>
+                    <span id="count-ready" class="text-sm rounded-full bg-black/30 px-2.5 py-0.5">0</span>
+                </div>
+                <div id="col-ready" class="board-col-body"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="view-soldout" class="hidden p-4 md:p-6">
+        <div class="max-w-5xl mx-auto">
+            <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="text-2xl font-black text-kds-yellow">沽清／賣晒</h2>
+                    <p class="text-sm font-bold text-neutral-400 mt-1">撳一下即可 · 即時同步顧客網站（同 Admin 同一資料）</p>
+                </div>
+                <button type="button" onclick="loadSoldOutMenu()" class="px-4 py-3 rounded-xl bg-neutral-800 font-black border border-neutral-600">重新載入</button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4" id="soldout-cat-tabs"></div>
+            <p id="soldout-msg" class="text-sm font-bold text-neutral-500 mb-3"></p>
+            <div id="soldout-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+        </div>
+    </section>
 
     <div id="completed-panel" class="history-panel" aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closeCompletedToday()"></div>
@@ -820,20 +931,140 @@
         }
 
         function renderOrders() {
-            const grid = document.getElementById('orders-grid');
             const list = sortOrders([...ordersMap.values()]);
             document.getElementById('order-count').textContent = `${list.length} 張活躍單`;
 
-            if (list.length === 0) {
-                grid.innerHTML = `
-                    <div class="col-span-full text-center py-28">
-                        <p class="text-3xl md:text-4xl font-black text-neutral-600 tracking-widest">目前沒有未完成訂單</p>
-                        <p class="mt-3 text-lg text-neutral-500 font-bold">新單會即時顯示喺呢度</p>
-                    </div>`;
+            const paid = list.filter((o) => getKitchenStatus(o) === 'PAID');
+            const prep = list.filter((o) => getKitchenStatus(o) === 'PREPARING');
+            const ready = list.filter((o) => getKitchenStatus(o) === 'READY');
+
+            document.getElementById('count-paid').textContent = String(paid.length);
+            document.getElementById('count-prep').textContent = String(prep.length);
+            document.getElementById('count-ready').textContent = String(ready.length);
+
+            const empty = (msg) =>
+                `<div class="text-center py-10 px-3 text-neutral-600 font-black text-lg">${msg}</div>`;
+
+            document.getElementById('col-paid').innerHTML =
+                paid.length ? paid.map(renderCard).join('') : empty('暫無新單');
+            document.getElementById('col-prep').innerHTML =
+                prep.length ? prep.map(renderCard).join('') : empty('暫無製作中');
+            document.getElementById('col-ready').innerHTML =
+                ready.length ? ready.map(renderCard).join('') : empty('暫無可取餐');
+        }
+
+        let kitchenMode = 'orders';
+        let soldOutItems = [];
+        let soldOutCategory = 'all';
+        const SOLD_OUT_CATS = [
+            { id: 'all', label: '全部' },
+            { id: 'beef', label: '牛肉' },
+            { id: 'others', label: '其他' },
+            { id: 'veggie', label: '素食' },
+            { id: 'snacks', label: '小食' },
+            { id: 'drinks', label: '飲品' },
+            { id: 'sauces', label: '醬汁' },
+        ];
+
+        function setKitchenMode(mode) {
+            kitchenMode = mode === 'soldout' ? 'soldout' : 'orders';
+            document.getElementById('view-orders').classList.toggle('hidden', kitchenMode !== 'orders');
+            document.getElementById('view-soldout').classList.toggle('hidden', kitchenMode !== 'soldout');
+            document.getElementById('mode-orders').classList.toggle('is-active', kitchenMode === 'orders');
+            document.getElementById('mode-soldout').classList.toggle('is-active', kitchenMode === 'soldout');
+            if (kitchenMode === 'soldout') loadSoldOutMenu();
+        }
+
+        function getKitchenToken() {
+            return localStorage.getItem(KITCHEN_TOKEN_KEY) || '';
+        }
+
+        async function kitchenMenuApi(payload) {
+            const res = await fetch('/api/kitchen-menu', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: getKitchenToken(), ...payload }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        async function loadSoldOutMenu() {
+            const msg = document.getElementById('soldout-msg');
+            const grid = document.getElementById('soldout-grid');
+            msg.textContent = '載入菜單中…';
+            grid.innerHTML = '';
+            try {
+                const data = await kitchenMenuApi({ action: 'list' });
+                soldOutItems = Array.isArray(data.items) ? data.items : [];
+                msg.textContent = soldOutItems.length
+                    ? `共 ${soldOutItems.length} 項 · 綠＝有貨 · 紅＝賣晒`
+                    : '未有菜單資料。請先喺 Supabase 跑 menu-full.sql';
+                renderSoldOutCats();
+                renderSoldOutGrid();
+            } catch (err) {
+                msg.textContent = '載入失敗：' + (err.message || err);
+            }
+        }
+
+        function renderSoldOutCats() {
+            const el = document.getElementById('soldout-cat-tabs');
+            el.innerHTML = SOLD_OUT_CATS.map((c) => `
+                <button type="button"
+                    class="px-4 py-2 rounded-xl font-black text-sm border-2 ${soldOutCategory === c.id ? 'bg-kds-yellow text-black border-kds-yellow' : 'bg-neutral-900 text-neutral-300 border-neutral-700'}"
+                    onclick="setSoldOutCategory('${c.id}')">${c.label}</button>
+            `).join('');
+        }
+
+        function setSoldOutCategory(cat) {
+            soldOutCategory = cat;
+            renderSoldOutCats();
+            renderSoldOutGrid();
+        }
+
+        function renderSoldOutGrid() {
+            const grid = document.getElementById('soldout-grid');
+            const rows = soldOutItems.filter((i) => soldOutCategory === 'all' || i.category === soldOutCategory);
+            if (!rows.length) {
+                grid.innerHTML = '<p class="text-neutral-500 font-bold col-span-full py-8 text-center">呢類冇項目</p>';
                 return;
             }
+            grid.innerHTML = rows.map((item) => {
+                const sold = !!item.is_sold_out;
+                const id = escapeJsString(item.id);
+                const name = escapeHtml(item.name_zh || item.name_en || item.id);
+                const price = Number(item.price);
+                return `
+                    <button type="button" class="sold-chip ${sold ? 'is-sold' : 'is-available'} w-full"
+                        onclick="toggleSoldOut('${id}', ${sold ? 'false' : 'true'})">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-lg md:text-xl text-white truncate">${name}</div>
+                                <div class="text-sm text-neutral-400 mt-0.5">$${Number.isFinite(price) ? Math.round(price) : '—'} · ${escapeHtml(item.category || '')}</div>
+                            </div>
+                            <div class="shrink-0 text-base md:text-lg font-black ${sold ? 'text-red-300' : 'text-emerald-300'}">
+                                ${sold ? '賣晒' : '有貨'}
+                            </div>
+                        </div>
+                    </button>`;
+            }).join('');
+        }
 
-            grid.innerHTML = list.map(order => renderCard(order)).join('');
+        async function toggleSoldOut(id, nextSold) {
+            const msg = document.getElementById('soldout-msg');
+            try {
+                msg.textContent = '更新中…';
+                await kitchenMenuApi({
+                    action: 'set_sold_out',
+                    id,
+                    is_sold_out: nextSold === true || nextSold === 'true',
+                });
+                await loadSoldOutMenu();
+            } catch (err) {
+                msg.textContent = '更新失敗：' + (err.message || err);
+                alert('沽清更新失敗：' + (err.message || err));
+            }
         }
 
         function renderCard(order) {
