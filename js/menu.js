@@ -657,43 +657,100 @@ function selectPickup() {
     document.getElementById('menu-section').scrollIntoView({behavior: 'smooth'});
 }
 
-function autoLocateStore() {
+function getGeoPosition(options) {
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
+}
+
+function locateFailMessage(error) {
+    const denied = error && error.code === 1;
+    if (!window.isSecureContext) {
+        return lang(
+            'Location needs HTTPS. Open mirrorburger.com and try again.',
+            '定位需要安全連線。請用 mirrorburger.com 再開一次。'
+        );
+    }
+    if (denied) {
+        return lang(
+            'This browser blocked location. Click the lock icon in the address bar → Location → Allow, then try again. On a Mac, also turn on System Settings → Privacy & Security → Location Services for your browser.',
+            '電腦瀏覽器封鎖咗定位。請撳網址列個鎖頭 → 位置 → 允許，然後再試。Mac 要喺系統設定 → 私隱與保安 → 定位服務，開埋你用緊嘅瀏覽器。'
+        );
+    }
+    if (error && error.code === 3) {
+        return lang('Location timed out. Please pick a store below.', '定位逾時，請喺下面手動揀分店。');
+    }
+    return lang('Could not get your location. Please select manually.', '無法獲取你的位置，請手動選擇。');
+}
+
+async function autoLocateStore() {
     const btn = document.getElementById('btn-locate');
+    if (!btn || btn.dataset.locating === '1') return;
     const originalText = btn.innerHTML;
+    const hint = document.getElementById('locate-hint');
+    btn.dataset.locating = '1';
     btn.innerHTML = `<span class="text-xs font-black uppercase tracking-widest animate-pulse">${lang('Locating...', '定位中...')}</span>`;
-    
+    if (hint) hint.classList.remove('hidden');
+
+    const finish = () => {
+        btn.dataset.locating = '';
+        btn.innerHTML = originalText;
+        if (hint) hint.classList.add('hidden');
+    };
+
     if (!navigator.geolocation) {
         showCustomAlert(lang('Geolocation is not supported by your browser', '你的瀏覽器不支援定位功能'));
-        btn.innerHTML = originalText; return;
+        finish();
+        return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            let nearestStore = null; let minDistance = Infinity;
-
-            stores.forEach(store => {
-                if (!isStoreOpen(store.name)) return;
-                const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
-                if (dist < minDistance) { minDistance = dist; nearestStore = store.name; }
-            });
-
-            if (nearestStore) {
-                setFlowStore(nearestStore);
-            } else {
-                showCustomAlert(lang(
-                    'No open stores nearby. Please try again later.',
-                    '附近暫時沒有營業中的分店，請稍後再試。'
-                ));
-            }
-            btn.innerHTML = originalText;
-        },
-        (error) => {
-            showCustomAlert(lang('Could not get your location. Please select manually.', '無法獲取你的位置，請手動選擇。'));
-            btn.innerHTML = originalText;
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            try {
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                if (status.state === 'denied') {
+                    showCustomAlert(locateFailMessage({ code: 1 }));
+                    finish();
+                    return;
+                }
+            } catch (_) { /* Safari may not support this query */ }
         }
-    );
+
+        let position;
+        try {
+            // Desktop has no GPS — Wi‑Fi / IP first, reuse a recent fix if the browser has one.
+            position = await getGeoPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+        } catch (firstErr) {
+            if (firstErr && firstErr.code === 1) throw firstErr;
+            position = await getGeoPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        }
+
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+        let nearestStore = null;
+        let minDistance = Infinity;
+        stores.forEach((store) => {
+            if (!isStoreOpen(store.name)) return;
+            const dist = getDistanceFromLatLonInKm(userLat, userLng, store.lat, store.lng);
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearestStore = store.name;
+            }
+        });
+
+        if (nearestStore) {
+            setFlowStore(nearestStore);
+        } else {
+            showCustomAlert(lang(
+                'No open stores nearby. Please try again later.',
+                '附近暫時沒有營業中的分店，請稍後再試。'
+            ));
+        }
+    } catch (error) {
+        showCustomAlert(locateFailMessage(error));
+    } finally {
+        finish();
+    }
 }
 
 // --- UPSELL MODALS ---
@@ -1037,7 +1094,7 @@ function renderStores() {
                 <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
                 <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
             </div>
-            <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapSrc}"></iframe>
+            <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allow="fullscreen" src="${mapSrc}"></iframe>
             <div class="store-actions">
                 <a href="${s.mapLink}" target="_blank" rel="noopener">${lang('Map', '地圖')}</a>
                 <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
