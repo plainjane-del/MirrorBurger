@@ -351,10 +351,10 @@
                 z-index: 60;
                 height: 52px;
                 padding: 0 24px;
-                background: rgba(244, 249, 249, 0.92);
-                backdrop-filter: blur(15px);
-                -webkit-backdrop-filter: blur(15px);
-                border-bottom: 1px solid rgba(0,0,0,0.05);
+                background: #F4F9F9;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                border-bottom: 1px solid rgba(0,0,0,0.06);
                 color: #1d1d1f;
             }
             .desktop-topbar-inner {
@@ -376,7 +376,7 @@
                 letter-spacing: -0.02em;
             }
             .desktop-brand img {
-                height: 22px;
+                height: 28px;
                 width: auto;
                 filter: none;
             }
@@ -389,14 +389,14 @@
                 flex: 1;
             }
             .desktop-topbar nav a {
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 600;
                 letter-spacing: -0.01em;
                 text-transform: none;
                 color: #1d1d1f;
-                opacity: 0.7;
+                opacity: 1;
             }
-            .desktop-topbar nav a:hover { opacity: 1; }
+            .desktop-topbar nav a:hover { color: #000; }
             .desktop-actions {
                 display: flex;
                 align-items: center;
@@ -409,13 +409,13 @@
                 background: none !important;
                 border: none !important;
                 color: #1d1d1f;
-                font-size: 12px;
+                font-size: 13px;
                 font-weight: 600;
                 letter-spacing: 0;
                 text-transform: none;
-                opacity: 0.7;
+                opacity: 1;
             }
-            .desktop-text-btn:hover { opacity: 1; }
+            .desktop-text-btn:hover { color: #000; }
             .desktop-order-btn { display: none !important; }
             .desktop-bag {
                 width: 32px !important;
@@ -423,7 +423,7 @@
                 background: transparent !important;
                 color: #1d1d1f !important;
             }
-            .desktop-bag svg { width: 17px; height: 17px; }
+            .desktop-bag svg { width: 17px; height: 17px; stroke: #1d1d1f; }
             .js-cart-badge {
                 background: #FFD131 !important;
                 color: #000 !important;
