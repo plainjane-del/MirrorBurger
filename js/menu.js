@@ -600,6 +600,7 @@ function showOrderFlow() {
 }
 
 function closeOrderFlow() {
+    stopStoreGeoWatch();
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
