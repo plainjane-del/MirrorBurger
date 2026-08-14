@@ -64,7 +64,7 @@ let menuData = {
     ]
 };
 
-const addons = [
+const addonsFallback = [
     { id: 'a1', nameEn: 'Housemade Pickles', nameZh: '自家製酸瓜', p: 4 },
     { id: 'a2', nameEn: 'Pickled Jalapeno', nameZh: '墨西哥酸辣辣椒', p: 4 },
     { id: 'a3', nameEn: 'American Cheese', nameZh: '美國芝士', p: 5 },
@@ -76,7 +76,7 @@ const addons = [
     { id: 'a9', nameEn: 'Angus Beef Patty', nameZh: '安格斯漢堡扒', p: 33 }
 ];
 
-const sauces = [
+const saucesFallback = [
     { id: 'sc1', nameEn: 'Caramelized Garlic', nameZh: '焦糖蒜蓉醬', p: 6 },
     { id: 'sc2', nameEn: 'Smoked Jalapeño', nameZh: '煙燻墨西哥辣椒醬', p: 8 },
     { id: 'sc3', nameEn: 'Buffalo Sauce', nameZh: '水牛城辣醬', p: 8 },
@@ -84,7 +84,7 @@ const sauces = [
     { id: 'sc5', nameEn: 'Blue Cheese', nameZh: '藍紋芝士醬', p: 8 }
 ];
 
-const comboSnacks = [
+const comboSnacksFallback = [
     { id: 'cs1', nameEn: 'Crispy Fries (M)', nameZh: '脆炸薯條 (M)', p: 0 },
     { id: 'cs3', nameEn: 'Crispy Fries (L)', nameZh: '脆炸薯條 (L)', p: 4 },
     { id: 'cs2', nameEn: 'Renkon Chips (M)', nameZh: '蓮藕脆片 (M)', p: 0 },
@@ -94,7 +94,7 @@ const comboSnacks = [
     { id: 'cs7', nameEn: 'Smoky Wings (3pcs)', nameZh: '煙燻雞翼 (3件)', p: 6 }
 ];
 
-const comboDrinks = [
+const comboDrinksFallback = [
     { id: 'cd1', nameEn: 'Coke', nameZh: '可口可樂', p: 0 },
     { id: 'cd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', p: 0 },
     { id: 'cd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', p: 0 },
@@ -112,6 +112,12 @@ const comboDrinks = [
     { id: 'cd10', nameEn: 'Double Ovaltine Smoothie', nameZh: '雙重阿華田沙冰', p: 20 }
 ];
 
+let addons = addonsFallback.slice();
+let sauces = saucesFallback.slice();
+let comboSnacks = comboSnacksFallback.slice();
+let comboDrinks = comboDrinksFallback.slice();
+let comboBasePrice = 19;
+
 const stores = [
     { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
     { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://maps.app.goo.gl/8944PrWNxNKrNXaZ9', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
@@ -125,27 +131,79 @@ function isStoreOpen(storeName) {
     return storeOpenMap[storeName] !== false;
 }
 
-// --- 4. 讀取 SUPABASE ---
+// --- 4. 讀取 SUPABASE（菜單 100% 以 DB 為準；失敗先用本機 fallback） ---
+function mapDbItem(row) {
+    return {
+        id: row.id,
+        nameEn: row.name_en || '',
+        nameZh: row.name_zh || '',
+        price: Number(row.price) || 0,
+        desc: row.desc_en || '',
+        descZh: row.desc_zh || '',
+        img: row.img || '',
+        tag: row.tag_en || undefined,
+        tagZh: row.tag_zh || undefined,
+        dietary: Array.isArray(row.dietary) ? row.dietary : [],
+        sizes: Array.isArray(row.sizes) && row.sizes.length ? row.sizes : undefined,
+        isSide: !!row.is_side,
+        hasTemp: !!row.has_temp,
+        isSoldOut: !!row.is_sold_out,
+    };
+}
+
+function emptyMenuBuckets() {
+    return { beef: [], others: [], veggie: [], snacks: [], drinks: [], sauces: [] };
+}
+
 async function fetchLiveMenu() {
     try {
-        const { data, error } = await supabaseClient.from('menu_items').select('*');
+        const { data, error } = await supabaseClient
+            .from('menu_items')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
         if (error) throw error;
-        
-        data.forEach(dbItem => {
-            if(menuData[dbItem.category]) {
-                const idx = menuData[dbItem.category].findIndex(i => i.id === dbItem.id);
-                if(idx !== -1) {
-                    menuData[dbItem.category][idx].price = dbItem.price;
-                    menuData[dbItem.category][idx].nameEn = dbItem.name_en;
-                    menuData[dbItem.category][idx].nameZh = dbItem.name_zh;
-                    menuData[dbItem.category][idx].isSoldOut = dbItem.is_sold_out;
-                }
-            }
-        });
+
+        if (Array.isArray(data) && data.length) {
+            const next = emptyMenuBuckets();
+            data.forEach((row) => {
+                if (!row.category || !next[row.category]) return;
+                next[row.category].push(mapDbItem(row));
+            });
+            const hasAny = Object.values(next).some((arr) => arr.length);
+            if (hasAny) menuData = next;
+        }
+
+        const { data: mods, error: modErr } = await supabaseClient
+            .from('menu_modifiers')
+            .select('*')
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true });
+        if (!modErr && Array.isArray(mods) && mods.length) {
+            const toUi = (m) => ({ id: m.id, nameEn: m.name_en, nameZh: m.name_zh, p: Number(m.price) || 0 });
+            addons = mods.filter((m) => m.kind === 'addon').map(toUi);
+            sauces = mods.filter((m) => m.kind === 'sauce').map(toUi);
+            comboSnacks = mods.filter((m) => m.kind === 'combo_snack').map(toUi);
+            comboDrinks = mods.filter((m) => m.kind === 'combo_drink').map(toUi);
+            if (!addons.length) addons = addonsFallback.slice();
+            if (!sauces.length) sauces = saucesFallback.slice();
+            if (!comboSnacks.length) comboSnacks = comboSnacksFallback.slice();
+            if (!comboDrinks.length) comboDrinks = comboDrinksFallback.slice();
+        }
+
+        const { data: settings } = await supabaseClient
+            .from('menu_settings')
+            .select('value')
+            .eq('key', 'combo_base')
+            .maybeSingle();
+        if (settings && settings.value != null && Number.isFinite(Number(settings.value))) {
+            comboBasePrice = Number(settings.value);
+        }
+
         renderMenuByCategory(currentCategory);
     } catch (error) {
-        console.error("Supabase Error:", error);
-        renderMenuByCategory(currentCategory); 
+        console.error('Supabase menu load error — using fallback:', error);
+        renderMenuByCategory(currentCategory);
     }
 }
 
@@ -375,7 +433,7 @@ function updateConfigPrice() {
     
     const isCombo = document.getElementById('opt-combo') ? document.getElementById('opt-combo').checked : false;
     if (isCombo) {
-        total += 19; 
+        total += comboBasePrice; 
         const snackSelect = document.getElementById('combo-snack');
         const drinkSelect = document.getElementById('combo-drink');
         if (snackSelect && drinkSelect) {
@@ -454,7 +512,7 @@ function addCurrentToBag() {
     if (document.getElementById('opt-combo').checked) {
         const sEl = document.getElementById('combo-snack'), dEl = document.getElementById('combo-drink');
         const s = comboSnacks.find(x => x.id === sEl.value), d = comboDrinks.find(x => x.id === dEl.value);
-        finalPrice += 19 + parseInt(sEl.options[sEl.selectedIndex].dataset.price) + parseInt(dEl.options[dEl.selectedIndex].dataset.price);
+        finalPrice += comboBasePrice + parseInt(sEl.options[sEl.selectedIndex].dataset.price) + parseInt(dEl.options[dEl.selectedIndex].dataset.price);
         detailsEn.push(`Combo [${s.nameEn}, ${d.nameEn}]`); detailsZh.push(`套餐 [${s.nameZh}, ${d.nameZh}]`);
         comboSnackId = sEl.value;
         comboDrinkId = dEl.value;
@@ -662,7 +720,7 @@ function updateUpsellButton(type) {
         if(!snackSelect || !drinkSelect) return;
         const sPrice = parseInt(snackSelect.options[snackSelect.selectedIndex].dataset.price);
         const dPrice = parseInt(drinkSelect.options[drinkSelect.selectedIndex].dataset.price);
-        price = 19 + sPrice + dPrice; btnText = lang('YES, UPGRADE', '好，立即升級');
+        price = comboBasePrice + sPrice + dPrice; btnText = lang('YES, UPGRADE', '好，立即升級');
     } else {
         const select = document.getElementById('upsell-select');
         if(!select) return; price = parseInt(select.options[select.selectedIndex].dataset.price);
@@ -696,7 +754,7 @@ function addUpsell(type) {
         if(!snackSelect || !drinkSelect) return;
         const sPrice = parseInt(snackSelect.options[snackSelect.selectedIndex].dataset.price);
         const dPrice = parseInt(drinkSelect.options[drinkSelect.selectedIndex].dataset.price);
-        const comboPrice = 19 + sPrice + dPrice;
+        const comboPrice = comboBasePrice + sPrice + dPrice;
 
         const s = comboSnacks.find(x => x.id === snackSelect.value);
         const d = comboDrinks.find(x => x.id === drinkSelect.value);

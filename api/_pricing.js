@@ -1,38 +1,30 @@
 /**
  * Server-side order pricing — never trust client total_amount.
- * Base item prices: defaults + live overrides from Supabase menu_items.
- * Add-ons / sizes / combo upcharges: catalog (same as js/menu.js).
+ * Loads live prices from menu_items + menu_modifiers (+ sizes JSON).
  */
 
-const COMBO_BASE = 19;
+const DEFAULT_COMBO_BASE = 19;
 
-const ADDONS = {
+const DEFAULT_ADDONS = {
     a1: 4, a2: 4, a3: 5, a4: 6, a5: 12, a6: 12, a7: 16, a8: 23, a9: 33,
 };
-
-const SAUCES = {
+const DEFAULT_SAUCES = {
     sc1: 6, sc2: 8, sc3: 8, sc4: 8, sc5: 8,
 };
-
-const COMBO_SNACKS = {
+const DEFAULT_COMBO_SNACKS = {
     cs1: 0, cs3: 4, cs2: 0, cs4: 4, cs5: 6, cs6: 11, cs7: 6,
 };
-
-const COMBO_DRINKS = {
+const DEFAULT_COMBO_DRINKS = {
     cd1: 0, cd1a: 0, cd2: 0, cd3: 2, cd4: 3,
     cd5h: 6, cd5c: 6, cd6h: 8, cd6c: 8, cd7h: 8, cd7c: 8,
     cd8h: 8, cd8c: 8, cd9: 18, cd10: 20,
 };
-
-/** menuId → { label → upcharge } */
-const SIZES = {
+const DEFAULT_SIZES = {
     s1: { M: 0, L: 8 },
     s2: { M: 0, L: 8 },
     s5: { M: 0, L: 13 },
     s3: { '3pcs': 0, '5pcs': 13 },
 };
-
-/** Fallback base prices (mirror js/menu.js); overridden by menu_items when available */
 const DEFAULT_BASE_PRICES = {
     b1: 65, b3: 68, b4: 82, b2: 99,
     v2: 60, c1: 69, c2: 99,
@@ -42,36 +34,73 @@ const DEFAULT_BASE_PRICES = {
     ss1: 6, ss2: 8, ss3: 8, ss4: 8, ss5: 8,
 };
 
-async function fetchMenuBasePrices() {
+async function sbGet(path) {
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_KEY = process.env.SUPABASE_KEY;
-    const prices = { ...DEFAULT_BASE_PRICES };
-    if (!SUPABASE_URL || !SUPABASE_KEY) return prices;
+    if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+    });
+    if (!resp.ok) return null;
+    return resp.json();
+}
+
+async function loadPricingCatalog() {
+    const catalog = {
+        basePrices: { ...DEFAULT_BASE_PRICES },
+        addons: { ...DEFAULT_ADDONS },
+        sauces: { ...DEFAULT_SAUCES },
+        comboSnacks: { ...DEFAULT_COMBO_SNACKS },
+        comboDrinks: { ...DEFAULT_COMBO_DRINKS },
+        sizes: { ...DEFAULT_SIZES },
+        comboBase: DEFAULT_COMBO_BASE,
+    };
 
     try {
-        const url = `${SUPABASE_URL}/rest/v1/menu_items?select=id,price`;
-        const resp = await fetch(url, {
-            headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
-            },
-        });
-        if (!resp.ok) {
-            console.warn('menu_items fetch failed:', resp.status);
-            return prices;
-        }
-        const rows = await resp.json();
-        if (Array.isArray(rows)) {
-            for (const row of rows) {
-                if (row && row.id != null && Number.isFinite(Number(row.price))) {
-                    prices[row.id] = Number(row.price);
+        const [items, mods, settings] = await Promise.all([
+            sbGet('menu_items?select=id,price,sizes&is_active=eq.true'),
+            sbGet('menu_modifiers?select=id,kind,price&is_active=eq.true'),
+            sbGet('menu_settings?key=eq.combo_base&select=value'),
+        ]);
+
+        if (Array.isArray(items)) {
+            for (const row of items) {
+                if (row?.id != null && Number.isFinite(Number(row.price))) {
+                    catalog.basePrices[row.id] = Number(row.price);
+                }
+                if (row?.id && Array.isArray(row.sizes) && row.sizes.length) {
+                    const map = {};
+                    for (const sz of row.sizes) {
+                        if (sz && sz.label != null) map[sz.label] = Number(sz.upcharge) || 0;
+                    }
+                    catalog.sizes[row.id] = map;
                 }
             }
         }
+
+        if (Array.isArray(mods)) {
+            for (const row of mods) {
+                const p = Number(row.price);
+                if (!row?.id || !Number.isFinite(p)) continue;
+                if (row.kind === 'addon') catalog.addons[row.id] = p;
+                else if (row.kind === 'sauce') catalog.sauces[row.id] = p;
+                else if (row.kind === 'combo_snack') catalog.comboSnacks[row.id] = p;
+                else if (row.kind === 'combo_drink') catalog.comboDrinks[row.id] = p;
+            }
+        }
+
+        if (Array.isArray(settings) && settings[0] && settings[0].value != null) {
+            const v = Number(settings[0].value);
+            if (Number.isFinite(v)) catalog.comboBase = v;
+        }
     } catch (err) {
-        console.warn('menu_items fetch error:', err);
+        console.warn('loadPricingCatalog fallback:', err);
     }
-    return prices;
+
+    return catalog;
 }
 
 function parseItems(itemsJson) {
@@ -86,15 +115,14 @@ function parseItems(itemsJson) {
     return Array.isArray(items) ? items : [];
 }
 
-function priceLine(item, basePrices) {
-    // Standalone extra sauce (upsell)
+function priceLine(item, catalog) {
+    const { basePrices, addons, sauces, comboSnacks, comboDrinks, sizes, comboBase } = catalog;
+
     if (item.kind === 'extra_sauce' || (item.sauceId && !item.menuId)) {
         const sid = item.sauceId || item.menuId;
-        if (!sid || !(sid in SAUCES)) {
-            throw new Error(`Unknown sauce: ${sid || '?'}`);
-        }
+        if (!sid || !(sid in sauces)) throw new Error(`Unknown sauce: ${sid || '?'}`);
         const qty = Math.max(1, Number(item.qty) || 1);
-        return SAUCES[sid] * qty;
+        return sauces[sid] * qty;
     }
 
     const menuId = item.menuId;
@@ -106,31 +134,29 @@ function priceLine(item, basePrices) {
     if (!Number.isFinite(line)) throw new Error(`Invalid base price for ${menuId}`);
 
     if (item.size) {
-        const sizeMap = SIZES[menuId];
+        const sizeMap = sizes[menuId];
         if (!sizeMap || !(item.size in sizeMap)) {
             throw new Error(`Invalid size "${item.size}" for ${menuId}`);
         }
         line += sizeMap[item.size];
     }
 
-    const addonIds = Array.isArray(item.addonIds) ? item.addonIds : [];
-    for (const aid of addonIds) {
-        if (!(aid in ADDONS)) throw new Error(`Unknown addon: ${aid}`);
-        line += ADDONS[aid];
+    for (const aid of Array.isArray(item.addonIds) ? item.addonIds : []) {
+        if (!(aid in addons)) throw new Error(`Unknown addon: ${aid}`);
+        line += addons[aid];
     }
 
-    const sauceIds = Array.isArray(item.sauceIds) ? item.sauceIds : [];
-    for (const sid of sauceIds) {
-        if (!(sid in SAUCES)) throw new Error(`Unknown sauce option: ${sid}`);
-        line += SAUCES[sid];
+    for (const sid of Array.isArray(item.sauceIds) ? item.sauceIds : []) {
+        if (!(sid in sauces)) throw new Error(`Unknown sauce option: ${sid}`);
+        line += sauces[sid];
     }
 
     if (item.comboSnackId || item.comboDrinkId) {
         const cs = item.comboSnackId;
         const cd = item.comboDrinkId;
-        if (!cs || !(cs in COMBO_SNACKS)) throw new Error(`Invalid combo snack: ${cs || '?'}`);
-        if (!cd || !(cd in COMBO_DRINKS)) throw new Error(`Invalid combo drink: ${cd || '?'}`);
-        line += COMBO_BASE + COMBO_SNACKS[cs] + COMBO_DRINKS[cd];
+        if (!cs || !(cs in comboSnacks)) throw new Error(`Invalid combo snack: ${cs || '?'}`);
+        if (!cd || !(cd in comboDrinks)) throw new Error(`Invalid combo drink: ${cd || '?'}`);
+        line += comboBase + comboSnacks[cs] + comboDrinks[cd];
     }
 
     const qty = Math.max(1, Number(item.qty) || 1);
@@ -138,7 +164,6 @@ function priceLine(item, basePrices) {
 }
 
 function computeDiscount(storeName, subtotal, hasCombo) {
-    // Website KPay orders are pickup-only (delivery goes to Foodpanda/KeeTa)
     if (storeName === 'Tsuen Wan (Takeaway Only)') {
         return Math.floor(subtotal * 0.15);
     }
@@ -148,23 +173,16 @@ function computeDiscount(storeName, subtotal, hasCombo) {
     return 0;
 }
 
-/**
- * @returns {{ total: number, subtotal: number, discount: number, lines: number[] }}
- */
 async function recalculateOrderTotal(order) {
     const items = parseItems(order.items_json);
     if (!items.length) throw new Error('Order has no items');
 
-    const basePrices = await fetchMenuBasePrices();
+    const catalog = await loadPricingCatalog();
     const lines = [];
     let hasCombo = false;
 
     for (const item of items) {
-        // Legacy carts without pricing metadata — refuse (force re-order after deploy)
-        const hasMeta =
-            item.menuId ||
-            item.sauceId ||
-            item.kind === 'extra_sauce';
+        const hasMeta = item.menuId || item.sauceId || item.kind === 'extra_sauce';
         if (!hasMeta) {
             throw new Error(
                 'Order items missing pricing metadata. Please refresh the page and place the order again.'
@@ -172,7 +190,7 @@ async function recalculateOrderTotal(order) {
         }
         if (item.comboSnackId || item.comboDrinkId) hasCombo = true;
         if (typeof item.detailsEn === 'string' && item.detailsEn.includes('Combo')) hasCombo = true;
-        lines.push(priceLine(item, basePrices));
+        lines.push(priceLine(item, catalog));
     }
 
     const subtotal = lines.reduce((a, b) => a + b, 0);
@@ -186,6 +204,5 @@ async function recalculateOrderTotal(order) {
 
 module.exports = {
     recalculateOrderTotal,
-    fetchMenuBasePrices,
-    COMBO_BASE,
+    loadPricingCatalog,
 };

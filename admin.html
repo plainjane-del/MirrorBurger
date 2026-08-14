@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Mirror Burger | Menu Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0a0a0a; color: #f5f5f5; }
+        input, select, textarea { background: #171717; border: 1px solid #404040; border-radius: 0.75rem; padding: 0.5rem 0.75rem; width: 100%; color: #fff; }
+        label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #a3a3a3; display: block; margin-bottom: 0.25rem; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 1rem; }
+        .btn { border-radius: 0.75rem; font-weight: 800; padding: 0.6rem 1rem; }
+        .btn-primary { background: #fafafa; color: #0a0a0a; }
+        .btn-danger { background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; }
+        .btn-ghost { background: #262626; color: #e5e5e5; }
+        .tab-on { background: #fafafa; color: #0a0a0a; }
+        .tab-off { background: #262626; color: #a3a3a3; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="login-view" class="max-w-md mx-auto px-4 py-16">
+        <h1 class="text-2xl font-black mb-2">Menu Admin</h1>
+        <p class="text-neutral-400 text-sm mb-6">改價錢、相、賣晒、加／下架項目。用 ADMIN_PASSWORD（或廚房密碼）。</p>
+        <label>Password</label>
+        <input id="login-pass" type="password" class="mb-4" autocomplete="current-password">
+        <button type="button" onclick="doLogin()" class="btn btn-primary w-full">登入</button>
+        <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
+    </div>
+
+    <div id="app-view" class="hidden max-w-5xl mx-auto px-4 py-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div>
+                <h1 class="text-2xl font-black">Menu Admin</h1>
+                <p class="text-neutral-500 text-sm">改完即寫入 Supabase；顧客頁 refresh 後見到</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" class="btn btn-ghost" onclick="loadAll()">重新載入</button>
+                <button type="button" class="btn btn-ghost" onclick="logout()">登出</button>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-6">
+            <button type="button" id="tab-items" class="btn tab-on" onclick="setTab('items')">餐點</button>
+            <button type="button" id="tab-mods" class="btn tab-off" onclick="setTab('mods')">加料／套餐選項</button>
+        </div>
+
+        <div id="panel-items">
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div>
+                    <label>分類</label>
+                    <select id="filter-cat" onchange="renderItems()">
+                        <option value="">全部</option>
+                        <option value="beef">beef</option>
+                        <option value="others">others</option>
+                        <option value="veggie">veggie</option>
+                        <option value="snacks">snacks</option>
+                        <option value="drinks">drinks</option>
+                        <option value="sauces">sauces</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="editItem(null)">＋ 新項目</button>
+            </div>
+            <div id="items-list" class="space-y-3"></div>
+        </div>
+
+        <div id="panel-mods" class="hidden">
+            <div class="flex flex-wrap gap-2 mb-4 items-end">
+                <div>
+                    <label>類型</label>
+                    <select id="filter-kind" onchange="renderMods()">
+                        <option value="">全部</option>
+                        <option value="addon">addon</option>
+                        <option value="sauce">sauce</option>
+                        <option value="combo_snack">combo_snack</option>
+                        <option value="combo_drink">combo_drink</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="editMod(null)">＋ 新選項</button>
+            </div>
+            <div id="mods-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- Item editor -->
+    <div id="item-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+        <div class="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-3">
+            <h2 class="text-lg font-black" id="item-modal-title">Edit item</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label>ID</label><input id="f-id" placeholder="b5"></div>
+                <div><label>Category</label>
+                    <select id="f-cat">
+                        <option>beef</option><option>others</option><option>veggie</option>
+                        <option>snacks</option><option>drinks</option><option>sauces</option>
+                    </select>
+                </div>
+                <div><label>Name EN</label><input id="f-name-en"></div>
+                <div><label>Name ZH</label><input id="f-name-zh"></div>
+                <div><label>Price</label><input id="f-price" type="number" step="1"></div>
+                <div><label>Sort</label><input id="f-sort" type="number" value="0"></div>
+            </div>
+            <div><label>Desc EN</label><textarea id="f-desc-en" rows="2"></textarea></div>
+            <div><label>Desc ZH</label><textarea id="f-desc-zh" rows="2"></textarea></div>
+            <div><label>Image URL</label><input id="f-img"></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label>Tag EN</label><input id="f-tag-en"></div>
+                <div><label>Tag ZH</label><input id="f-tag-zh"></div>
+            </div>
+            <div><label>Dietary (JSON array)</label><input id="f-dietary" placeholder='["🌶️"]'></div>
+            <div><label>Sizes (JSON)</label><textarea id="f-sizes" rows="2" placeholder='[{"label":"M","labelZh":"M","upcharge":0}]'></textarea></div>
+            <div class="flex flex-wrap gap-4 text-sm">
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-sold" type="checkbox" class="w-4 h-4"> Sold out</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-active" type="checkbox" class="w-4 h-4" checked> Active</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-side" type="checkbox" class="w-4 h-4"> Side</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-temp" type="checkbox" class="w-4 h-4"> Has temp</label>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="button" class="btn btn-primary flex-1" onclick="saveItem()">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeItemModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modifier editor -->
+    <div id="mod-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+        <div class="card w-full max-w-md p-5 space-y-3">
+            <h2 class="text-lg font-black" id="mod-modal-title">Edit modifier</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label>ID</label><input id="m-id"></div>
+                <div><label>Kind</label>
+                    <select id="m-kind">
+                        <option value="addon">addon</option>
+                        <option value="sauce">sauce</option>
+                        <option value="combo_snack">combo_snack</option>
+                        <option value="combo_drink">combo_drink</option>
+                    </select>
+                </div>
+                <div><label>Name EN</label><input id="m-name-en"></div>
+                <div><label>Name ZH</label><input id="m-name-zh"></div>
+                <div><label>Price / upcharge</label><input id="m-price" type="number" step="1"></div>
+                <div><label>Sort</label><input id="m-sort" type="number" value="0"></div>
+            </div>
+            <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="m-active" type="checkbox" class="w-4 h-4" checked> Active</label>
+            <div class="flex gap-2 pt-2">
+                <button type="button" class="btn btn-primary flex-1" onclick="saveMod()">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeModModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOKEN_KEY = 'mb_admin_token';
+        let token = localStorage.getItem(TOKEN_KEY) || '';
+        let items = [];
+        let modifiers = [];
+        let editingItemId = null;
+        let editingModId = null;
+
+        async function api(path, body) {
+            const res = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        }
+
+        async function boot() {
+            if (!token) return showLogin();
+            try {
+                await api('/api/admin-login', { token });
+                showApp();
+                await loadAll();
+            } catch {
+                logout();
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('app-view').classList.add('hidden');
+        }
+        function showApp() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.remove('hidden');
+        }
+
+        async function doLogin() {
+            const err = document.getElementById('login-err');
+            err.classList.add('hidden');
+            try {
+                const data = await api('/api/admin-login', {
+                    password: document.getElementById('login-pass').value,
+                });
+                token = data.token;
+                localStorage.setItem(TOKEN_KEY, token);
+                showApp();
+                await loadAll();
+            } catch (e) {
+                err.textContent = e.message;
+                err.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            token = '';
+            localStorage.removeItem(TOKEN_KEY);
+            showLogin();
+        }
+
+        async function loadAll() {
+            const data = await api('/api/admin-menu', { token, action: 'list' });
+            items = data.items || [];
+            modifiers = data.modifiers || [];
+            renderItems();
+            renderMods();
+        }
+
+        function setTab(which) {
+            document.getElementById('panel-items').classList.toggle('hidden', which !== 'items');
+            document.getElementById('panel-mods').classList.toggle('hidden', which !== 'mods');
+            document.getElementById('tab-items').className = 'btn ' + (which === 'items' ? 'tab-on' : 'tab-off');
+            document.getElementById('tab-mods').className = 'btn ' + (which === 'mods' ? 'tab-on' : 'tab-off');
+        }
+
+        function renderItems() {
+            const cat = document.getElementById('filter-cat').value;
+            const list = document.getElementById('items-list');
+            const rows = items.filter((i) => !cat || i.category === cat);
+            list.innerHTML = rows.map((i) => `
+                <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-black truncate">${esc(i.name_zh || i.name_en)} <span class="text-neutral-500 font-semibold text-xs">${esc(i.id)}</span></div>
+                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(i.category)}
+                            ${i.is_sold_out ? ' · <span class="text-amber-400">SOLD OUT</span>' : ''}
+                            ${i.is_active === false ? ' · <span class="text-red-400">INACTIVE</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost text-sm" onclick="toggleSold('${escAttr(i.id)}')">${i.is_sold_out ? '恢復供應' : '賣晒'}</button>
+                        <button type="button" class="btn btn-ghost text-sm" onclick="editItem('${escAttr(i.id)}')">編輯</button>
+                        <button type="button" class="btn btn-danger text-sm" onclick="removeItem('${escAttr(i.id)}')">刪除</button>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-neutral-500">冇項目</p>';
+        }
+
+        function renderMods() {
+            const kind = document.getElementById('filter-kind').value;
+            const list = document.getElementById('mods-list');
+            const rows = modifiers.filter((m) => !kind || m.kind === kind);
+            list.innerHTML = rows.map((m) => `
+                <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
+                    <div>
+                        <div class="font-black">${esc(m.name_zh || m.name_en)} <span class="text-neutral-500 text-xs">${esc(m.id)}</span></div>
+                        <div class="text-sm text-neutral-400">${esc(m.kind)} · +$${Number(m.price)}
+                            ${m.is_active === false ? ' · INACTIVE' : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost text-sm" onclick="editMod('${escAttr(m.id)}')">編輯</button>
+                        <button type="button" class="btn btn-danger text-sm" onclick="removeMod('${escAttr(m.id)}')">刪除</button>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-neutral-500">冇選項</p>';
+        }
+
+        function esc(s) {
+            return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+        function escAttr(s) {
+            return String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        }
+
+        function editItem(id) {
+            editingItemId = id;
+            const i = id ? items.find((x) => x.id === id) : null;
+            document.getElementById('item-modal-title').textContent = i ? '編輯項目' : '新增項目';
+            document.getElementById('f-id').value = i?.id || '';
+            document.getElementById('f-id').disabled = !!i;
+            document.getElementById('f-cat').value = i?.category || 'beef';
+            document.getElementById('f-name-en').value = i?.name_en || '';
+            document.getElementById('f-name-zh').value = i?.name_zh || '';
+            document.getElementById('f-price').value = i?.price ?? '';
+            document.getElementById('f-sort').value = i?.sort_order ?? 0;
+            document.getElementById('f-desc-en').value = i?.desc_en || '';
+            document.getElementById('f-desc-zh').value = i?.desc_zh || '';
+            document.getElementById('f-img').value = i?.img || '';
+            document.getElementById('f-tag-en').value = i?.tag_en || '';
+            document.getElementById('f-tag-zh').value = i?.tag_zh || '';
+            document.getElementById('f-dietary').value = JSON.stringify(i?.dietary || []);
+            document.getElementById('f-sizes').value = i?.sizes ? JSON.stringify(i.sizes) : '';
+            document.getElementById('f-sold').checked = !!i?.is_sold_out;
+            document.getElementById('f-active').checked = i ? i.is_active !== false : true;
+            document.getElementById('f-side').checked = !!i?.is_side;
+            document.getElementById('f-temp').checked = !!i?.has_temp;
+            document.getElementById('item-modal').classList.remove('hidden');
+        }
+
+        function closeItemModal() {
+            document.getElementById('item-modal').classList.add('hidden');
+        }
+
+        async function saveItem() {
+            let dietary = [];
+            let sizes = null;
+            try { dietary = JSON.parse(document.getElementById('f-dietary').value || '[]'); } catch { alert('Dietary JSON 無效'); return; }
+            const sizesRaw = document.getElementById('f-sizes').value.trim();
+            if (sizesRaw) {
+                try { sizes = JSON.parse(sizesRaw); } catch { alert('Sizes JSON 無效'); return; }
+            }
+            const item = {
+                id: document.getElementById('f-id').value.trim(),
+                category: document.getElementById('f-cat').value,
+                name_en: document.getElementById('f-name-en').value.trim(),
+                name_zh: document.getElementById('f-name-zh').value.trim(),
+                price: Number(document.getElementById('f-price').value),
+                sort_order: Number(document.getElementById('f-sort').value) || 0,
+                desc_en: document.getElementById('f-desc-en').value,
+                desc_zh: document.getElementById('f-desc-zh').value,
+                img: document.getElementById('f-img').value.trim(),
+                tag_en: document.getElementById('f-tag-en').value.trim() || null,
+                tag_zh: document.getElementById('f-tag-zh').value.trim() || null,
+                dietary,
+                sizes,
+                is_sold_out: document.getElementById('f-sold').checked,
+                is_active: document.getElementById('f-active').checked,
+                is_side: document.getElementById('f-side').checked,
+                has_temp: document.getElementById('f-temp').checked,
+            };
+            if (!item.id || !item.name_en || !Number.isFinite(item.price)) {
+                alert('請填 ID、英文名、價錢');
+                return;
+            }
+            await api('/api/admin-menu', { token, action: 'upsert_item', item });
+            closeItemModal();
+            await loadAll();
+        }
+
+        async function toggleSold(id) {
+            const i = items.find((x) => x.id === id);
+            if (!i) return;
+            await api('/api/admin-menu', {
+                token,
+                action: 'upsert_item',
+                item: { ...i, is_sold_out: !i.is_sold_out },
+            });
+            await loadAll();
+        }
+
+        async function removeItem(id) {
+            if (!confirm('刪除 ' + id + '？')) return;
+            await api('/api/admin-menu', { token, action: 'delete_item', id });
+            await loadAll();
+        }
+
+        function editMod(id) {
+            editingModId = id;
+            const m = id ? modifiers.find((x) => x.id === id) : null;
+            document.getElementById('mod-modal-title').textContent = m ? '編輯選項' : '新增選項';
+            document.getElementById('m-id').value = m?.id || '';
+            document.getElementById('m-id').disabled = !!m;
+            document.getElementById('m-kind').value = m?.kind || 'addon';
+            document.getElementById('m-name-en').value = m?.name_en || '';
+            document.getElementById('m-name-zh').value = m?.name_zh || '';
+            document.getElementById('m-price').value = m?.price ?? 0;
+            document.getElementById('m-sort').value = m?.sort_order ?? 0;
+            document.getElementById('m-active').checked = m ? m.is_active !== false : true;
+            document.getElementById('mod-modal').classList.remove('hidden');
+        }
+
+        function closeModModal() {
+            document.getElementById('mod-modal').classList.add('hidden');
+        }
+
+        async function saveMod() {
+            const modifier = {
+                id: document.getElementById('m-id').value.trim(),
+                kind: document.getElementById('m-kind').value,
+                name_en: document.getElementById('m-name-en').value.trim(),
+                name_zh: document.getElementById('m-name-zh').value.trim(),
+                price: Number(document.getElementById('m-price').value) || 0,
+                sort_order: Number(document.getElementById('m-sort').value) || 0,
+                is_active: document.getElementById('m-active').checked,
+            };
+            if (!modifier.id || !modifier.name_en) {
+                alert('請填 ID 同英文名');
+                return;
+            }
+            await api('/api/admin-menu', { token, action: 'upsert_modifier', modifier });
+            closeModModal();
+            await loadAll();
+        }
+
+        async function removeMod(id) {
+            if (!confirm('刪除 ' + id + '？')) return;
+            await api('/api/admin-menu', { token, action: 'delete_modifier', id });
+            await loadAll();
+        }
+
+        boot();
+    </script>
+</body>
+</html>
