@@ -339,7 +339,11 @@ function toggleLang() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
     document.body.classList.toggle('lang-en', currentLang === 'en');
     document.body.classList.toggle('lang-zh', currentLang === 'zh');
-    document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
+    document.querySelectorAll('.js-lang-btn').forEach((btn) => {
+        btn.innerText = currentLang === 'en' ? '中文' : 'ENG';
+    });
+    const legacyLangBtn = document.getElementById('lang-btn');
+    if (legacyLangBtn) legacyLangBtn.innerText = currentLang === 'en' ? '中文' : 'ENG';
     updatePlaceholders();
     populateStoresDropdown();
     generateTimeOptions();
@@ -395,17 +399,17 @@ function renderMenuByCategory(cat) {
             else displayPrice = `${item.price}`;
         }
 
-        const soldOutOverlay = item.isSoldOut ? `<div class="absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
+        const soldOutOverlay = item.isSoldOut ? `<div class="menu-card-sold absolute inset-0 bg-white/70 z-20 flex items-center justify-center backdrop-blur-[1px]"><span class="bg-black text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl transform -rotate-6 border border-gray-800">Sold Out</span></div>` : '';
         const clickAction = item.isSoldOut ? '' : `onclick="openConfig('${cat}', '${item.id}')"`;
 
-        return `<div ${clickAction} class="relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
+        return `<div ${clickAction} class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
-            ${item.tag ? `<span class="absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
-            <div class="relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
-            <div class="p-3 flex-grow flex flex-col">
-                <div class="flex justify-between items-start gap-1"><h3 class="text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
-                ${item.desc ? `<p class="text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
-                <div class="mt-auto pt-3 flex justify-between items-end"><div class="text-xs font-black italic tracking-tight">${displayPrice}</div><div class="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center font-bold text-base leading-none shadow-md pb-0.5">+</div></div>
+            ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
+            <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
+            <div class="menu-card-body p-3 flex-grow flex flex-col">
+                <div class="flex justify-between items-start gap-1"><h3 class="menu-card-name text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
+                ${item.desc ? `<p class="menu-card-desc text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
+                <div class="menu-card-footer mt-auto pt-3 flex justify-between items-end"><div class="menu-card-price text-xs font-black italic tracking-tight">${displayPrice}</div><div class="menu-card-add w-6 h-6 rounded-full bg-black text-white flex items-center justify-center font-bold text-base leading-none shadow-md pb-0.5">+</div></div>
             </div>
         </div>`;
     }).join('');
@@ -834,9 +838,20 @@ function closeAllSheets() { document.getElementById('sheet-overlay').classList.a
 function toggleCart() { if (document.getElementById('cart-sheet').classList.contains('sheet-open')) closeAllSheets(); else { updateCartStoreUI(); generateTimeOptions(); document.getElementById('sheet-overlay').classList.remove('hidden'); setTimeout(() => { document.getElementById('sheet-overlay').classList.remove('opacity-0'); document.getElementById('cart-sheet').classList.add('sheet-open'); }, 10); } }
 
 function updateCartUI() {
-    const container = document.getElementById('cart-items'), badge = document.getElementById('cart-badge');
-    if (cart.length === 0) { container.innerHTML = `<div class="h-40 flex flex-col items-center justify-center text-gray-300 font-bold uppercase text-[10px] tracking-widest gap-2"><span>${lang('Your bag is empty', '你的購物車是空的')}</span></div>`; badge.classList.add('hidden'); }
-    else { badge.innerText = cart.length; badge.classList.remove('hidden'); container.innerHTML = cart.map(item => `<div class="flex justify-between items-center p-5 bg-apple-bg rounded-[2rem] italic w-full border border-gray-100/50 shadow-sm flex-shrink-0"><div class="pr-4 flex-grow"><div class="text-[11px] font-black uppercase tracking-tight text-black">${lang(item.nameEn, item.nameZh)}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1 leading-relaxed">${lang(item.detailsEn, item.detailsZh)}</div><div class="text-[10px] font-black mt-2 text-black">${item.price}</div></div><button onclick="removeFromCart(${item.id})" class="text-[10px] font-black text-red-500 uppercase flex-shrink-0 active:scale-95 transition-transform bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">${lang('Remove', '移除')}</button></div>`).join(''); }
+    const container = document.getElementById('cart-items');
+    const badges = document.querySelectorAll('.js-cart-badge, #cart-badge');
+    if (cart.length === 0) {
+        container.innerHTML = `<div class="h-40 flex flex-col items-center justify-center text-gray-300 font-bold uppercase text-[10px] tracking-widest gap-2"><span>${lang('Your bag is empty', '你的購物車是空的')}</span></div>`;
+        badges.forEach((badge) => badge.classList.add('hidden'));
+    }
+    else {
+        badges.forEach((badge) => {
+            badge.innerText = cart.length;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        });
+        container.innerHTML = cart.map(item => `<div class="flex justify-between items-center p-5 bg-apple-bg rounded-[2rem] italic w-full border border-gray-100/50 shadow-sm flex-shrink-0"><div class="pr-4 flex-grow"><div class="text-[11px] font-black uppercase tracking-tight text-black">${lang(item.nameEn, item.nameZh)}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1 leading-relaxed">${lang(item.detailsEn, item.detailsZh)}</div><div class="text-[10px] font-black mt-2 text-black">${item.price}</div></div><button onclick="removeFromCart(${item.id})" class="text-[10px] font-black text-red-500 uppercase flex-shrink-0 active:scale-95 transition-transform bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">${lang('Remove', '移除')}</button></div>`).join('');
+    }
     let subtotal = cart.reduce((sum, item) => sum + item.price, 0), hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo')), store = getActiveStore(), rate = getDiscountRate(), discount = 0;
     if (deliveryMode === 'pickup') { if (store === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(subtotal * 0.15); else if (subtotal >= 120 || hasCombo) discount = Math.floor(subtotal * 0.10); }
     document.getElementById('subtotal-val').innerText = subtotal;
@@ -943,7 +958,7 @@ function generateTimeOptions() {
 function renderStores() { 
     const container = document.getElementById('stores-container');
     if(container) {
-        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p><p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
     }
 }
 
@@ -1117,8 +1132,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
     document.body.classList.toggle('lang-en', currentLang === 'en');
     document.body.classList.toggle('lang-zh', currentLang === 'zh');
-    document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
+    document.querySelectorAll('.js-lang-btn').forEach((btn) => {
+        btn.innerText = currentLang === 'en' ? '中文' : 'ENG';
+    });
 
+    renderMenuByCategory(currentCategory);
     updatePlaceholders(); populateStoresDropdown(); renderStores();
     fetchLiveMenu();
     fetchStoreSettings();
