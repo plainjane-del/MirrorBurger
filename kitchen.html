@@ -891,8 +891,10 @@
                     return loadOrders();
                 }
                 console.error(error);
-                document.getElementById('orders-grid').innerHTML =
-                    `<div class="col-span-full text-center py-24 text-red-400 font-black text-xl">載入失敗：${escapeHtml(error.message)}</div>`;
+                const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">載入失敗：${escapeHtml(error.message)}</div>`;
+                document.getElementById('col-paid').innerHTML = errHtml;
+                document.getElementById('col-prep').innerHTML = '';
+                document.getElementById('col-ready').innerHTML = '';
                 return;
             }
 
