@@ -1063,10 +1063,14 @@
                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"><span class="en">Select your location</span><span class="zh">請選擇你想取餐的分店</span></p>
                     </div>
                     <div class="space-y-3">
-                        <button onclick="autoLocateStore()" id="btn-locate" class="w-full bg-burger-gold/20 text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform border border-burger-gold/50 mb-4" aria-label="Auto detect nearest store">
+                        <button type="button" onclick="autoLocateStore()" id="btn-locate" class="w-full bg-burger-gold/20 text-black p-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform border border-burger-gold/50 mb-1" aria-label="Auto detect nearest store">
                             <span class="text-lg" aria-hidden="true">📍</span>
                             <span class="text-xs font-black uppercase tracking-widest"><span class="en">Auto-Detect Nearest</span><span class="zh">自動偵測最近分店</span></span>
                         </button>
+                        <p id="locate-hint" class="hidden text-[10px] font-bold text-gray-400 text-center leading-relaxed mb-3">
+                            <span class="en">Look at the top of the window and click Allow.</span>
+                            <span class="zh">請睇視窗頂部，撳 Allow / 允許。</span>
+                        </p>
                         <button type="button" data-store="Sai Ying Pun" onclick="setFlowStore('Sai Ying Pun')" class="store-pick-btn w-full bg-apple-bg text-black p-4 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform border-2 border-gray-100 hover:border-black">
                             <span class="text-sm font-black uppercase tracking-widest"><span class="en">Sai Ying Pun</span><span class="zh">西營盤</span></span>
                             <span class="store-closed-tag hidden text-[10px] font-black uppercase tracking-widest">[今日休息 / Closed]</span>
@@ -1357,7 +1361,7 @@
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=2.3"></script>
+    <script src="js/menu.js?v=2.4"></script>
     <script src="js/order-handler.js?v=2.0"></script>
 </body>
 </html>
