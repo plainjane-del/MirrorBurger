@@ -958,7 +958,7 @@ function generateTimeOptions() {
 function renderStores() { 
     const container = document.getElementById('stores-container');
     if(container) {
-        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
+        container.innerHTML = stores.map(s => `<div class="bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between gap-4"><div><h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3><p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p><p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p></div><a href="${s.mapLink}" target="_blank" class="w-12 h-12 rounded-full bg-apple-bg flex items-center justify-center shadow-sm">📍</a></div>`).join(''); 
     }
 }
 
@@ -1132,8 +1132,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
     document.body.classList.toggle('lang-en', currentLang === 'en');
     document.body.classList.toggle('lang-zh', currentLang === 'zh');
-    document.getElementById('lang-btn').innerText = currentLang === 'en' ? '中文' : 'ENG';
+    document.querySelectorAll('.js-lang-btn').forEach((btn) => {
+        btn.innerText = currentLang === 'en' ? '中文' : 'ENG';
+    });
 
+    renderMenuByCategory(currentCategory);
     updatePlaceholders(); populateStoresDropdown(); renderStores();
     fetchLiveMenu();
     fetchStoreSettings();
