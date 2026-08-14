@@ -282,7 +282,6 @@
                 </p>
             </div>
             <button id="store-status-btn" type="button" onclick="toggleStoreStatus()" class="chip-btn store-status-btn is-closed" disabled>…</button>
-            <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="chip-btn shift-btn">開鈴</button>
             <button type="button" onclick="openMoreMenu()" class="chip-btn">更多</button>
         </div>
 
@@ -382,7 +381,8 @@
             <div class="grid grid-cols-2 gap-2">
                 <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
                 <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
-                <button id="push-btn" type="button" onclick="enableKitchenPush()" class="chip-btn min-h-[44px] col-span-2 border-sky-700 text-sky-200">開啟手機推送</button>
+                <button id="shift-btn" type="button" onclick="unlockKitchenAudio()" class="chip-btn shift-btn min-h-[44px]">開鈴（本頁響鈴）</button>
+                <button id="push-btn" type="button" onclick="enableKitchenPush()" class="chip-btn min-h-[44px] border-sky-700 text-sky-200">手機推送</button>
                 <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
             </div>
         </div>
@@ -727,7 +727,7 @@
         }
 
         // --- Web Audio：開班解鎖 + 雙重嗶嗶 ---
-        async function unlockKitchenAudio() {
+        async function unlockKitchenAudio({ quiet } = {}) {
             try {
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -735,15 +735,16 @@
                 if (audioCtx.state === 'suspended') {
                     await audioCtx.resume();
                 }
-                // 短促確認音，證明權限已開
-                playBeepPair(0.55);
+                if (!quiet) playBeepPair(0.55);
                 audioUnlocked = true;
                 const btn = document.getElementById('shift-btn');
-                btn.classList.add('is-on');
-                btn.textContent = '已開鈴';
+                if (btn) {
+                    btn.classList.add('is-on');
+                    btn.textContent = '已開鈴';
+                }
             } catch (err) {
                 console.error('Audio unlock failed', err);
-                alert('無法啟用響鈴，請再試一次。');
+                if (!quiet) alert('無法啟用響鈴，請再試一次。');
             }
         }
 
@@ -1045,7 +1046,9 @@
         }
 
         function getKitchenToken() {
-            return localStorage.getItem(KITCHEN_TOKEN_KEY) || '';
+            return localStorage.getItem(KITCHEN_TOKEN_KEY)
+                || sessionStorage.getItem(KITCHEN_TOKEN_KEY)
+                || '';
         }
 
         async function kitchenMenuApi(payload) {
@@ -1394,31 +1397,37 @@
             return reg;
         }
 
-        async function enableKitchenPush() {
+        async function enableKitchenPush({ silent } = {}) {
             if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
-                alert(
-                    '此瀏覽器／裝置暫不支援網頁推送。\n\n' +
-                    'iPhone：用 Safari 打開本頁 → 分享 → 「加入主畫面」→ 由主畫面圖示開啟 → 再撳呢個掣。\n' +
-                    '（iOS 16.4+）'
-                );
+                if (!silent) {
+                    alert(
+                        '此瀏覽器／裝置暫不支援網頁推送。\n\n' +
+                        'iPhone：用 Safari 打開本頁 → 分享 → 「加入主畫面」→ 由主畫面圖示開啟。\n' +
+                        '（iOS 16.4+）'
+                    );
+                }
                 setPushBtnState('unsupported', '請用主畫面 App 開啟');
                 return;
             }
 
-            // iOS：未加主畫面時 standalone 係 false，推送會唔穩
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches
                 || window.navigator.standalone === true;
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             if (isIOS && !isStandalone) {
-                alert('iPhone 請先：Safari → 分享 →「加入主畫面」，再用主畫面圖示打開廚房，然後再撳「開啟手機推送」。');
+                if (!silent) {
+                    alert('iPhone 請先：Safari → 分享 →「加入主畫面」，再用主畫面圖示打開廚房，先會有熄芒推送。');
+                }
+                setPushBtnState('unsupported', '請用主畫面 App 開啟');
                 return;
             }
 
-            setPushBtnState('busy');
+            if (!silent) setPushBtnState('busy');
             try {
-                const perm = await Notification.requestPermission();
+                const perm = Notification.permission === 'granted'
+                    ? 'granted'
+                    : await Notification.requestPermission();
                 if (perm !== 'granted') {
-                    alert('你拒絕咗通知權限。可去系統設定重新開啟。');
+                    if (!silent) alert('你拒絕咗通知權限。可去系統設定重新開啟。');
                     setPushBtnState('off');
                     return;
                 }
@@ -1451,10 +1460,9 @@
 
                 localStorage.setItem('mb_kds_push_on', '1');
                 setPushBtnState('on');
-                alert('已開啟。之後呢部分店有新付款單，熄芒都應收到通知（視乎系統設定）。');
             } catch (err) {
                 console.error(err);
-                alert('開啟推送失敗：' + (err.message || err));
+                if (!silent) alert('開啟推送失敗：' + (err.message || err));
                 setPushBtnState('off');
             }
         }
@@ -1468,7 +1476,11 @@
             startRealtime();
             scheduleOrdersPoll();
             ensureKitchenServiceWorker().catch(() => {});
-            if (localStorage.getItem('mb_kds_push_on') === '1') setPushBtnState('on');
+            unlockKitchenAudio({ quiet: true }).catch(() => {});
+            enableKitchenPush({ silent: true }).catch(() => {});
+            document.getElementById('kitchen-app')?.addEventListener('pointerdown', () => {
+                if (!audioUnlocked) unlockKitchenAudio({ quiet: true }).catch(() => {});
+            }, { once: false });
         }
 
         async function verifyKitchenToken(token) {
@@ -1498,7 +1510,9 @@
                 if (!res.ok) {
                     throw new Error(data.error || '密碼錯誤');
                 }
+                localStorage.setItem(KITCHEN_TOKEN_KEY, data.token);
                 sessionStorage.setItem(KITCHEN_TOKEN_KEY, data.token);
+                await unlockKitchenAudio({ quiet: false });
                 bootKitchen();
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
@@ -1512,11 +1526,12 @@
 
         function logoutKitchen() {
             sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
+            localStorage.removeItem(KITCHEN_TOKEN_KEY);
             location.reload();
         }
 
         window.onload = async () => {
-            const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY);
+            const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY) || localStorage.getItem(KITCHEN_TOKEN_KEY);
             if (token) {
                 try {
                     if (await verifyKitchenToken(token)) {
@@ -1525,6 +1540,7 @@
                     }
                 } catch (_) {}
                 sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
+                localStorage.removeItem(KITCHEN_TOKEN_KEY);
             }
             showKitchenLock();
             document.getElementById('kitchen-password')?.focus();
