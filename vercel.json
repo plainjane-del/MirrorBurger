@@ -1,13 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Permissions-Policy", "value": "geolocation=(self)" }
-      ]
-    }
-  ],
   "functions": {
     "api/*.js": {
       "maxDuration": 10

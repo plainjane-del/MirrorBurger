@@ -590,6 +590,7 @@ function showOrderFlow() {
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     if (!modal || !content) return;
+    pauseStoreMaps();
     prefetchStoreLocation();
     updateStoreModalButtons();
     document.getElementById('flow-step-1').classList.remove('hidden');
@@ -601,6 +602,7 @@ function showOrderFlow() {
 
 function closeOrderFlow() {
     stopStoreGeoWatch();
+    resumeStoreMaps();
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
@@ -662,7 +664,7 @@ function selectPickup() {
 let cachedStorePosition = null;
 let storeGeoWatchId = null;
 
-const STORE_GEO_OPTS = { enableHighAccuracy: false, maximumAge: 300000, timeout: 25000 };
+const STORE_GEO_OPTS = { enableHighAccuracy: false, maximumAge: 60000 };
 
 function locateFailMessage(error) {
     if (!window.isSecureContext) {
@@ -713,6 +715,19 @@ function stopStoreGeoWatch() {
         navigator.geolocation.clearWatch(storeGeoWatchId);
         storeGeoWatchId = null;
     }
+}
+
+function pauseStoreMaps() {
+    document.querySelectorAll('iframe.store-map').forEach((iframe) => {
+        if (iframe.src && iframe.src !== 'about:blank') iframe.dataset.src = iframe.src;
+        iframe.src = 'about:blank';
+    });
+}
+
+function resumeStoreMaps() {
+    document.querySelectorAll('iframe.store-map').forEach((iframe) => {
+        if (iframe.dataset.src) iframe.src = iframe.dataset.src;
+    });
 }
 
 // Must run inside the click handler — do not await first. Desktop Chrome drops the gesture.
@@ -1110,14 +1125,15 @@ function renderStores() {
                     <h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3>
                     <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
                 </div>
-                <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
-                <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+                <div class="store-addr-row">
+                    <div class="min-w-0">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase">${lang(s.addr, s.addrZh)}</p>
+                        <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">${lang(s.hrs, s.hrsZh)}</p>
+                    </div>
+                    <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
+                </div>
             </div>
-            <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allow="fullscreen" src="${mapSrc}"></iframe>
-            <div class="store-actions">
-                <a href="${s.mapLink}" target="_blank" rel="noopener">${lang('Map', '地圖')}</a>
-                <button type="button" class="store-order" ${open ? '' : 'disabled'} onclick="orderFromStore('${safeName}')">${lang('Order', '點餐')}</button>
-            </div>
+            <iframe class="store-map" title="${sanitizeHTML(lang(s.name, s.nameZh))} Google Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapSrc}"></iframe>
         </div>`;
     }).join('');
 }
