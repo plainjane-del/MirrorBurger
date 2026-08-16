@@ -137,13 +137,13 @@ async function deletePushSubscription(endpoint) {
 }
 
 async function sendOrderPush(order) {
-    const publicKey = process.env.VAPID_PUBLIC_KEY;
-    const privateKey = process.env.VAPID_PRIVATE_KEY;
-    const subject = process.env.VAPID_SUBJECT || 'mailto:mirrorshk@gmail.com';
-    if (!publicKey || !privateKey) {
+    const { getVapidConfig } = require('./_vapid');
+    const vapid = getVapidConfig();
+    if (!vapid) {
         console.warn('🔔 Skip push: VAPID keys not set');
         return { skipped: true, reason: 'missing_vapid' };
     }
+    const { publicKey, privateKey, subject } = vapid;
 
     let webpush;
     try {
