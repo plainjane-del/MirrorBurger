@@ -122,4 +122,70 @@ async function updateOrderTotalAmount(orderNo, totalAmount) {
     return Array.isArray(rows) ? rows[0] || null : null;
 }
 
-module.exports = { getOrderByNo, markOrderPaid, updateOrderTotalAmount };
+/**
+ * Kitchen board status only. Prefer `status` column; legacy DBs without it
+ * fall back to writing kitchen states onto payment_status (service role).
+ */
+async function updateKitchenOrderStatus(orderNo, nextStatus) {
+    const status = String(nextStatus || '').toUpperCase();
+    const allowed = new Set(['PREPARING', 'READY', 'COMPLETED']);
+    if (!orderNo || !allowed.has(status)) {
+        throw new Error('Invalid kitchen status update');
+    }
+
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
+    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}`;
+
+    async function patch(body) {
+        const resp = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=representation',
+            },
+            body: JSON.stringify(body),
+        });
+        const text = await resp.text();
+        let rows = [];
+        try {
+            rows = text ? JSON.parse(text) : [];
+        } catch {
+            rows = [];
+        }
+        return { ok: resp.ok, status: resp.status, text, rows };
+    }
+
+    // Preferred: kitchen `status` column only (payment_status stays PAID)
+    let result = await patch({ status });
+    if (result.ok) {
+        return {
+            updated: Array.isArray(result.rows) && result.rows.length > 0,
+            via: 'status',
+            order: Array.isArray(result.rows) ? result.rows[0] || null : null,
+        };
+    }
+
+    // Missing status column → legacy write to payment_status
+    if (/status/i.test(result.text) || result.status === 400) {
+        result = await patch({ payment_status: status });
+        if (!result.ok) {
+            throw new Error(`Kitchen status update failed (${result.status}): ${result.text}`);
+        }
+        return {
+            updated: Array.isArray(result.rows) && result.rows.length > 0,
+            via: 'payment_status',
+            order: Array.isArray(result.rows) ? result.rows[0] || null : null,
+        };
+    }
+
+    throw new Error(`Kitchen status update failed (${result.status}): ${result.text}`);
+}
+
+module.exports = {
+    getOrderByNo,
+    markOrderPaid,
+    updateOrderTotalAmount,
+    updateKitchenOrderStatus,
+};

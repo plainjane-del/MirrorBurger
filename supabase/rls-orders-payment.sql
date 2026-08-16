@@ -5,7 +5,7 @@
 -- 白話：網站用「anon key」連資料庫。以前如果 RLS 太鬆／冇開，
 -- 任何人喺瀏覽器都可以叫 Supabase 改訂單。呢段會：
 -- 1) 只准訪客新增 PENDING 單
--- 2) 訪客可以改廚房用嘅欄位（例如 status）
+-- 2) 訪客／anon 唔可以 UPDATE 訂單（廚房改狀態用 /api/kitchen-order-status）
 -- 3) 只有 server（service_role / webhook）先可以改 payment_status
 -- ============================================================
 
@@ -36,13 +36,9 @@ FOR INSERT
 TO anon, authenticated
 WITH CHECK (upper(coalesce(payment_status, '')) = 'PENDING');
 
--- 更新：准廚房改狀態等；payment_status 由下面 trigger 鎖死
-CREATE POLICY "orders_update_kitchen"
-ON public.orders
-FOR UPDATE
-TO anon, authenticated
-USING (true)
-WITH CHECK (true);
+-- ⚠️ 唔再開 anon/authenticated UPDATE policy。
+-- 廚房狀態更新必須經 serverless：POST /api/kitchen-order-status（service_role）。
+-- 付款狀態更新必須經：/api/kpay-notify、/api/mark-order-paid、cleanup 等。
 
 -- 訪客唔准刪單
 --（唔開 DELETE policy = 預設拒絕）
@@ -74,5 +70,5 @@ BEFORE UPDATE ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.restrict_payment_status_change();
 
--- 可選檢查：跑完之後用 anon key 試改 PAID 應該失敗；
--- webhook 用 service role 改應該成功。
+-- 可選檢查：跑完之後用 anon key 試 UPDATE 應該被 RLS 拒；
+-- 試改 PAID 亦應該失敗；webhook 用 service role 改應該成功。

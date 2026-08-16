@@ -26,6 +26,36 @@ document.addEventListener('DOMContentLoaded', validateCheckout);
 function processKPayOrder() { return submitOrder('kpay'); }
 function processStripeOrder() { return submitOrder('stripe'); }
 
+function generateOrderNo() {
+    // MB + last 6 of time + 2 random digits → collision risk much lower under concurrent checkout
+    const timePart = Date.now().toString().slice(-6);
+    const randPart = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+    return `MB${timePart}${randPart}`;
+}
+
+function isOrderNoConflict(error) {
+    const msg = String(error?.message || error?.details || error?.hint || error || '');
+    const code = String(error?.code || '');
+    return code === '23505' || /duplicate|unique|order_no/i.test(msg);
+}
+
+async function insertPendingOrder(row) {
+    // Retry a few times if order_no uniquely collides
+    let lastError = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const orderNo = generateOrderNo();
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .insert([{ ...row, order_no: orderNo }])
+            .select('order_no')
+            .maybeSingle();
+        if (!error) return { orderNo: (data && data.order_no) || orderNo };
+        lastError = error;
+        if (!isOrderNoConflict(error)) break;
+    }
+    throw lastError || new Error('Failed to create order');
+}
+
 async function submitOrder(provider) {
     const store = getActiveStore();
     const name = document.getElementById('cust-name').value.trim();
@@ -51,8 +81,6 @@ async function submitOrder(provider) {
     btn.innerHTML = `<span class="en">Preparing Order...</span><span class="zh">準備訂單中...</span>`;
     btn.disabled = true;
 
-    // 將訂單號碼前綴由 UAT 改為正式嘅 MB (Mirror Burger)
-    const orderNo = "MB" + Date.now().toString().slice(-6);
     const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
     const discount = isDiscountActive() ? Math.floor(subtotal * getDiscountRate()) : 0;
     const finalTotal = subtotal - discount;
@@ -61,8 +89,7 @@ async function submitOrder(provider) {
     const endpoint = isKPay ? KPAY_SERVER_URL : STRIPE_SERVER_URL;
 
     try {
-        await supabaseClient.from('orders').insert([{
-            order_no: orderNo,
+        const { orderNo } = await insertPendingOrder({
             store_name: store,
             customer_name: name,
             customer_phone: phone,
@@ -70,7 +97,7 @@ async function submitOrder(provider) {
             items_json: cart,
             total_amount: finalTotal,
             payment_status: 'PENDING'
-        }]);
+        });
 
         const response = await fetch(endpoint, {
             method: 'POST',
