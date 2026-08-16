@@ -10,25 +10,8 @@
     <meta name="theme-color" content="#0a0a0a">
     <link rel="manifest" href="/kitchen-manifest.json">
     <title>Mirror Burger | Kitchen Display System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="./output.css?v=2.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        kds: {
-                            bg: '#0a0a0a',
-                            panel: '#141414',
-                            card: '#1a1a1a',
-                            yellow: '#FFD131',
-                            border: '#2a2a2a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         body {
@@ -255,7 +238,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.14b</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -282,6 +265,7 @@
                 </p>
             </div>
             <button id="store-status-btn" type="button" onclick="toggleStoreStatus()" class="chip-btn store-status-btn is-closed" disabled>…</button>
+            <button type="button" id="shift-btn" onclick="unlockKitchenAudio({ quiet: false })" class="chip-btn shift-btn">開鈴</button>
             <button type="button" onclick="openMoreMenu()" class="chip-btn">更多</button>
         </div>
 
@@ -379,6 +363,8 @@
                 <button type="button" onclick="closeMoreMenu()" class="w-9 h-9 rounded-full bg-neutral-800 font-black">✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="push-btn" onclick="closeMoreMenu(); enableKitchenPush({ silent: false })" class="chip-btn min-h-[44px]">開啟手機推送</button>
+                <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]">測試響鈴</button>
                 <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
                 <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
                 <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
@@ -724,7 +710,7 @@
             ].join('');
         }
 
-        // --- Web Audio：開班解鎖 + 雙重嗶嗶 ---
+        // --- Web Audio：必須由用戶手勢解鎖（Chrome 唔畀自動播） ---
         async function unlockKitchenAudio({ quiet } = {}) {
             try {
                 if (!audioCtx) {
@@ -732,6 +718,13 @@
                 }
                 if (audioCtx.state === 'suspended') {
                     await audioCtx.resume();
+                }
+                // 再確認一次（部分 Chrome 要第二次 resume）
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+                if (audioCtx.state !== 'running') {
+                    throw new Error('AudioContext still ' + audioCtx.state);
                 }
                 if (!quiet) playBeepPair(0.55);
                 audioUnlocked = true;
@@ -742,7 +735,8 @@
                 }
             } catch (err) {
                 console.error('Audio unlock failed', err);
-                if (!quiet) alert('無法啟用響鈴，請再試一次。');
+                audioUnlocked = false;
+                if (!quiet) alert('無法啟用響鈴，請先撳「開鈴」掣。');
             }
         }
 
@@ -1474,11 +1468,12 @@
             startRealtime();
             scheduleOrdersPoll();
             ensureKitchenServiceWorker().catch(() => {});
-            unlockKitchenAudio({ quiet: true }).catch(() => {});
-            enableKitchenPush({ silent: true }).catch(() => {});
+            // 唔好喺 boot 自動建 AudioContext —— Chrome 會報 autoplay 錯
+            // 登入掣／開鈴掣／第一次撳畫面先解鎖
             document.getElementById('kitchen-app')?.addEventListener('pointerdown', () => {
                 if (!audioUnlocked) unlockKitchenAudio({ quiet: true }).catch(() => {});
             }, { once: false });
+            enableKitchenPush({ silent: true }).catch(() => {});
         }
 
         async function verifyKitchenToken(token) {

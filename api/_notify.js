@@ -98,42 +98,22 @@ async function sendOrderEmail(order) {
 }
 
 async function listPushSubscriptions(storeName) {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_KEY) return [];
-
-    // 同舖 + 訂閱「全部分店」嘅裝置
-    const url =
-        `${SUPABASE_URL}/rest/v1/push_subscriptions` +
-        `?or=(store_name.eq.${encodeURIComponent(storeName)},store_name.eq.all)` +
-        `&select=id,endpoint,p256dh,auth,store_name`;
-
-    const resp = await fetch(url, {
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-    });
-    if (!resp.ok) {
-        const text = await resp.text();
-        console.warn('Push list failed:', text);
+    const { listPushSubscriptions: list } = require('./_pushStore');
+    try {
+        return await list(storeName || '');
+    } catch (err) {
+        console.warn('Push list failed:', err.message);
         return [];
     }
-    return await resp.json();
 }
 
 async function deletePushSubscription(endpoint) {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_KEY || !endpoint) return;
-    const url = `${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`;
-    await fetch(url, {
-        method: 'DELETE',
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-    });
+    const { deletePushSubscription: del } = require('./_pushStore');
+    try {
+        await del(endpoint);
+    } catch (err) {
+        console.warn('Push delete failed:', err.message);
+    }
 }
 
 async function sendOrderPush(order) {
