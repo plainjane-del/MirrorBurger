@@ -235,10 +235,10 @@
     <div id="kitchen-lock" class="fixed inset-0 z-[100] bg-kds-bg flex items-center justify-center px-6">
         <form id="kitchen-login-form" class="w-full max-w-sm space-y-5" onsubmit="return submitKitchenLogin(event)">
             <div class="text-center space-y-2">
-                <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
+                <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16c</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16d</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -254,7 +254,7 @@
     <div id="kitchen-app" class="hidden">
     <header class="sticky top-0 z-50 bg-kds-bg border-b border-kds-border px-3 py-2">
         <div class="flex items-center gap-2">
-            <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
+            <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_140/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
             <div class="min-w-0 flex-1">
                 <div class="text-sm font-black text-kds-yellow leading-none">廚房</div>
                 <p class="text-[11px] text-neutral-400 font-bold mt-0.5 flex items-center gap-1.5 truncate">
@@ -836,20 +836,26 @@
             const btn = document.getElementById('store-status-btn');
             if (btn) btn.disabled = true;
 
-            const { error } = await client
-                .from('store_settings')
-                .update({ is_open: next })
-                .eq('store_name', currentBranch);
-
-            if (error) {
-                console.error('toggleStoreStatus', error);
-                alert('更新營業狀態失敗：' + error.message);
+            try {
+                const res = await fetch('/api/kitchen-store-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + getKitchenToken(),
+                    },
+                    body: JSON.stringify({ store_name: currentBranch, is_open: next }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.error || ('HTTP ' + res.status));
+                }
+                storeIsOpen = !!data.is_open;
                 renderStoreStatusBtn();
-                return;
+            } catch (err) {
+                console.error('toggleStoreStatus', err);
+                alert('更新營業狀態失敗：' + (err.message || err));
+                renderStoreStatusBtn();
             }
-
-            storeIsOpen = next;
-            renderStoreStatusBtn();
         }
 
         function sortOrders(list) {

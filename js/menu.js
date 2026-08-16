@@ -17,6 +17,36 @@ let flowSelectedStore = '';
 
 const lang = (en, zh) => currentLang === 'en' ? en : zh;
 
+/** Cloudinary: strip prior transforms, cap width, auto format/quality (WebP/AVIF). */
+function cloudinaryUrl(url, width) {
+    if (!url || typeof url !== 'string') return '';
+    const marker = '/image/upload/';
+    const idx = url.indexOf(marker);
+    if (idx === -1) return url;
+    const prefix = url.slice(0, idx + marker.length);
+    const parts = url.slice(idx + marker.length).split('/');
+    let assetStart = 0;
+    while (assetStart < parts.length - 1 && !/^v\d+$/.test(parts[assetStart])) {
+        assetStart += 1;
+    }
+    const assetPath = parts.slice(assetStart).join('/');
+    const w = Number(width);
+    const tx = Number.isFinite(w) && w > 0
+        ? `c_limit,w_${Math.round(w)}/f_auto/q_auto`
+        : 'f_auto/q_auto';
+    return `${prefix}${tx}/${assetPath}`;
+}
+
+function menuCardImgHtml(item) {
+    if (!item.img) {
+        return '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>';
+    }
+    const alt = lang(item.nameEn, item.nameZh);
+    const src = cloudinaryUrl(item.img, 480);
+    const src2x = cloudinaryUrl(item.img, 800);
+    return `<img src="${src}" srcset="${src} 480w, ${src2x} 800w" sizes="(max-width: 640px) 46vw, 280px" alt="${alt}" loading="lazy" decoding="async" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">`;
+}
+
 // --- 3. DATA DICTIONARY ---
 let menuData = {
     beef: [
@@ -402,7 +432,7 @@ function renderMenuByCategory(cat) {
         return `<div ${clickAction} tabindex="${item.isSoldOut ? '-1' : '0'}" role="button" onkeydown="if((event.key==='Enter'||event.key===' ') && !${item.isSoldOut ? 'true' : 'false'}){event.preventDefault(); openConfig('${cat}', '${item.id}');}" class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
             ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
-            <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${item.img ? `<img src="${item.img}" alt="${lang(item.nameEn, item.nameZh)}" loading="lazy" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">` : '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>'}</div>
+            <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${menuCardImgHtml(item)}</div>
             <div class="menu-card-body p-3 flex-grow flex flex-col">
                 <div class="flex justify-between items-start gap-1"><h3 class="menu-card-name text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
                 ${item.desc ? `<p class="menu-card-desc text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
@@ -417,7 +447,7 @@ function openConfig(cat, id) {
     activeItem = { ...item };
     document.getElementById('config-name').innerText = lang(item.nameEn, item.nameZh);
     document.getElementById('config-desc').innerText = lang(item.desc || "", item.descZh || "");
-    document.getElementById('config-hero').src = item.img || '';
+    document.getElementById('config-hero').src = item.img ? cloudinaryUrl(item.img, 900) : '';
     
     const isBurger = ['beef', 'others', 'veggie'].includes(cat), isSnack = cat === 'snacks', hasSizes = !!item.sizes, isSpicy = item.dietary && item.dietary.some(d => d.includes('🌶️')), hasTemp = !!item.hasTemp;
     document.getElementById('size-section').classList.toggle('hidden', !hasSizes);

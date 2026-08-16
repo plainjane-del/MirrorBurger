@@ -70,5 +70,9 @@ BEFORE UPDATE ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.restrict_payment_status_change();
 
+REVOKE ALL ON FUNCTION public.restrict_payment_status_change() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.restrict_payment_status_change() FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restrict_payment_status_change() TO postgres, service_role;
+
 -- 可選檢查：跑完之後用 anon key 試 UPDATE 應該被 RLS 拒；
 -- 試改 PAID 亦應該失敗；webhook 用 service role 改應該成功。
