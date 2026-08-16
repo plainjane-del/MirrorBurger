@@ -155,9 +155,10 @@ function mapDbItem(row) {
         nameEn: row.name_en || '',
         nameZh: row.name_zh || '',
         price: Number(row.price) || 0,
-        desc: row.desc_en || '',
-        descZh: row.desc_zh || '',
-        img: row.img || '',
+        // Live DB uses description_* / image_url; menu-full.sql uses desc_* / img
+        desc: row.desc_en || row.description_en || '',
+        descZh: row.desc_zh || row.description_zh || '',
+        img: row.img || row.image_url || '',
         tag: row.tag_en || undefined,
         tagZh: row.tag_zh || undefined,
         dietary: Array.isArray(row.dietary) ? row.dietary : [],
@@ -172,12 +173,36 @@ function emptyMenuBuckets() {
     return { beef: [], others: [], veggie: [], snacks: [], drinks: [], sauces: [] };
 }
 
+async function fetchMenuItemsRows() {
+    // Live DB may not have sort_order yet (menu-full.sql migration pending)
+    let res = await supabaseClient
+        .from('menu_items')
+        .select('*')
+        .order('sort_order', { ascending: true });
+    if (res.error && /sort_order/i.test(res.error.message || '')) {
+        res = await supabaseClient.from('menu_items').select('*').order('id', { ascending: true });
+    }
+    return res;
+}
+
+async function fetchMenuModifierRows() {
+    let res = await supabaseClient
+        .from('menu_modifiers')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+    if (res.error && /sort_order|does not exist/i.test(res.error.message || '')) {
+        res = await supabaseClient.from('menu_modifiers').select('*').eq('is_active', true);
+    }
+    if (res.error && /does not exist|42P01|PGRST/i.test(res.error.message || JSON.stringify(res.error))) {
+        return { data: [], error: null };
+    }
+    return res;
+}
+
 async function fetchLiveMenu() {
     try {
-        const { data, error } = await supabaseClient
-            .from('menu_items')
-            .select('*')
-            .order('sort_order', { ascending: true });
+        const { data, error } = await fetchMenuItemsRows();
         if (error) throw error;
 
         // Merge into existing catalog — never wipe fallback sizes / missing drinks
@@ -214,11 +239,7 @@ async function fetchLiveMenu() {
             });
         }
 
-        const { data: mods, error: modErr } = await supabaseClient
-            .from('menu_modifiers')
-            .select('*')
-            .eq('is_active', true)
-            .order('sort_order', { ascending: true });
+        const { data: mods, error: modErr } = await fetchMenuModifierRows();
         if (!modErr && Array.isArray(mods) && mods.length) {
             const toUi = (m) => ({ id: m.id, nameEn: m.name_en, nameZh: m.name_zh, p: Number(m.price) || 0 });
             const nextAddons = mods.filter((m) => m.kind === 'addon').map(toUi);
