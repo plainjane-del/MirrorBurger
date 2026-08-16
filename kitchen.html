@@ -238,7 +238,10 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16f</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.17</p>
+                <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
+                    iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
+                </p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -268,6 +271,9 @@
             <button type="button" id="shift-btn" onclick="unlockKitchenAudio({ quiet: false })" class="chip-btn shift-btn">開鈴</button>
             <button type="button" onclick="openMoreMenu()" class="chip-btn">更多</button>
         </div>
+        <button type="button" id="push-nudge" onclick="enableKitchenPush({ silent: false })" class="hidden mt-2 w-full rounded-xl bg-amber-400 text-black px-3 py-2.5 text-xs font-black text-left">
+            熄芒收單未開 — 撳呢度允許 iPhone 通知（只須一次）
+        </button>
 
         <div class="mt-2 grid grid-cols-3 gap-1" role="tablist" aria-label="分店">
             <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)">西營盤</button>
@@ -364,7 +370,7 @@
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <button type="button" id="push-btn" onclick="closeMoreMenu(); enableKitchenPush({ silent: false })" class="chip-btn min-h-[44px]">開啟手機推送</button>
-                <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]">測試響鈴</button>
+                <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]">測試開屏響鈴</button>
                 <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
                 <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
                 <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
@@ -745,6 +751,9 @@
             document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
             loadOrders();
             loadStoreStatus();
+            if (localStorage.getItem('mb_kds_push_on') === '1') {
+                enableKitchenPush({ silent: true }).catch(() => {});
+            }
             if (document.getElementById('completed-panel').classList.contains('is-open')) {
                 loadCompletedToday();
             }
@@ -1306,6 +1315,40 @@
             return arr;
         }
 
+        function isKitchenStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches
+                || window.navigator.standalone === true;
+        }
+
+        function isIOSDevice() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function saveKitchenToken(token) {
+            if (!token) return;
+            localStorage.setItem(KITCHEN_TOKEN_KEY, token);
+            sessionStorage.setItem(KITCHEN_TOKEN_KEY, token);
+        }
+
+        function clearKitchenToken() {
+            sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
+            localStorage.removeItem(KITCHEN_TOKEN_KEY);
+        }
+
+        function updatePushNudge() {
+            const nudge = document.getElementById('push-nudge');
+            if (!nudge) return;
+            if (!('Notification' in window)) {
+                nudge.classList.add('hidden');
+                return;
+            }
+            const needs = isIOSDevice()
+                ? isKitchenStandalone() && Notification.permission !== 'granted'
+                : Notification.permission !== 'granted';
+            nudge.classList.toggle('hidden', !needs);
+        }
+
         function setPushBtnState(state, detail = '') {
             const btn = document.getElementById('push-btn');
             if (!btn) return;
@@ -1344,14 +1387,19 @@
                 return;
             }
 
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone === true;
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isStandalone = isKitchenStandalone();
+            const isIOS = isIOSDevice();
             if (isIOS && !isStandalone) {
                 if (!silent) {
                     alert('iPhone 請先：Safari → 分享 →「加入主畫面」，再用主畫面圖示打開廚房，先會有熄芒推送。');
                 }
                 setPushBtnState('unsupported', '請用主畫面 App 開啟');
+                updatePushNudge();
+                return;
+            }
+
+            if (silent && Notification.permission !== 'granted') {
+                updatePushNudge();
                 return;
             }
 
@@ -1363,6 +1411,7 @@
                 if (perm !== 'granted') {
                     if (!silent) alert('你拒絕咗通知權限。可去系統設定重新開啟。');
                     setPushBtnState('off');
+                    updatePushNudge();
                     return;
                 }
 
@@ -1394,10 +1443,12 @@
 
                 localStorage.setItem('mb_kds_push_on', '1');
                 setPushBtnState('on');
+                updatePushNudge();
             } catch (err) {
                 console.error(err);
                 if (!silent) alert('開啟推送失敗：' + (err.message || err));
                 setPushBtnState('off');
+                updatePushNudge();
             }
         }
 
@@ -1410,25 +1461,45 @@
             startRealtime();
             scheduleOrdersPoll();
             ensureKitchenServiceWorker().catch(() => {});
-            // 唔好喺 boot 自動建 AudioContext —— Chrome 會報 autoplay 錯
-            // 登入掣／開鈴掣／第一次撳畫面先解鎖
+            updatePushNudge();
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState !== 'visible') return;
+                if (audioCtx) {
+                    audioCtx.resume().then(() => {
+                        if (audioCtx.state === 'running') {
+                            audioUnlocked = true;
+                            const btn = document.getElementById('shift-btn');
+                            if (btn) {
+                                btn.classList.add('is-on');
+                                btn.textContent = '已開鈴';
+                            }
+                        }
+                    }).catch(() => {});
+                }
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    enableKitchenPush({ silent: true }).catch(() => {});
+                }
+                updatePushNudge();
+            });
             document.getElementById('kitchen-app')?.addEventListener('pointerdown', () => {
                 if (!audioUnlocked) unlockKitchenAudio({ quiet: true }).catch(() => {});
             }, { once: false });
             enableKitchenPush({ silent: true }).catch(() => {});
         }
 
-        async function verifyKitchenToken(token) {
+        async function verifyKitchenSession(token) {
             const res = await fetch('/api/kitchen-login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token })
             });
-            return res.ok;
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, status: res.status, token: data.token || '' };
         }
 
         async function submitKitchenLogin(event) {
             event.preventDefault();
+            unlockKitchenAudio({ quiet: true }).catch(() => {});
             const btn = document.getElementById('kitchen-login-btn');
             const err = document.getElementById('kitchen-login-error');
             const password = document.getElementById('kitchen-password').value;
@@ -1445,9 +1516,7 @@
                 if (!res.ok) {
                     throw new Error(data.error || '密碼錯誤');
                 }
-                localStorage.setItem(KITCHEN_TOKEN_KEY, data.token);
-                sessionStorage.setItem(KITCHEN_TOKEN_KEY, data.token);
-                await unlockKitchenAudio({ quiet: false });
+                saveKitchenToken(data.token);
                 bootKitchen();
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
@@ -1460,24 +1529,39 @@
         }
 
         function logoutKitchen() {
-            sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
-            localStorage.removeItem(KITCHEN_TOKEN_KEY);
+            clearKitchenToken();
             location.reload();
         }
 
         window.onload = async () => {
+            ensureKitchenServiceWorker().catch(() => {});
+            if ('Notification' in window && Notification.permission === 'granted') {
+                enableKitchenPush({ silent: true }).catch(() => {});
+            }
             const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY) || localStorage.getItem(KITCHEN_TOKEN_KEY);
             if (token) {
                 try {
-                    if (await verifyKitchenToken(token)) {
+                    const checked = await verifyKitchenSession(token);
+                    if (checked.ok) {
+                        if (checked.token) saveKitchenToken(checked.token);
                         bootKitchen();
                         return;
                     }
-                } catch (_) {}
-                sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
-                localStorage.removeItem(KITCHEN_TOKEN_KEY);
+                    if (checked.status === 401) {
+                        clearKitchenToken();
+                        showKitchenLock('登入已過期，請再入密碼');
+                        return;
+                    }
+                    saveKitchenToken(token);
+                    bootKitchen();
+                    return;
+                } catch (_) {
+                    bootKitchen();
+                    return;
+                }
             }
             showKitchenLock();
+            updatePushNudge();
             document.getElementById('kitchen-password')?.focus();
         };
     </script>

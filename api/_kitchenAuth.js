@@ -4,8 +4,10 @@ function getKitchenSecret() {
     return process.env.KITCHEN_PASSWORD || '';
 }
 
+const KITCHEN_TOKEN_MS = 30 * 24 * 60 * 60 * 1000; // kitchen iPads stay signed in
+
 function makeKitchenToken(secret) {
-    const exp = Date.now() + 12 * 60 * 60 * 1000;
+    const exp = Date.now() + KITCHEN_TOKEN_MS;
     const payload = String(exp);
     const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     return `${payload}.${sig}`;

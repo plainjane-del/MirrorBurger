@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
 
         if (body.token) {
             if (verifyKitchenToken(body.token, secret)) {
-                return res.status(200).json({ ok: true });
+                return res.status(200).json({ ok: true, token: makeKitchenToken(secret) });
             }
             return res.status(401).json({ error: 'Session expired' });
         }
