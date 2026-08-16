@@ -38,15 +38,18 @@ module.exports = async (req, res) => {
         const host = req.headers['x-forwarded-host'] || req.headers.host;
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const hostUrl = `${protocol}://${host}`;
+        // Webhook 必須打去正網；preview / 錯 host 會令廚房同電郵永遠收唔到
+        const siteUrl = (process.env.PUBLIC_SITE_URL || 'https://mirrorburger.com').replace(/\/$/, '');
+        const returnBase = process.env.PUBLIC_SITE_URL ? siteUrl : hostUrl;
 
         const payload = {
             merchantIcon: '',
             managedOutTradeNo: orderNo,
             payAmount,
             payCurrency: 'HKD',
-            notifyUrl: `${hostUrl}/api/kpay-notify`,
+            notifyUrl: `${siteUrl}/api/kpay-notify`,
             // returnUrl = 離開付款頁後返回網站；唔代表已付款（取消都會返嚟）
-            returnUrl: `${hostUrl}/?order_return=${orderNo}`,
+            returnUrl: `${returnBase}/?order_return=${orderNo}`,
             orderRemark: `Mirror Burger Order #${orderNo}`,
             itemList: [{
                 itemNo: 'MB_ORDER',

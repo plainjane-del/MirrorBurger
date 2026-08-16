@@ -99,7 +99,7 @@ async function sendOrderEmail(order) {
 
 async function listPushSubscriptions(storeName) {
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
+    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
     if (!SUPABASE_URL || !SUPABASE_KEY) return [];
 
     // 同舖 + 訂閱「全部分店」嘅裝置
@@ -124,7 +124,7 @@ async function listPushSubscriptions(storeName) {
 
 async function deletePushSubscription(endpoint) {
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
+    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
     if (!SUPABASE_URL || !SUPABASE_KEY || !endpoint) return;
     const url = `${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`;
     await fetch(url, {
