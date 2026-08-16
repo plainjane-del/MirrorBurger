@@ -27,10 +27,17 @@ function processKPayOrder() { return submitOrder('kpay'); }
 function processStripeOrder() { return submitOrder('stripe'); }
 
 function generateOrderNo() {
-    // MB + last 6 of time + 2 random digits → collision risk much lower under concurrent checkout
+    // MB + time slice + stronger random (avoid same-ms collisions under burst checkout)
     const timePart = Date.now().toString().slice(-6);
-    const randPart = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-    return `MB${timePart}${randPart}`;
+    let randPart = '';
+    if (window.crypto && crypto.getRandomValues) {
+        const buf = new Uint8Array(3);
+        crypto.getRandomValues(buf);
+        randPart = Array.from(buf, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 4);
+    } else {
+        randPart = Math.random().toString(36).slice(2, 6);
+    }
+    return `MB${timePart}${randPart}`.toUpperCase();
 }
 
 function isOrderNoConflict(error) {
