@@ -9,7 +9,25 @@ let pendingPaymentOrderNo = null;
 
 // --- 2. GLOBAL STATE & CONFIG ---
 let currentLang = 'en';
-let cart = [];
+const CART_KEY = 'mb_cart';
+
+function loadCart() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveCart() {
+    try {
+        if (!cart.length) localStorage.removeItem(CART_KEY);
+        else localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    } catch (_) {}
+}
+
+let cart = loadCart();
 let deliveryMode = 'pickup';
 let activeItem = null;
 let currentCategory = 'beef';
@@ -985,6 +1003,7 @@ function updateCartUI() {
     if (cart.length > 0) { document.getElementById('floating-cart-count').innerText = cart.length; document.getElementById('floating-cart-total').innerText = subtotal - discount; document.getElementById('floating-cart-btn').classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none'); }
     else document.getElementById('floating-cart-btn').classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
     validateCheckout(); generateTimeOptions();
+    saveCart();
 }
 
 function removeFromCart(id) { cart = cart.filter(i => i.id !== id); updateCartUI(); }
@@ -1232,7 +1251,7 @@ async function refreshPaymentStatus() {
 }
 
 function finishOrderSuccess(store, time, btn, originalText, details = {}) {
-    closeAllSheets(); cart = []; updateCartUI();
+    closeAllSheets(); cart = []; saveCart(); updateCartUI();
     
     const storeObj = stores.find(s => s.name === store);
     const storeZh = storeObj ? storeObj.nameZh : store;
@@ -1382,6 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     renderMenuByCategory(currentCategory);
+    updateCartUI();
     updatePlaceholders(); populateStoresDropdown(); renderStores(); renderGoogleReviews();
     fetchLiveMenu();
     fetchStoreSettings();
