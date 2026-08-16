@@ -238,7 +238,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16c</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -1210,50 +1210,50 @@
         }
 
         async function updateOrderStatus(orderNo, nextStatus) {
-            let error = null;
-            let usedLegacyPaymentStatus = false;
-
-            if (hasStatusColumn) {
-                // 正確做法：只改廚房 status；payment_status 保持 PAID
-                ({ error } = await client.from('orders').update({ status: nextStatus }).eq('order_no', orderNo));
-                if (error && isMissingStatusColumnError(error)) {
-                    hasStatusColumn = false;
-                    error = null;
+            // 唔再用 anon client 直接 UPDATE（RLS 已封）；經廚房 token → serverless
+            const token = localStorage.getItem(KITCHEN_TOKEN_KEY) || sessionStorage.getItem(KITCHEN_TOKEN_KEY) || '';
+            try {
+                const res = await fetch('/api/kitchen-order-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + token,
+                    },
+                    body: JSON.stringify({ orderNo, status: nextStatus }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error(data.error || ('HTTP ' + res.status));
                 }
-            }
 
-            if (!hasStatusColumn) {
-                // 舊 DB：暫時仍寫 payment_status（加咗 status 欄之後就唔使）
-                usedLegacyPaymentStatus = true;
-                ({ error } = await client.from('orders').update({ payment_status: nextStatus }).eq('order_no', orderNo));
-            }
+                const usedLegacyPaymentStatus = data.via === 'payment_status';
+                if (usedLegacyPaymentStatus) hasStatusColumn = false;
+                else if (data.via === 'status') hasStatusColumn = true;
 
-            if (error) {
-                console.error(error);
-                alert('更新狀態失敗：' + error.message + '\n（請喺 Supabase 跑 add-orders-status.sql）');
-                return;
-            }
-
-            const existing = ordersMap.get(orderNo);
-            if (existing) {
-                const merged = {
-                    ...existing,
-                    status: nextStatus,
-                    ...(usedLegacyPaymentStatus ? { payment_status: nextStatus } : {})
-                };
-                if (nextStatus === 'COMPLETED') {
-                    ordersMap.delete(orderNo);
-                    renderOrders();
-                    if (document.getElementById('completed-panel').classList.contains('is-open')) {
-                        loadCompletedToday();
+                const existing = ordersMap.get(orderNo);
+                if (existing) {
+                    const merged = {
+                        ...existing,
+                        status: nextStatus,
+                        ...(usedLegacyPaymentStatus ? { payment_status: nextStatus } : {})
+                    };
+                    if (nextStatus === 'COMPLETED') {
+                        ordersMap.delete(orderNo);
+                        renderOrders();
+                        if (document.getElementById('completed-panel').classList.contains('is-open')) {
+                            loadCompletedToday();
+                        }
+                    } else {
+                        ordersMap.set(orderNo, merged);
+                        setBoardFilter(nextStatus);
+                        renderOrders();
                     }
                 } else {
-                    ordersMap.set(orderNo, merged);
-                    setBoardFilter(nextStatus);
-                    renderOrders();
+                    loadOrders();
                 }
-            } else {
-                loadOrders();
+            } catch (err) {
+                console.error(err);
+                alert('更新狀態失敗：' + (err.message || err));
             }
         }
 
