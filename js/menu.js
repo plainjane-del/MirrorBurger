@@ -173,36 +173,14 @@ function emptyMenuBuckets() {
     return { beef: [], others: [], veggie: [], snacks: [], drinks: [], sauces: [] };
 }
 
-async function fetchMenuItemsRows() {
-    // Live DB may not have sort_order yet (menu-full.sql migration pending)
-    let res = await supabaseClient
-        .from('menu_items')
-        .select('*')
-        .order('sort_order', { ascending: true });
-    if (res.error && /sort_order/i.test(res.error.message || '')) {
-        res = await supabaseClient.from('menu_items').select('*').order('id', { ascending: true });
-    }
-    return res;
-}
-
-async function fetchMenuModifierRows() {
-    let res = await supabaseClient
-        .from('menu_modifiers')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
-    if (res.error && /sort_order|does not exist/i.test(res.error.message || '')) {
-        res = await supabaseClient.from('menu_modifiers').select('*').eq('is_active', true);
-    }
-    if (res.error && /does not exist|42P01|PGRST/i.test(res.error.message || JSON.stringify(res.error))) {
-        return { data: [], error: null };
-    }
-    return res;
-}
-
 async function fetchLiveMenu() {
     try {
-        const { data, error } = await fetchMenuItemsRows();
+        // Only menu_items exists on live today. Skip modifiers/settings until
+        // supabase/fix-live-menu-schema.sql is applied (avoids console 404s).
+        const { data, error } = await supabaseClient
+            .from('menu_items')
+            .select('*')
+            .order('id', { ascending: true });
         if (error) throw error;
 
         // Merge into existing catalog — never wipe fallback sizes / missing drinks
@@ -237,28 +215,6 @@ async function fetchLiveMenu() {
                     tagZh: mapped.tagZh || prev.tagZh,
                 };
             });
-        }
-
-        const { data: mods, error: modErr } = await fetchMenuModifierRows();
-        if (!modErr && Array.isArray(mods) && mods.length) {
-            const toUi = (m) => ({ id: m.id, nameEn: m.name_en, nameZh: m.name_zh, p: Number(m.price) || 0 });
-            const nextAddons = mods.filter((m) => m.kind === 'addon').map(toUi);
-            const nextSauces = mods.filter((m) => m.kind === 'sauce').map(toUi);
-            const nextCs = mods.filter((m) => m.kind === 'combo_snack').map(toUi);
-            const nextCd = mods.filter((m) => m.kind === 'combo_drink').map(toUi);
-            if (nextAddons.length) addons = nextAddons;
-            if (nextSauces.length) sauces = nextSauces;
-            if (nextCs.length) comboSnacks = nextCs;
-            if (nextCd.length) comboDrinks = nextCd;
-        }
-
-        const { data: settings } = await supabaseClient
-            .from('menu_settings')
-            .select('value')
-            .eq('key', 'combo_base')
-            .maybeSingle();
-        if (settings && settings.value != null && Number.isFinite(Number(settings.value))) {
-            comboBasePrice = Number(settings.value);
         }
 
         renderMenuByCategory(currentCategory);
