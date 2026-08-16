@@ -1,11 +1,17 @@
 const { notifyOrderPaid } = require('./_notify.js');
 
-async function getOrderByNo(orderNo) {
+/** Prefer service role — RLS trigger blocks anon from changing payment_status. */
+function getSupabaseConfig() {
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
+    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
     if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY');
+        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY/SERVICE_ROLE_KEY');
     }
+    return { SUPABASE_URL, SUPABASE_KEY };
+}
+
+async function getOrderByNo(orderNo) {
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
     if (!orderNo) throw new Error('Missing orderNo');
 
     // 唔 select status：舊 DB 可能未加呢欄；通知唔需要
@@ -39,31 +45,42 @@ async function getOrderByNo(orderNo) {
 async function markOrderPaid(orderNo) {
     if (!orderNo) return { updated: false };
 
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY');
-    }
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
 
-    // 只改 payment_status；廚房流程用 status 欄位
+    // payment_status = 收款；status = 廚房「新單」欄（有呢欄就一齊寫）
     const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&payment_status=eq.PENDING`;
-    const resp = await fetch(url, {
-        method: 'PATCH',
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-        },
-        body: JSON.stringify({ payment_status: 'PAID' }),
-    });
+    const patchBodies = [
+        { payment_status: 'PAID', status: 'PAID' },
+        { payment_status: 'PAID' },
+    ];
 
-    if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Supabase update failed (${resp.status}): ${text}`);
+    let rows = [];
+    let lastErrorText = '';
+    for (const body of patchBodies) {
+        const resp = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=representation',
+            },
+            body: JSON.stringify(body),
+        });
+        if (resp.ok) {
+            rows = await resp.json();
+            lastErrorText = '';
+            break;
+        }
+        lastErrorText = await resp.text();
+        // 舊 DB 可能未加 status 欄 → 試净改 payment_status
+        if (body.status && /status/i.test(lastErrorText)) continue;
+        throw new Error(`Supabase update failed (${resp.status}): ${lastErrorText}`);
+    }
+    if (lastErrorText) {
+        throw new Error(`Supabase update failed: ${lastErrorText}`);
     }
 
-    const rows = await resp.json();
     const updated = Array.isArray(rows) && rows.length > 0;
     if (!updated) {
         // 可能已係 PAID（重試 webhook）→ 唔重複發通知
@@ -84,11 +101,7 @@ async function updateOrderTotalAmount(orderNo, totalAmount) {
     if (!orderNo || !Number.isFinite(Number(totalAmount))) {
         throw new Error('Invalid updateOrderTotalAmount args');
     }
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Supabase configuration error: Missing SUPABASE_URL or SUPABASE_KEY');
-    }
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
 
     const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&payment_status=eq.PENDING`;
     const resp = await fetch(url, {
