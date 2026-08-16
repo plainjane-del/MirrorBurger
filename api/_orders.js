@@ -1,4 +1,7 @@
+const crypto = require('crypto');
 const { notifyOrderPaid } = require('./_notify.js');
+const { recalculateOrderTotal } = require('./_pricing.js');
+const { KNOWN_STORES } = require('./_storeSettings.js');
 
 /** Prefer service role — RLS trigger blocks anon from changing payment_status. */
 function getSupabaseConfig() {
@@ -183,9 +186,155 @@ async function updateKitchenOrderStatus(orderNo, nextStatus) {
     throw new Error(`Kitchen status update failed (${result.status}): ${result.text}`);
 }
 
+function clip(value, max) {
+    return String(value || '').trim().slice(0, max);
+}
+
+function generateOrderNo() {
+    const timePart = Date.now().toString().slice(-6);
+    const randPart = crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+    return `MB${timePart}${randPart}`;
+}
+
+function startOfTodayHkIso() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(new Date());
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    return new Date(`${y}-${m}-${d}T00:00:00+08:00`).toISOString();
+}
+
+async function sbRest(path, options = {}) {
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: options.prefer || 'return=representation',
+            ...(options.headers || {}),
+        },
+    });
+    const text = await resp.text();
+    let data = null;
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = text;
+    }
+    if (!resp.ok) {
+        const err = new Error(typeof data === 'string' ? data : JSON.stringify(data));
+        err.status = resp.status;
+        throw err;
+    }
+    return data;
+}
+
+async function createPendingOrder(input) {
+    const storeName = clip(input && input.store_name, 80);
+    if (!KNOWN_STORES.includes(storeName)) {
+        const err = new Error('Invalid store');
+        err.status = 400;
+        throw err;
+    }
+    const customerName = clip(input && input.customer_name, 80);
+    const customerPhone = clip(input && input.customer_phone, 40);
+    const pickupTime = clip(input && input.pickup_time, 40);
+    const items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
+    if (!customerName || !customerPhone || !pickupTime) {
+        const err = new Error('Missing customer details');
+        err.status = 400;
+        throw err;
+    }
+    if (pickupTime === 'CLOSED') {
+        const err = new Error('Store is closed');
+        err.status = 400;
+        throw err;
+    }
+
+    const priced = await recalculateOrderTotal({
+        store_name: storeName,
+        items_json: items,
+    });
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const orderNo = generateOrderNo();
+        try {
+            const saved = await sbRest('orders', {
+                method: 'POST',
+                body: JSON.stringify({
+                    order_no: orderNo,
+                    store_name: storeName,
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    pickup_time: pickupTime,
+                    items_json: items,
+                    total_amount: priced.total,
+                    payment_status: 'PENDING',
+                }),
+            });
+            const row = Array.isArray(saved) ? saved[0] : saved;
+            return {
+                orderNo: (row && row.order_no) || orderNo,
+                total: priced.total,
+            };
+        } catch (err) {
+            lastError = err;
+            const msg = String(err.message || '');
+            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+        }
+    }
+    throw lastError || new Error('Failed to create order');
+}
+
+async function getPublicOrderStatus(orderNo) {
+    const no = clip(orderNo, 32);
+    if (!no) return null;
+    const rows = await sbRest(
+        `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,store_name,pickup_time,payment_status,total_amount`
+    );
+    return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
+    const store = clip(storeName, 80);
+    if (!KNOWN_STORES.includes(store)) {
+        const err = new Error('Invalid store');
+        err.status = 400;
+        throw err;
+    }
+    const select = [
+        'order_no',
+        'customer_name',
+        'customer_phone',
+        'pickup_time',
+        'items_json',
+        'total_amount',
+        'payment_status',
+        'status',
+        'store_name',
+        'created_at',
+    ].join(',');
+    let path = `orders?store_name=eq.${encodeURIComponent(store)}&select=${select}&order=created_at.desc&limit=${Number(limit) || 200}`;
+    if (since) path += `&created_at=gte.${encodeURIComponent(since)}`;
+    return sbRest(path);
+}
+
 module.exports = {
     getOrderByNo,
     markOrderPaid,
     updateOrderTotalAmount,
     updateKitchenOrderStatus,
+    createPendingOrder,
+    getPublicOrderStatus,
+    listKitchenOrders,
+    startOfTodayHkIso,
+    KNOWN_STORES,
 };

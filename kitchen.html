@@ -238,7 +238,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16d</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16e</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -444,6 +444,7 @@
         let storeIsOpen = null;
         /** @type {Map<string, object>} */
         let ordersMap = new Map();
+        let kitchenBoardReady = false;
         const highlightedOrders = new Set();
 
         function escapeHtml(str) {
@@ -561,60 +562,39 @@
             const countEl = document.getElementById('completed-count');
             listEl.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
 
-            const since = startOfTodayHK();
-            const selectCols = hasStatusColumn
-                ? 'order_no, customer_name, customer_phone, pickup_time, total_amount, payment_status, status, created_at'
-                : 'order_no, customer_name, customer_phone, pickup_time, total_amount, payment_status, created_at';
-
-            let query = client
-                .from('orders')
-                .select(selectCols)
-                .eq('store_name', currentBranch)
-                .gte('created_at', since);
-
-            query = hasStatusColumn
-                ? query.or('payment_status.eq.COMPLETED,status.eq.COMPLETED')
-                : query.eq('payment_status', 'COMPLETED');
-
-            const { data, error } = await query.order('created_at', { ascending: false }).limit(80);
-
-            if (error) {
-                if (hasStatusColumn && isMissingStatusColumnError(error)) {
-                    hasStatusColumn = false;
-                    return loadCompletedToday();
+            try {
+                const data = await kitchenOrdersApi({ action: 'completed' });
+                const rows = Array.isArray(data.orders) ? data.orders : [];
+                countEl.textContent = `${rows.length} 張`;
+                if (!rows.length) {
+                    listEl.innerHTML = `<p class="text-neutral-500 font-bold py-10 text-center">今日未有已完成訂單</p>`;
+                    return;
                 }
-                console.error(error);
-                listEl.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(error.message)}</p>`;
+
+                listEl.innerHTML = rows.map(o => `
+                    <div class="rounded-2xl border border-neutral-700 bg-kds-card p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
+                                <div class="text-2xl font-black text-white">#${escapeHtml(o.order_no)}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xl font-black text-kds-yellow">${formatAmount(o)}</div>
+                                <div class="text-sm font-bold text-neutral-400 mt-1">${escapeHtml(o.pickup_time || '—')}</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-base font-bold text-neutral-200">
+                            ${escapeHtml(o.customer_name || '—')}
+                            <span class="text-neutral-600">·</span>
+                            ${escapeHtml(o.customer_phone || '—')}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(err.message || err)}</p>`;
                 countEl.textContent = '—';
-                return;
             }
-
-            const rows = data || [];
-            countEl.textContent = `${rows.length} 張`;
-            if (!rows.length) {
-                listEl.innerHTML = `<p class="text-neutral-500 font-bold py-10 text-center">今日未有已完成訂單</p>`;
-                return;
-            }
-
-            listEl.innerHTML = rows.map(o => `
-                <div class="rounded-2xl border border-neutral-700 bg-kds-card p-4">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
-                            <div class="text-2xl font-black text-white">#${escapeHtml(o.order_no)}</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-xl font-black text-kds-yellow">${formatAmount(o)}</div>
-                            <div class="text-sm font-bold text-neutral-400 mt-1">${escapeHtml(o.pickup_time || '—')}</div>
-                        </div>
-                    </div>
-                    <div class="mt-2 text-base font-bold text-neutral-200">
-                        ${escapeHtml(o.customer_name || '—')}
-                        <span class="text-neutral-600">·</span>
-                        ${escapeHtml(o.customer_phone || '—')}
-                    </div>
-                </div>
-            `).join('');
         }
 
         function openTodayStats() {
@@ -643,71 +623,55 @@
             const body = document.getElementById('stats-body');
             body.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
 
-            const since = startOfTodayHK();
-            const selectCols = hasStatusColumn
-                ? 'order_no, total_amount, payment_status, status, created_at'
-                : 'order_no, total_amount, payment_status, created_at';
+            try {
+                const data = await kitchenOrdersApi({ action: 'stats' });
+                const rows = Array.isArray(data.orders) ? data.orders : [];
+                let completed = 0;
+                let cancelled = 0;
+                let pending = 0;
+                let active = 0;
+                let paidLike = 0;
+                let revenue = 0;
 
-            const { data, error } = await client
-                .from('orders')
-                .select(selectCols)
-                .eq('store_name', currentBranch)
-                .gte('created_at', since)
-                .limit(500);
+                rows.forEach(o => {
+                    const pay = String(o.payment_status || '').toUpperCase();
+                    const st = String(o.status || '').toUpperCase();
+                    const amt = Number(o.total_amount) || 0;
 
-            if (error) {
-                if (hasStatusColumn && isMissingStatusColumnError(error)) {
-                    hasStatusColumn = false;
-                    return loadTodayStats();
-                }
-                console.error(error);
-                body.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(error.message)}</p>`;
-                return;
+                    if (st === 'COMPLETED' || pay === 'COMPLETED') {
+                        completed += 1;
+                        revenue += amt;
+                        return;
+                    }
+                    if (pay === 'CANCELLED' || st === 'CANCELLED') {
+                        cancelled += 1;
+                        return;
+                    }
+                    if (pay === 'PENDING') {
+                        pending += 1;
+                        return;
+                    }
+                    if (isActiveKitchenOrder(o)) {
+                        active += 1;
+                        paidLike += 1;
+                        return;
+                    }
+                    if (pay === 'PAID' || ['PREPARING', 'READY'].includes(pay) || ['PREPARING', 'READY', 'PAID'].includes(st)) {
+                        paidLike += 1;
+                    }
+                });
+
+                body.innerHTML = [
+                    statCard('已完成', `${completed} 張`, `營業額約 HK$${Math.round(revenue)}`),
+                    statCard('廚房進行中', `${active} 張`, '已付款未完成'),
+                    statCard('已取消 / 未付逾時', `${cancelled} 張`, '含取消同系統清走'),
+                    statCard('仍待付款', `${pending} 張`, '客人可能仲喺 KPay'),
+                    statCard('今日總單數', `${rows.length} 張`, `已付款相關約 ${paidLike + completed} 張`)
+                ].join('');
+            } catch (err) {
+                console.error(err);
+                body.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(err.message || err)}</p>`;
             }
-
-            const rows = data || [];
-            let completed = 0;
-            let cancelled = 0;
-            let pending = 0;
-            let active = 0;
-            let paidLike = 0;
-            let revenue = 0;
-
-            rows.forEach(o => {
-                const pay = String(o.payment_status || '').toUpperCase();
-                const st = String(o.status || '').toUpperCase();
-                const amt = Number(o.total_amount) || 0;
-
-                if (st === 'COMPLETED' || pay === 'COMPLETED') {
-                    completed += 1;
-                    revenue += amt;
-                    return;
-                }
-                if (pay === 'CANCELLED' || st === 'CANCELLED') {
-                    cancelled += 1;
-                    return;
-                }
-                if (pay === 'PENDING') {
-                    pending += 1;
-                    return;
-                }
-                if (isActiveKitchenOrder(o)) {
-                    active += 1;
-                    paidLike += 1;
-                    return;
-                }
-                if (pay === 'PAID' || ['PREPARING', 'READY'].includes(pay) || ['PREPARING', 'READY', 'PAID'].includes(st)) {
-                    paidLike += 1;
-                }
-            });
-
-            body.innerHTML = [
-                statCard('已完成', `${completed} 張`, `營業額約 HK$${Math.round(revenue)}`),
-                statCard('廚房進行中', `${active} 張`, '已付款未完成'),
-                statCard('已取消 / 未付逾時', `${cancelled} 張`, '含取消同系統清走'),
-                statCard('仍待付款', `${pending} 張`, '客人可能仲喺 KPay'),
-                statCard('今日總單數', `${rows.length} 張`, `已付款相關約 ${paidLike + completed} 張`)
-            ].join('');
         }
 
         // --- Web Audio：必須由用戶手勢解鎖（Chrome 唔畀自動播） ---
@@ -776,6 +740,8 @@
 
         function selectBranch(btn) {
             currentBranch = btn.dataset.branch;
+            kitchenBoardReady = false;
+            ordersMap = new Map();
             document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
             loadOrders();
             loadStoreStatus();
@@ -889,37 +855,35 @@
         }
 
         async function loadOrders() {
-            // 新：payment_status 留 PAID + status 做廚房流程；舊 DB 冇 status 就只用 payment_status
-            let query = client
-                .from('orders')
-                .select('*')
-                .eq('store_name', currentBranch);
-
-            query = hasStatusColumn
-                ? query.or('payment_status.in.(PAID,PREPARING,READY),status.in.(PAID,PREPARING,READY)')
-                : query.in('payment_status', ['PAID', 'PREPARING', 'READY']);
-
-            const { data, error } = await query.order('created_at', { ascending: false });
-
-            if (error) {
-                if (hasStatusColumn && isMissingStatusColumnError(error)) {
-                    console.warn('orders.status missing → legacy payment_status mode');
-                    hasStatusColumn = false;
-                    return loadOrders();
+            try {
+                const data = await kitchenOrdersApi({ action: 'board' });
+                const rows = Array.isArray(data.orders) ? data.orders : [];
+                const prevKeys = new Set(ordersMap.keys());
+                const next = new Map();
+                rows.forEach(o => {
+                    if (isActiveKitchenOrder(o)) next.set(o.order_no, o);
+                });
+                const newcomers = [...next.keys()].filter((k) => !prevKeys.has(k));
+                ordersMap = next;
+                if (kitchenBoardReady && newcomers.length) {
+                    newcomers.forEach((k) => {
+                        highlightedOrders.add(k);
+                        setTimeout(() => {
+                            highlightedOrders.delete(k);
+                            renderOrders();
+                        }, 8000);
+                    });
+                    ringNewOrder();
                 }
-                console.error(error);
-                const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">載入失敗：${escapeHtml(error.message)}</div>`;
+                kitchenBoardReady = true;
+                renderOrders();
+            } catch (err) {
+                console.error(err);
+                const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">載入失敗：${escapeHtml(err.message || err)}</div>`;
                 document.getElementById('col-paid').innerHTML = errHtml;
                 document.getElementById('col-prep').innerHTML = '';
                 document.getElementById('col-ready').innerHTML = '';
-                return;
             }
-
-            ordersMap = new Map();
-            (data || []).forEach(o => {
-                if (isActiveKitchenOrder(o)) ordersMap.set(o.order_no, o);
-            });
-            renderOrders();
         }
 
         function upsertOrder(order, { ring = false, highlight = false } = {}) {
@@ -1047,6 +1011,20 @@
             return localStorage.getItem(KITCHEN_TOKEN_KEY)
                 || sessionStorage.getItem(KITCHEN_TOKEN_KEY)
                 || '';
+        }
+
+        async function kitchenOrdersApi(payload) {
+            const res = await fetch('/api/kitchen-orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + getKitchenToken(),
+                },
+                body: JSON.stringify({ store_name: currentBranch, ...payload }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
         }
 
         async function kitchenMenuApi(payload) {
@@ -1268,14 +1246,12 @@
 
         function scheduleOrdersPoll() {
             if (ordersPollTimer) clearInterval(ordersPollTimer);
-            // Realtime 正常：每 60 秒兜底；斷線：每 10 秒拉一次，減少漏單
-            const ms = realtimeOnline ? 60000 : 10000;
             ordersPollTimer = setInterval(() => {
                 loadOrders();
                 if (document.getElementById('stats-panel')?.classList.contains('is-open')) {
                     loadTodayStats();
                 }
-            }, ms);
+            }, 8000);
         }
 
         function setConn(online) {
@@ -1284,53 +1260,13 @@
             const label = document.getElementById('conn-label');
             dot.classList.toggle('online', online);
             dot.classList.toggle('offline', !online);
-            label.textContent = online ? 'Realtime 已連接' : '連線中斷（密頻刷新中）';
+            label.textContent = online ? '已連接（定時刷新訂單）' : '連線中斷（密頻刷新中）';
             scheduleOrdersPoll();
-        }
-
-        function handleRealtime(payload) {
-            const row = payload.new;
-            
-            if (!row) {
-                if (payload.old && payload.old.order_no) {
-                    ordersMap.delete(payload.old.order_no);
-                    renderOrders();
-                }
-                return;
-            }
-
-            // 新單 (INSERT)：只有當狀態係「已付款 (PAID)」先會上牆同響鈴
-            if (payload.eventType === 'INSERT') {
-                if (matchesBranch(row) && isActiveKitchenOrder(row)) {
-                    upsertOrder(row, { ring: true, highlight: true });
-                }
-                return;
-            }
-
-            // 狀態更新 (UPDATE)：例如由 PENDING 轉為 PAID 嗰一刻，當作新單響鈴提醒廚房
-            if (payload.eventType === 'UPDATE') {
-                const prev = payload.old || {};
-                const becamePaid =
-                    (prev.payment_status || '').toUpperCase() !== 'PAID' &&
-                    (row.payment_status || '').toUpperCase() === 'PAID';
-                
-                const isNewToBoard = becamePaid || (!ordersMap.has(row.order_no) && isActiveKitchenOrder(row));
-
-                if (matchesBranch(row) && isActiveKitchenOrder(row)) {
-                    upsertOrder(row, { ring: isNewToBoard, highlight: isNewToBoard });
-                } else if (ordersMap.has(row.order_no)) {
-                    ordersMap.delete(row.order_no);
-                    renderOrders();
-                }
-            }
         }
 
         function startRealtime() {
             client
                 .channel('kitchen-kds')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, handleRealtime)
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, handleRealtime)
-                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, handleRealtime)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_settings' }, (payload) => {
                     const row = payload.new;
                     if (!row) return;

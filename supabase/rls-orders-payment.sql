@@ -2,10 +2,9 @@
 -- Mirror Burger：防止訪客自行改 payment_status → PAID
 -- 用法：Supabase Dashboard → SQL Editor → New query → 貼上 → Run
 -- ============================================================
--- 白話：網站用「anon key」連資料庫。以前如果 RLS 太鬆／冇開，
--- 任何人喺瀏覽器都可以叫 Supabase 改訂單。呢段會：
--- 1) 只准訪客新增 PENDING 單
--- 2) 訪客／anon 唔可以 UPDATE 訂單（廚房改狀態用 /api/kitchen-order-status）
+-- 白話：網站用「anon key」連資料庫。呢段會：
+-- 1) 訪客／anon 唔可以讀、新增、改、刪訂單（落單用 /api/create-order）
+-- 2) 廚房睇單用 /api/kitchen-orders；改狀態用 /api/kitchen-order-status
 -- 3) 只有 server（service_role / webhook）先可以改 payment_status
 -- ============================================================
 
@@ -22,23 +21,14 @@ DROP POLICY IF EXISTS "Enable insert for all users" ON public.orders;
 DROP POLICY IF EXISTS "Enable update for all users" ON public.orders;
 DROP POLICY IF EXISTS "Enable delete for all users" ON public.orders;
 
--- 讀取：廚房同付款確認頁需要讀訂單
-CREATE POLICY "orders_select_all"
-ON public.orders
-FOR SELECT
-TO anon, authenticated
-USING (true);
+REVOKE SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public.orders FROM anon, authenticated;
 
--- 新增：只准建立未付款單（唔可以一 INSERT 就寫 PAID）
-CREATE POLICY "orders_insert_pending"
-ON public.orders
-FOR INSERT
-TO anon, authenticated
-WITH CHECK (upper(coalesce(payment_status, '')) = 'PENDING');
-
--- ⚠️ 唔再開 anon/authenticated UPDATE policy。
--- 廚房狀態更新必須經 serverless：POST /api/kitchen-order-status（service_role）。
--- 付款狀態更新必須經：/api/kpay-notify、/api/mark-order-paid、cleanup 等。
+-- ⚠️ 唔再開 anon SELECT / INSERT / UPDATE / DELETE。
+-- 落單：POST /api/create-order
+-- 付款確認：POST /api/order-status
+-- 廚房讀單：POST /api/kitchen-orders
+-- 廚房改狀態：POST /api/kitchen-order-status
+-- 付款狀態：/api/kpay-notify、/api/mark-order-paid、cleanup 等。
 
 -- 訪客唔准刪單
 --（唔開 DELETE policy = 預設拒絕）

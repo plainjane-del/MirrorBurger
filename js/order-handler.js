@@ -26,41 +26,21 @@ document.addEventListener('DOMContentLoaded', validateCheckout);
 function processKPayOrder() { return submitOrder('kpay'); }
 function processStripeOrder() { return submitOrder('stripe'); }
 
-function generateOrderNo() {
-    // MB + time slice + stronger random (avoid same-ms collisions under burst checkout)
-    const timePart = Date.now().toString().slice(-6);
-    let randPart = '';
-    if (window.crypto && crypto.getRandomValues) {
-        const buf = new Uint8Array(3);
-        crypto.getRandomValues(buf);
-        randPart = Array.from(buf, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 4);
-    } else {
-        randPart = Math.random().toString(36).slice(2, 6);
-    }
-    return `MB${timePart}${randPart}`.toUpperCase();
-}
-
-function isOrderNoConflict(error) {
-    const msg = String(error?.message || error?.details || error?.hint || error || '');
-    const code = String(error?.code || '');
-    return code === '23505' || /duplicate|unique|order_no/i.test(msg);
-}
-
 async function insertPendingOrder(row) {
-    // Retry a few times if order_no uniquely collides
-    let lastError = null;
-    for (let attempt = 0; attempt < 5; attempt++) {
-        const orderNo = generateOrderNo();
-        const { data, error } = await supabaseClient
-            .from('orders')
-            .insert([{ ...row, order_no: orderNo }])
-            .select('order_no')
-            .maybeSingle();
-        if (!error) return { orderNo: (data && data.order_no) || orderNo };
-        lastError = error;
-        if (!isOrderNoConflict(error)) break;
-    }
-    throw lastError || new Error('Failed to create order');
+    const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            store_name: row.store_name,
+            customer_name: row.customer_name,
+            customer_phone: row.customer_phone,
+            pickup_time: row.pickup_time,
+            items: row.items_json,
+        }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return { orderNo: data.orderNo, total: data.total };
 }
 
 async function submitOrder(provider) {
@@ -96,20 +76,20 @@ async function submitOrder(provider) {
     const endpoint = isKPay ? KPAY_SERVER_URL : STRIPE_SERVER_URL;
 
     try {
-        const { orderNo } = await insertPendingOrder({
+        const created = await insertPendingOrder({
             store_name: store,
             customer_name: name,
             customer_phone: phone,
             pickup_time: time,
             items_json: cart,
-            total_amount: finalTotal,
-            payment_status: 'PENDING'
         });
+        const orderNo = created.orderNo;
+        const payAmount = Number.isFinite(Number(created.total)) ? Number(created.total) : finalTotal;
 
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: finalTotal, orderNo: orderNo })
+            body: JSON.stringify({ amount: payAmount, orderNo: orderNo })
         });
 
         const result = await response.json();

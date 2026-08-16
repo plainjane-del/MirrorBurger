@@ -1191,13 +1191,15 @@ function showPaymentStillPending() {
 }
 
 async function fetchOrderPaymentStatus(orderNo) {
-    const { data, error } = await supabaseClient
-        .from('orders')
-        .select('order_no, store_name, pickup_time, payment_status, total_amount')
-        .eq('order_no', orderNo)
-        .maybeSingle();
-    if (error) throw error;
-    return data;
+    const res = await fetch('/api/order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNo }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data.order || null;
 }
 
 async function refreshPaymentStatus() {
