@@ -1,15 +1,36 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, getPublicOrderStatus } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     try {
-        const { orderNo } = req.body || {};
+        const body = req.body || {};
+        const action = body.action || 'pay';
+
+        if (action === 'create') {
+            const result = await createPendingOrder({
+                store_name: body.store_name,
+                customer_name: body.customer_name,
+                customer_phone: body.customer_phone,
+                pickup_time: body.pickup_time,
+                items: body.items,
+            });
+            return res.status(200).json({ ok: true, ...result });
+        }
+
+        if (action === 'status') {
+            const orderNo = String(body.orderNo || '').trim();
+            if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const order = await getPublicOrderStatus(orderNo);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            return res.status(200).json({ order });
+        }
+
+        const orderNo = String(body.orderNo || '').trim();
         if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
 
-        // 金額唔信前端 body，亦唔信客戶端寫入 DB 嘅 total —— 用菜單價重計
         const order = await getOrderByNo(orderNo);
         if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -38,7 +59,6 @@ module.exports = async (req, res) => {
         const host = req.headers['x-forwarded-host'] || req.headers.host;
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const hostUrl = `${protocol}://${host}`;
-        // Webhook 必須打去正網；preview / 錯 host 會令廚房同電郵永遠收唔到
         const siteUrl = (process.env.PUBLIC_SITE_URL || 'https://mirrorburger.com').replace(/\/$/, '');
         const returnBase = process.env.PUBLIC_SITE_URL ? siteUrl : hostUrl;
 
@@ -48,7 +68,6 @@ module.exports = async (req, res) => {
             payAmount,
             payCurrency: 'HKD',
             notifyUrl: `${siteUrl}/api/kpay-notify`,
-            // returnUrl = 離開付款頁後返回網站；唔代表已付款（取消都會返嚟）
             returnUrl: `${returnBase}/?order_return=${orderNo}`,
             orderRemark: `Mirror Burger Order #${orderNo}`,
             itemList: [{
@@ -67,6 +86,6 @@ module.exports = async (req, res) => {
         return res.status(200).json({ paymentUrl: checkoutUrl });
     } catch (error) {
         console.error('KPay Checkout Error:', error);
-        return res.status(500).json({ error: error.message });
+        return res.status(error.status || 500).json({ error: error.message });
     }
 };

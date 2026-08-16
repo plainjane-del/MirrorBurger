@@ -238,7 +238,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16e</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.16f</p>
             </div>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
@@ -803,13 +803,13 @@
             if (btn) btn.disabled = true;
 
             try {
-                const res = await fetch('/api/kitchen-store-status', {
+                const res = await fetch('/api/kitchen-menu', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: 'Bearer ' + getKitchenToken(),
                     },
-                    body: JSON.stringify({ store_name: currentBranch, is_open: next }),
+                    body: JSON.stringify({ action: 'set_store_open', store_name: currentBranch, is_open: next }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
@@ -1014,7 +1014,7 @@
         }
 
         async function kitchenOrdersApi(payload) {
-            const res = await fetch('/api/kitchen-orders', {
+            const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1197,13 +1197,13 @@
             // 唔再用 anon client 直接 UPDATE（RLS 已封）；經廚房 token → serverless
             const token = localStorage.getItem(KITCHEN_TOKEN_KEY) || sessionStorage.getItem(KITCHEN_TOKEN_KEY) || '';
             try {
-                const res = await fetch('/api/kitchen-order-status', {
+                const res = await fetch('/api/kitchen-menu', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: 'Bearer ' + token,
                     },
-                    body: JSON.stringify({ orderNo, status: nextStatus }),
+                    body: JSON.stringify({ action: 'set_order_status', orderNo, status: nextStatus }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {

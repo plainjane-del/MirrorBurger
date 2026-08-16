@@ -27,10 +27,11 @@ function processKPayOrder() { return submitOrder('kpay'); }
 function processStripeOrder() { return submitOrder('stripe'); }
 
 async function insertPendingOrder(row) {
-    const res = await fetch('/api/create-order', {
+    const res = await fetch('/api/kpay-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            action: 'create',
             store_name: row.store_name,
             customer_name: row.customer_name,
             customer_phone: row.customer_phone,

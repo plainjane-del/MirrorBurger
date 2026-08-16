@@ -1210,10 +1210,10 @@ function showPaymentStillPending() {
 }
 
 async function fetchOrderPaymentStatus(orderNo) {
-    const res = await fetch('/api/order-status', {
+    const res = await fetch('/api/kpay-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNo }),
+        body: JSON.stringify({ action: 'status', orderNo }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 404) return null;
