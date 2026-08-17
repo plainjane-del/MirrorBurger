@@ -42,7 +42,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17m</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17n</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -967,7 +967,7 @@
             if (/^(m|em)$/.test(raw) || /中份|中號|medium/.test(t) || /(^|[^a-z])m([^a-z]|$)/.test(raw)) return 'M';
             if (kind && /中/.test(t)) return 'M';
             if (kind && /大/.test(t) && !/小辣|微辣/.test(t)) return 'L';
-            if (kind && /(細|小份)/.test(t) && !/小辣|微辣/.test(t)) return 'M';
+            if (kind && /(細|小份|細份)/.test(t) && !/小辣|微辣/.test(t)) return 'M';
             return null;
         }
         function parseDrinkKind(text) {
@@ -1072,11 +1072,31 @@
                 job.addonIds = Array.from(set);
             }
         }
+        function snackChoices() {
+            return [
+                { label: '薯條', say: '薯條', group: '小食' },
+                { label: '蓮藕', say: '蓮藕', group: '小食' },
+                { label: '番薯', say: '番薯', group: '小食' },
+                { label: '雞翼', say: '雞翼', group: '小食' },
+            ];
+        }
+        function drinkChoices() {
+            return [
+                { label: '可樂', say: '可樂', group: '嘢飲' },
+                { label: '零糖', say: '零糖可樂', group: '嘢飲' },
+                { label: '忌廉', say: '忌廉', group: '嘢飲' },
+                { label: '凍檸茶', say: '檸茶', group: '嘢飲' },
+                { label: '梳打', say: '梳打', group: '嘢飲' },
+                { label: '美式', say: '美式', group: '嘢飲' },
+                { label: '拿鐵', say: '拿鐵', group: '嘢飲' },
+                { label: '朱古力', say: '朱古力', group: '嘢飲' },
+            ];
+        }
         function nextAsk(job) {
             if (!job || !job.item) {
                 return {
                     step: 'item',
-                    prompt: '第一步：漢堡要邊款？可以講，或者撳下面現成答案。',
+                    prompt: '漢堡要邊款？',
                     choices: [
                         { label: '經典芝士套餐', say: '經典芝士牛肉套餐' },
                         { label: '三二一套餐', say: '321套餐' },
@@ -1086,48 +1106,33 @@
                 };
             }
             if (job.combo) {
-                if (!job.snackKind) {
-                    return {
-                        step: 'snack_kind',
-                        prompt: '套餐小食要邊款？撳一個，或者講薯條／蓮藕／番薯／雞翼。',
-                        choices: [
-                            { label: '薯條', say: '薯條' },
-                            { label: '蓮藕', say: '蓮藕' },
-                            { label: '番薯', say: '番薯' },
-                            { label: '雞翼', say: '雞翼' },
-                        ],
-                    };
+                const needSnack = !job.snackKind;
+                const needSize = !needSnack && snackNeedsSize(job.snackKind) && !job.snackSize;
+                const needDrink = !job.drinkKind;
+                const needTemp = !needDrink && drinkNeedsTemp(job.drinkKind) && !job.drinkTemp;
+                if (needSnack && needDrink) {
+                    return { step: 'sides', prompt: '小食同嘢飲呢？', choices: snackChoices().concat(drinkChoices()) };
                 }
-                if (snackNeedsSize(job.snackKind) && !job.snackSize) {
+                if (needSnack) {
+                    return { step: 'snack_kind', prompt: '小食呢？', choices: snackChoices() };
+                }
+                if (needSize) {
                     return {
                         step: 'snack_size',
-                        prompt: (SNACK_KIND[job.snackKind].zh) + '要邊個份量？',
+                        prompt: '要中定大？',
                         choices: [
-                            { label: 'M', say: 'M' },
-                            { label: 'L 大份', say: '大份' },
+                            { label: '中', say: '中' },
+                            { label: '大', say: '大' },
                         ],
                     };
                 }
-                if (!job.drinkKind) {
-                    return {
-                        step: 'drink_kind',
-                        prompt: '飲品要邊款？撳一個就得。',
-                        choices: [
-                            { label: '可樂', say: '可樂' },
-                            { label: '零糖可樂', say: '零糖可樂' },
-                            { label: '忌廉', say: '忌廉' },
-                            { label: '凍檸茶', say: '檸茶' },
-                            { label: '梳打', say: '梳打' },
-                            { label: '美式', say: '美式' },
-                            { label: '拿鐵', say: '拿鐵' },
-                            { label: '朱古力', say: '朱古力' },
-                        ],
-                    };
+                if (needDrink) {
+                    return { step: 'drink_kind', prompt: '嘢飲呢？', choices: drinkChoices() };
                 }
-                if (drinkNeedsTemp(job.drinkKind) && !job.drinkTemp) {
+                if (needTemp) {
                     return {
                         step: 'drink_temp',
-                        prompt: (DRINK_KIND[job.drinkKind].zh) + '要熱定凍？',
+                        prompt: '熱定凍？',
                         choices: [
                             { label: '熱', say: '熱' },
                             { label: '凍', say: '凍' },
@@ -1141,9 +1146,21 @@
             const box = document.getElementById('voice-choices');
             if (!box) return;
             const list = Array.isArray(choices) ? choices : [];
-            box.innerHTML = list.map((c) =>
-                `<button type="button" class="voice-choice" data-say="${escapeHtml(c.say)}" onclick="pickVoiceChoice(this.dataset.say)">${escapeHtml(c.label)}</button>`
-            ).join('');
+            const groups = [];
+            for (const c of list) {
+                const name = c.group || '';
+                if (!groups.length || groups[groups.length - 1].name !== name) groups.push({ name, items: [] });
+                groups[groups.length - 1].items.push(c);
+            }
+            box.innerHTML = groups.map((g) => {
+                const head = g.name
+                    ? `<div style="grid-column:1/-1" class="text-[11px] font-black text-neutral-500 mt-1">${escapeHtml(g.name)}</div>`
+                    : '';
+                const btns = g.items.map((c) =>
+                    `<button type="button" class="voice-choice" data-say="${escapeHtml(c.say)}" onclick="pickVoiceChoice(this.dataset.say)">${escapeHtml(c.label)}</button>`
+                ).join('');
+                return head + btns;
+            }).join('');
         }
         function pickVoiceChoice(say) {
             voiceResumeToken += 1;
@@ -1161,7 +1178,7 @@
             bits.push(job.combo ? '套餐' : '單點');
             if (job.combo) {
                 const snack = job.snackKind
-                    ? (SNACK_KIND[job.snackKind].zh + (job.snackSize ? ' ' + job.snackSize : (snackNeedsSize(job.snackKind) ? '（未揀大細）' : '')))
+                    ? (SNACK_KIND[job.snackKind].zh + (job.snackSize ? ' ' + (job.snackSize === 'L' ? '大' : '中') : (snackNeedsSize(job.snackKind) ? '（未揀中／大）' : '')))
                     : '小食未揀';
                 const drink = job.drinkKind
                     ? (DRINK_KIND[job.drinkKind].zh + (job.drinkTemp ? (job.drinkTemp === 'Iced' ? ' 凍' : ' 熱') : (drinkNeedsTemp(job.drinkKind) ? '（未揀熱凍）' : '')))
