@@ -5,7 +5,7 @@
         'Fortress Hill': '天后',
         'Tsuen Wan (Takeaway Only)': '荃灣',
     };
-    const PAY_ZH = { cash: '現金', fps: '轉數快', payme: 'PayMe' };
+    const PAY_ZH = { cash: '現金', fps: '轉數快', payme: 'PayMe', card: '卡機' };
 
     let sdk = null;
     let ready = false;

@@ -480,6 +480,7 @@
         function getKitchenStatus(order) {
             // 優先用 status；否則用 payment_status（現有資料庫欄位）
             const raw = (order.status || order.payment_status || '').toUpperCase();
+            if (raw === 'UNPAID') return 'PAID';
             if (raw === 'PAID') return 'PAID';
             if (raw === 'PREPARING') return 'PREPARING';
             if (raw === 'READY') return 'READY';
@@ -487,7 +488,24 @@
             return raw || 'PAID';
         }
 
+        function tableNoFromOrder(order) {
+            const m = String(order.pickup_time || '').match(/(\d+)\s*號枱/);
+            if (m) return m[1];
+            return '';
+        }
+
+        function isTableOrder(order) {
+            return String(order.channel || '') === 'table' || !!tableNoFromOrder(order);
+        }
+
+        function isUnpaidTable(order) {
+            return isTableOrder(order) && String(order.payment_status || '').toUpperCase() === 'UNPAID';
+        }
+
         function getFulfillment(order) {
+            if (isTableOrder(order) || /堂食/.test(String(order.pickup_time || ''))) {
+                return { label: 'Dine-in', zh: '堂食', cls: 'bg-amber-400 text-black' };
+            }
             const mode = (order.delivery_mode || order.order_type || order.fulfillment || order.mode || 'pickup').toString().toLowerCase();
             if (mode.includes('deliver')) return { label: 'Delivery', zh: '外送', cls: 'bg-orange-500 text-white' };
             return { label: 'Pickup', zh: '自取', cls: 'bg-neutral-700 text-white' };
@@ -922,12 +940,12 @@
             if (pay === 'CANCELLED' || st === 'CANCELLED') return false;
             if (st === 'COMPLETED' || pay === 'COMPLETED') return false;
 
-            // 必須已付款：新流程 payment_status=PAID；舊資料可能把廚房狀態寫入 payment_status
-            const paidOk = pay === 'PAID' || ACTIVE_STATUSES.includes(pay);
+            // 必須已付款；堂食枱單可以 UNPAID 先上牆，客人行去櫃檯俾錢
+            const paidOk = pay === 'PAID' || pay === 'UNPAID' || ACTIVE_STATUSES.includes(pay);
             if (!paidOk) return false;
 
             // 廚房狀態優先用 status；冇就 fallback payment_status（兼容舊單）
-            const kitchen = st || pay;
+            const kitchen = st || (pay === 'UNPAID' ? 'PAID' : pay);
             return ACTIVE_STATUSES.includes(kitchen);
         }
 
@@ -1231,12 +1249,14 @@
                                 <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
                                 <div class="text-xl font-black text-white tracking-tight">#${orderNo}</div>
                                 ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">店內 POS</div>' : ''}
+                                ${isTableOrder(order) && tableNoFromOrder(order) ? `<div class="mt-1 text-3xl font-black text-amber-300 leading-none">${escapeHtml(tableNoFromOrder(order))}號枱</div>` : ''}
+                                ${isUnpaidTable(order) ? '<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">未收款</div>' : ''}
                                 <div class="text-lg font-black text-kds-yellow">${amount}</div>
                             </div>
                             <div class="text-right">
                                 <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-black uppercase ${meta.badge}">${meta.label}</div>
                                 <div class="mt-1 text-2xl font-black text-kds-yellow leading-none">${pickup}</div>
-                                <div class="text-[10px] font-bold text-neutral-400 uppercase">取餐</div>
+                                <div class="text-[10px] font-bold text-neutral-400 uppercase">${isTableOrder(order) ? '堂食' : '取餐'}</div>
                             </div>
                         </div>
 

@@ -1,6 +1,6 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder } = require('./_orders.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -8,7 +8,7 @@ const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order, mark_table_paid
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -115,6 +115,13 @@ module.exports = async (req, res) => {
             const orderNo = String(body.orderNo || '').trim();
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
             const result = await cancelPosOrder(orderNo);
+            return res.status(200).json(result);
+        }
+
+        if (action === 'mark_table_paid') {
+            const orderNo = String(body.orderNo || '').trim();
+            if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const result = await markTableOrderPaid(orderNo, body.pay_method);
             return res.status(200).json(result);
         }
 

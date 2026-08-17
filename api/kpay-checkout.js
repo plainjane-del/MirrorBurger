@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, getPublicOrderStatus } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 
 module.exports = async (req, res) => {
@@ -17,6 +17,17 @@ module.exports = async (req, res) => {
                 pickup_time: body.pickup_time,
                 items: body.items,
                 fulfill: body.fulfill || body.delivery_mode,
+            });
+            return res.status(200).json({ ok: true, ...result });
+        }
+
+        if (action === 'create_table') {
+            const result = await createTableOrder({
+                store_name: body.store_name,
+                customer_name: body.customer_name,
+                customer_phone: body.customer_phone,
+                items: body.items,
+                table: body.table,
             });
             return res.status(200).json({ ok: true, ...result });
         }

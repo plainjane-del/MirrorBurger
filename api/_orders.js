@@ -317,7 +317,28 @@ async function createPendingOrder(input) {
     throw lastError || new Error('Failed to create order');
 }
 
-const POS_PAY_METHODS = new Set(['cash', 'fps', 'payme']);
+const POS_PAY_METHODS = new Set(['cash', 'fps', 'payme', 'card']);
+const TABLE_STORE = 'Sai Ying Pun';
+const TABLE_MAX = 5;
+
+async function assertStoreAccepting(storeName) {
+    try {
+        const settings = await getStoreRow(storeName);
+        if (!storeIsAcceptingOrders(storeName, settings || {})) {
+            const err = new Error('Store is closed');
+            err.status = 400;
+            throw err;
+        }
+    } catch (err) {
+        if (err.status === 400) throw err;
+        console.warn('store hours row read failed, using published hours:', err.message);
+        if (!storeIsAcceptingOrders(storeName, {})) {
+            const closed = new Error('Store is closed');
+            closed.status = 400;
+            throw closed;
+        }
+    }
+}
 
 async function insertOrderWithFallback(row) {
     try {
@@ -482,6 +503,151 @@ async function cancelPosOrder(orderNo) {
     return { ok: true, orderNo: no };
 }
 
+async function createTableOrder(input) {
+    const tableNo = Number(input && input.table);
+    if (!Number.isInteger(tableNo) || tableNo < 1 || tableNo > TABLE_MAX) {
+        const err = new Error('Invalid table');
+        err.status = 400;
+        throw err;
+    }
+    const storeName = clip(input && input.store_name, 80) || TABLE_STORE;
+    if (storeName !== TABLE_STORE) {
+        const err = new Error('Table QR is Sai Ying Pun only');
+        err.status = 400;
+        throw err;
+    }
+    await assertStoreAccepting(storeName);
+
+    const customerName = clip(input && input.customer_name, 80);
+    if (!customerName) {
+        const err = new Error('Missing customer name');
+        err.status = 400;
+        throw err;
+    }
+    const customerPhone = clip(input && input.customer_phone, 40) || 'TABLE';
+    const pickupTime = `堂食 · ${tableNo}號枱`;
+    const items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
+    if (!items.length) {
+        const err = new Error('No items');
+        err.status = 400;
+        throw err;
+    }
+
+    const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
+    const soldIds = await listSoldOutIds(storeName);
+    const catalog = await listMenuItems({ includeInactive: false });
+    const byId = new Map((catalog || []).map((row) => [row.id, row]));
+    for (const item of items) {
+        const row = byId.get(item.menuId);
+        const name = (item && (item.nameZh || item.nameEn)) || item.menuId;
+        if (item.menuId && (!row || row.is_sold_out || soldIds.has(item.menuId))) {
+            const err = new Error(`已沽清：${name}`);
+            err.status = 400;
+            throw err;
+        }
+    }
+
+    const priced = await recalculateOrderTotal({
+        store_name: storeName,
+        items_json: items,
+        fulfill: 'dine_in',
+        pickup_time: pickupTime,
+    });
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const orderNo = generateOrderNo();
+        try {
+            const saved = await insertOrderWithFallback({
+                order_no: orderNo,
+                store_name: storeName,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                pickup_time: pickupTime,
+                items_json: items,
+                total_amount: priced.total,
+                payment_status: 'UNPAID',
+                status: 'PAID',
+                channel: 'table',
+            });
+            const row = Array.isArray(saved) ? saved[0] : saved;
+            const order = (await getOrderByNo(orderNo)) || row;
+            await notifyOrderPaid(order).catch((err) => {
+                console.error('table notifyOrderPaid failed:', err);
+            });
+            return {
+                orderNo: (row && row.order_no) || orderNo,
+                total: priced.total,
+                subtotal: priced.subtotal,
+                discount: priced.discount,
+                pickup_time: pickupTime,
+                table: tableNo,
+                store_name: storeName,
+            };
+        } catch (err) {
+            lastError = err;
+            const msg = String(err.message || '');
+            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+        }
+    }
+    throw lastError || new Error('Failed to create table order');
+}
+
+async function markTableOrderPaid(orderNo, payMethod) {
+    const no = clip(orderNo, 32);
+    const method = clip(payMethod, 20).toLowerCase();
+    if (!no) {
+        const err = new Error('Missing orderNo');
+        err.status = 400;
+        throw err;
+    }
+    if (!POS_PAY_METHODS.has(method)) {
+        const err = new Error('Invalid pay_method (cash / fps / payme / card)');
+        err.status = 400;
+        throw err;
+    }
+    const existing = await getOrderByNo(no);
+    if (!existing) {
+        const err = new Error('Order not found');
+        err.status = 404;
+        throw err;
+    }
+    const pay = String(existing.payment_status || '').toUpperCase();
+    if (pay === 'PAID' || pay === 'COMPLETED' || pay === 'PREPARING' || pay === 'READY') {
+        return { ok: true, alreadyPaid: true, order: existing };
+    }
+    if (pay !== 'UNPAID') {
+        const err = new Error(`Cannot collect ${pay}`);
+        err.status = 400;
+        throw err;
+    }
+
+    let rows;
+    try {
+        rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}`,
+            { method: 'PATCH', body: JSON.stringify({ payment_status: 'PAID', pay_method: method }) }
+        );
+    } catch (err) {
+        if (!/pay_method/i.test(String(err.message || ''))) throw err;
+        rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}`,
+            { method: 'PATCH', body: JSON.stringify({ payment_status: 'PAID' }) }
+        );
+    }
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return {
+        ok: true,
+        orderNo: no,
+        total: Number((row && row.total_amount) || existing.total_amount) || 0,
+        pay_method: method,
+        pickup_time: (row && row.pickup_time) || existing.pickup_time,
+        customer_name: (row && row.customer_name) || existing.customer_name,
+        items: existing.items_json,
+        order: row || existing,
+    };
+}
+
 async function getPublicOrderStatus(orderNo) {
     const no = clip(orderNo, 32);
     if (!no) return null;
@@ -533,6 +699,8 @@ module.exports = {
     createPendingOrder,
     createPosOrder,
     cancelPosOrder,
+    createTableOrder,
+    markTableOrderPaid,
     getPublicOrderStatus,
     listKitchenOrders,
     startOfTodayHkIso,

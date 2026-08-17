@@ -71,6 +71,7 @@
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
+                <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
                 <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
@@ -167,6 +168,17 @@
         </div>
     </div>
 
+    <div id="table-unpaid-sheet" class="sheet" onclick="if(event.target===this) closeTableUnpaid()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">未收款枱單</h3>
+                <button type="button" class="chip-btn" onclick="closeTableUnpaid()">關閉</button>
+            </div>
+            <p class="text-[11px] font-bold text-neutral-500 mb-3">客人掃枱 QR 送到廚房。收咗錢再撳付款方式（卡機手續費較低）。</p>
+            <div id="table-unpaid-list" class="space-y-2"></div>
+        </div>
+    </div>
+
     <script src="./js/sunmi-printer.umd.js"></script>
     <script src="./js/pos-print.js"></script>
     <script>
@@ -176,7 +188,7 @@
             { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
             { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
         ];
-        const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe' };
+        const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe', card: '卡機' };
         const FALLBACK = {
             addon: [
                 { id:'a1', name_zh:'自家製酸瓜', price:4 }, { id:'a2', name_zh:'墨西哥酸辣辣椒', price:4 },
@@ -327,6 +339,7 @@
             localStorage.setItem(STORE_KEY, currentStore);
             markStoreButtons();
             await loadMenu();
+            refreshTableUnpaidBadge();
         }
         function setFulfill(next) {
             fulfill = next;
@@ -664,18 +677,23 @@
             document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">載入中…</p>';
             try {
                 const data = await posApi({ action: 'stats', store_name: currentStore });
-                todayRows = (data.orders || []).filter((o) => String(o.channel || '') === 'pos').slice(0, 40);
+                todayRows = (data.orders || []).filter((o) => {
+                    const ch = String(o.channel || '');
+                    return ch === 'pos' || ch === 'table' || /(\d+)\s*號枱/.test(String(o.pickup_time || ''));
+                }).slice(0, 40);
                 if (!todayRows.length) {
-                    document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">今日未有店內單</p>';
+                    document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">今日未有店內／枱單</p>';
                     return;
                 }
                 document.getElementById('today-list').innerHTML = todayRows.map((o, i) => {
                     const st = String(o.status || o.payment_status || '').toUpperCase();
+                    const pay = String(o.payment_status || '').toUpperCase();
                     const cancelled = st === 'CANCELLED';
+                    const unpaid = pay === 'UNPAID';
                     return `<button type="button" class="w-full text-left rounded-xl border border-neutral-800 bg-neutral-900 p-3 ${cancelled ? 'opacity-50' : ''}"
                         onclick="showTodayTicket(${i})">
-                        <div class="font-black">#${escapeHtml(o.order_no)} · $${Number(o.total_amount)||0}</div>
-                        <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(o.pickup_time || '')} · ${cancelled ? '已作廢' : (PAY_LABEL[o.pay_method] || o.pay_method || '')}</div>
+                        <div class="font-black">#${escapeHtml(o.order_no)} · $${Number(o.total_amount)||0}${unpaid ? ' · 未收款' : ''}</div>
+                        <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(o.pickup_time || '')} · ${cancelled ? '已作廢' : (unpaid ? '未收款' : (PAY_LABEL[o.pay_method] || o.pay_method || ''))}</div>
                     </button>`;
                 }).join('');
             } catch (err) {
@@ -683,6 +701,126 @@
             }
         }
         function closeToday() { document.getElementById('today-sheet').classList.remove('is-open'); }
+
+        let tableUnpaidRows = [];
+        let tableUnpaidTimer = null;
+
+        function isUnpaidTableOrder(o) {
+            const pay = String(o.payment_status || '').toUpperCase();
+            if (pay !== 'UNPAID') return false;
+            const ch = String(o.channel || '');
+            return ch === 'table' || /(\d+)\s*號枱/.test(String(o.pickup_time || ''));
+        }
+
+        async function fetchTableUnpaid() {
+            if (currentStore !== 'Sai Ying Pun') return [];
+            const data = await posApi({ action: 'stats', store_name: currentStore });
+            return (data.orders || []).filter(isUnpaidTableOrder);
+        }
+
+        async function refreshTableUnpaidBadge() {
+            const btn = document.getElementById('table-unpaid-btn');
+            if (!btn) return;
+            try {
+                tableUnpaidRows = await fetchTableUnpaid();
+            } catch (_) {
+                tableUnpaidRows = [];
+            }
+            const n = tableUnpaidRows.length;
+            btn.textContent = n ? `枱單 ${n}` : '枱單';
+            btn.classList.toggle('is-active', n > 0);
+        }
+
+        async function openTableUnpaid() {
+            document.getElementById('table-unpaid-sheet').classList.add('is-open');
+            await renderTableUnpaid();
+        }
+        function closeTableUnpaid() {
+            document.getElementById('table-unpaid-sheet').classList.remove('is-open');
+        }
+        async function renderTableUnpaid() {
+            const list = document.getElementById('table-unpaid-list');
+            list.innerHTML = '<p class="font-bold text-neutral-500">載入中…</p>';
+            try {
+                tableUnpaidRows = await fetchTableUnpaid();
+                refreshTableUnpaidBadge();
+                if (!tableUnpaidRows.length) {
+                    list.innerHTML = '<p class="font-bold text-neutral-500">暫時冇未收款枱單</p>';
+                    return;
+                }
+                list.innerHTML = tableUnpaidRows.map((o, i) => {
+                    let items = o.items_json;
+                    if (typeof items === 'string') {
+                        try { items = JSON.parse(items); } catch (_) { items = []; }
+                    }
+                    if (!Array.isArray(items)) items = [];
+                    const itemLine = items.map((it) => `${it.qty || 1}× ${it.nameZh || it.nameEn || ''}`).join('、');
+                    return `<div class="rounded-xl border border-amber-500/40 bg-neutral-900 p-3 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="text-2xl font-black text-yellow-400">${escapeHtml(o.pickup_time || '堂食')}</div>
+                                <div class="text-sm font-black">#${escapeHtml(o.order_no)} · $${Number(o.total_amount)||0}</div>
+                                <div class="text-[11px] font-bold text-neutral-400">${escapeHtml(o.customer_name || '')}${o.customer_phone && o.customer_phone !== 'TABLE' ? ' · ' + escapeHtml(o.customer_phone) : ''}</div>
+                                <div class="text-[11px] font-bold text-neutral-500 mt-1">${escapeHtml(itemLine)}</div>
+                            </div>
+                            <div class="text-[10px] font-black text-red-400">未收款</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="collectTablePay(${i}, 'card')">卡機</button>
+                            <button type="button" class="pay-btn bg-neutral-200 text-black" onclick="collectTablePay(${i}, 'cash')">現金</button>
+                            <button type="button" class="pay-btn bg-sky-500 text-white" onclick="collectTablePay(${i}, 'fps')">轉數快</button>
+                            <button type="button" class="pay-btn bg-pink-500 text-white" onclick="collectTablePay(${i}, 'payme')">PayMe</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                list.innerHTML = `<p class="text-red-400 font-bold">${escapeHtml(err.message || err)}</p>`;
+            }
+        }
+        async function collectTablePay(i, payMethod) {
+            const o = tableUnpaidRows[i];
+            if (!o) return;
+            try {
+                const data = await posApi({
+                    action: 'mark_table_paid',
+                    orderNo: o.order_no,
+                    pay_method: payMethod,
+                });
+                let items = o.items_json;
+                if (typeof items === 'string') {
+                    try { items = JSON.parse(items); } catch (_) { items = []; }
+                }
+                closeTableUnpaid();
+                showTicket({
+                    orderNo: data.orderNo || o.order_no,
+                    total: data.total || o.total_amount,
+                    pay_method: payMethod,
+                    pickup_time: data.pickup_time || o.pickup_time,
+                    customer_name: data.customer_name || o.customer_name,
+                }, Array.isArray(items) ? items : []);
+                try {
+                    await PosPrint.printTicket({
+                        orderNo: data.orderNo || o.order_no,
+                        total: data.total || o.total_amount,
+                        pay_method: payMethod,
+                        pickup_time: data.pickup_time || o.pickup_time,
+                        store_name: currentStore,
+                        customer_name: data.customer_name || o.customer_name,
+                    }, Array.isArray(items) ? items : [], { openDrawer: payMethod === 'cash' });
+                } catch (printErr) {
+                    console.warn('print failed', printErr);
+                }
+                refreshTableUnpaidBadge();
+            } catch (err) {
+                alert('收款失敗：' + (err.message || err));
+            }
+        }
+        function startTableUnpaidPoll() {
+            if (tableUnpaidTimer) clearInterval(tableUnpaidTimer);
+            refreshTableUnpaidBadge();
+            tableUnpaidTimer = setInterval(refreshTableUnpaidBadge, 12000);
+        }
+
         function showTodayTicket(i) {
             const o = todayRows[i];
             if (!o) return;
@@ -1731,6 +1869,7 @@
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
             await loadMenu();
+            startTableUnpaidPoll();
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
         window.onload = async () => {

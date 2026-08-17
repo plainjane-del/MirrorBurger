@@ -12,17 +12,19 @@ function validateCheckout() {
         btn.style.opacity = "1";
         btn.disabled = false;
 
-        // 🌟 已經全面轉用 KPay 正式環境
-        btn.onclick = processKPayOrder;
-
-        btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+        if (typeof isTableMode === 'function' && isTableMode()) {
+            btn.onclick = processTableOrder;
+            btn.innerHTML = '<span class="en">Send to kitchen</span><span class="zh">送到廚房</span>';
+        } else {
+            btn.onclick = processKPayOrder;
+            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+        }
     }
 }
 
 // 網頁載入即時初始化
 document.addEventListener('DOMContentLoaded', validateCheckout);
 
-// 全面預設用 KPay
 function processKPayOrder() { return submitOrder('kpay'); }
 function processStripeOrder() { return submitOrder('stripe'); }
 
@@ -45,18 +47,74 @@ async function insertPendingOrder(row) {
     return { orderNo: data.orderNo, total: data.total };
 }
 
-async function submitOrder(provider) {
-    const store = getActiveStore();
-    const name = document.getElementById('cust-name').value.trim();
+async function insertTableOrder(row) {
+    const res = await fetch('/api/kpay-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'create_table',
+            store_name: row.store_name,
+            customer_name: row.customer_name,
+            customer_phone: row.customer_phone,
+            items: row.items_json,
+            table: row.table,
+        }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+}
 
+function checkoutCustomer() {
+    const name = document.getElementById('cust-name').value.trim();
     const countrySelect = document.getElementById('cust-country-code');
     const rawPhone = document.getElementById('cust-phone').value.trim();
-    let phone = countrySelect.value + " " + rawPhone;
+    let phone = countrySelect.value + ' ' + rawPhone;
     if (countrySelect.value === 'others') {
         const customCC = document.getElementById('cust-custom-cc').value.trim();
-        phone = (customCC.startsWith('+') ? customCC : '+' + customCC) + " " + rawPhone;
+        phone = (customCC.startsWith('+') ? customCC : '+' + customCC) + ' ' + rawPhone;
     }
+    return { name, rawPhone, phone };
+}
 
+async function processTableOrder() {
+    const store = getActiveStore();
+    const { name, rawPhone, phone } = checkoutCustomer();
+
+    if (cart.length === 0) { showCustomAlert(lang('Your bag is empty.', '你的購物車是空的。')); return; }
+    if (!store) { showCustomAlert(lang('Please select a store.', '請先選擇取餐分店。')); return; }
+    if (!name) { showCustomAlert(lang('Please enter your name.', '請輸入你的名字。')); return; }
+    if (!isStoreOpen(store)) { showCustomAlert(lang('This store is closed today.', '此分店今日休息。')); return; }
+
+    const btn = document.getElementById('checkout-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="en">Sending…</span><span class="zh">送到廚房中…</span>`;
+    btn.disabled = true;
+
+    try {
+        const created = await insertTableOrder({
+            store_name: store,
+            customer_name: name,
+            customer_phone: rawPhone ? phone : '',
+            items_json: cart,
+            table: dineTableNo,
+        });
+        finishOrderSuccess(created.store_name || store, created.pickup_time || tablePickupLabel(), btn, originalText, {
+            orderNo: created.orderNo,
+            amount: created.total,
+            table: created.table || dineTableNo,
+        });
+    } catch (err) {
+        console.error(err);
+        showCustomAlert(err.message || 'Connection Error');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function submitOrder(provider) {
+    const store = getActiveStore();
+    const { name, rawPhone, phone } = checkoutCustomer();
     const time = document.getElementById('cust-time').value;
 
     if (cart.length === 0) { showCustomAlert(lang('Your bag is empty.', '你的購物車是空的。')); return; }

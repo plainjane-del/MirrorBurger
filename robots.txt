@@ -6,6 +6,9 @@ Disallow: /pos
 Disallow: /pos.html
 Disallow: /kitchen
 Disallow: /kitchen.html
+Disallow: /t/
+Disallow: /tables
+Disallow: /table-qr.html
 Disallow: /api/
 
 Sitemap: https://mirrorburger.com/sitemap.xml

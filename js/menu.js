@@ -29,11 +29,66 @@ function saveCart() {
 
 let cart = loadCart();
 let deliveryMode = 'pickup';
+let dineTableNo = 0;
 let activeItem = null;
 let currentCategory = 'beef';
 let flowSelectedStore = '';
 
 const lang = (en, zh) => currentLang === 'en' ? en : zh;
+
+function isTableMode() {
+    return Number(dineTableNo) >= 1 && Number(dineTableNo) <= 5;
+}
+
+function tablePickupLabel() {
+    return `堂食 · ${dineTableNo}號枱`;
+}
+
+function parseTableFromLocation() {
+    const path = (location.pathname || '').replace(/\/+$/, '');
+    const fromPath = path.match(/^\/t\/(\d+)$/);
+    const n = fromPath ? Number(fromPath[1]) : Number(new URLSearchParams(location.search).get('table') || 0);
+    if (Number.isInteger(n) && n >= 1 && n <= 5) return n;
+    return 0;
+}
+
+function applyTableMode() {
+    dineTableNo = parseTableFromLocation();
+    if (!isTableMode()) return;
+    flowSelectedStore = 'Sai Ying Pun';
+    deliveryMode = 'pickup';
+    document.body.classList.add('is-table-mode');
+    const robots = document.querySelector('meta[name="robots"]');
+    if (robots) robots.setAttribute('content', 'noindex, nofollow');
+    const banner = document.getElementById('table-mode-banner');
+    const bannerNo = document.getElementById('table-mode-no');
+    if (banner) banner.classList.remove('hidden');
+    if (bannerNo) {
+        bannerNo.innerHTML = `<span class="en">Table ${dineTableNo}</span><span class="zh">${dineTableNo}號枱</span>`;
+    }
+    document.querySelectorAll('.js-table-hide').forEach((el) => el.classList.add('hidden'));
+    const phoneHint = document.getElementById('table-phone-hint');
+    if (phoneHint) phoneHint.classList.remove('hidden');
+    const changeBtn = document.querySelector('#cart-store-display button');
+    if (changeBtn) changeBtn.classList.add('hidden');
+    populateStoresDropdown();
+    updateCartStoreUI();
+    updateCartUI();
+}
+
+function startTableOrdering() {
+    if (!isTableMode()) return;
+    if (!isStoreOpen('Sai Ying Pun')) {
+        showCustomAlert(lang('This store is closed today.', '此分店今日休息。'));
+        return;
+    }
+    flowSelectedStore = 'Sai Ying Pun';
+    populateStoresDropdown();
+    updateCartStoreUI();
+    updateCartUI();
+    const menu = document.getElementById('menu-section');
+    if (menu) menu.scrollIntoView({ behavior: 'smooth' });
+}
 
 /** Cloudinary: strip prior transforms, cap width, auto format/quality (WebP/AVIF). */
 function cloudinaryUrl(url, width) {
@@ -345,7 +400,7 @@ function applyStoreOpenUI() {
     populateStoresDropdown();
     renderStores();
 
-    if (flowSelectedStore && !isStoreOpen(flowSelectedStore)) {
+    if (flowSelectedStore && !isStoreOpen(flowSelectedStore) && !isTableMode()) {
         flowSelectedStore = '';
         updateCartStoreUI();
         updateCartUI();
@@ -370,6 +425,7 @@ function getDiscountRate() {
 }
 
 function isDiscountActive() {
+    if (isTableMode()) return false;
     const store = getActiveStore();
     if (store === 'Tsuen Wan (Takeaway Only)' && deliveryMode === 'pickup') return true;
     let subtotal = cart.reduce((sum, item) => sum + item.price, 0);
@@ -533,7 +589,7 @@ function updateConfigPrice() {
     const store = getActiveStore();
     const rate = getDiscountRate();
 
-    if (deliveryMode === 'pickup') {
+    if (deliveryMode === 'pickup' && !isTableMode()) {
         if (store === 'Tsuen Wan (Takeaway Only)') {
             willHaveDiscount = true;
         } else {
@@ -624,6 +680,10 @@ function addCurrentToBag() {
 
 // --- ORDER FLOW MODALS ---
 function showOrderFlow() {
+    if (isTableMode()) {
+        startTableOrdering();
+        return;
+    }
     const modal = document.getElementById('order-flow-modal');
     const content = document.getElementById('order-flow-content');
     if (!modal || !content) return;
@@ -913,7 +973,7 @@ function updateUpsellButton(type) {
     const store = getActiveStore();
     const rate = getDiscountRate();
 
-    if (deliveryMode === 'pickup') {
+    if (deliveryMode === 'pickup' && !isTableMode()) {
         if (store === 'Tsuen Wan (Takeaway Only)') willHaveDiscount = true;
         else willHaveDiscount = (currentSubtotal + price >= 120 || currentHasCombo);
     }
@@ -1006,7 +1066,7 @@ function updateCartUI() {
         container.innerHTML = cart.map(item => `<div class="flex justify-between items-center p-5 bg-apple-bg rounded-[2rem] italic w-full border border-gray-100/50 shadow-sm flex-shrink-0"><div class="pr-4 flex-grow"><div class="text-[11px] font-black uppercase tracking-tight text-black">${lang(item.nameEn, item.nameZh)}</div><div class="text-[9px] text-gray-400 font-bold uppercase mt-1 leading-relaxed">${lang(item.detailsEn, item.detailsZh)}</div><div class="text-[10px] font-black mt-2 text-black">${item.price}</div></div><button onclick="removeFromCart(${item.id})" class="text-[10px] font-black text-red-500 uppercase flex-shrink-0 active:scale-95 transition-transform bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">${lang('Remove', '移除')}</button></div>`).join('');
     }
     let subtotal = cart.reduce((sum, item) => sum + item.price, 0), hasCombo = cart.some(item => item.detailsEn && item.detailsEn.includes('Combo')), store = getActiveStore(), rate = getDiscountRate(), discount = 0;
-    if (deliveryMode === 'pickup') { if (store === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(subtotal * 0.15); else if (subtotal >= 120 || hasCombo) discount = Math.floor(subtotal * 0.10); }
+    if (deliveryMode === 'pickup' && !isTableMode()) { if (store === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(subtotal * 0.15); else if (subtotal >= 120 || hasCombo) discount = Math.floor(subtotal * 0.10); }
     document.getElementById('subtotal-val').innerText = subtotal;
     document.getElementById('discount-label').innerHTML = `<span class="en">${store && store.includes('Tsuen Wan') ? '15%' : '10%'} Discount</span><span class="zh">${store && store.includes('Tsuen Wan') ? '85折' : '9折'}</span>`;
     document.getElementById('discount-val').innerText = `-${discount}`;
@@ -1020,7 +1080,12 @@ function updateCartUI() {
 
 function removeFromCart(id) { cart = cart.filter(i => i.id !== id); updateCartUI(); }
 function handleStoreChange() { flowSelectedStore = document.getElementById('cust-store').value; updateCartStoreUI(); updateCartUI(); }
-function changeStore() { flowSelectedStore = ''; updateCartStoreUI(); updateCartUI(); }
+function changeStore() {
+    if (isTableMode()) return;
+    flowSelectedStore = '';
+    updateCartStoreUI();
+    updateCartUI();
+}
 
 function populateStoresDropdown() {
     const s = document.getElementById('cust-store');
@@ -1046,6 +1111,13 @@ function updateCartStoreUI() { const d = document.getElementById('cart-store-dis
 
 function generateTimeOptions() {
     const s = document.getElementById('cust-time');
+    if (!s) return;
+    if (isTableMode()) {
+        s.innerHTML = '';
+        s.add(new Option(tablePickupLabel(), tablePickupLabel(), true, true));
+        validateCheckout();
+        return;
+    }
     const prevValue = s.value;
     const storeName = flowSelectedStore || document.getElementById('cust-store').value;
     if (!storeName) { s.innerHTML = `<option value="" disabled selected>${lang('Select Store First', '請先選擇分店')}</option>`; return; }
@@ -1283,20 +1355,36 @@ function finishOrderSuccess(store, time, btn, originalText, details = {}) {
     const orderNo = details.orderNo || '';
     const amountNum = Number(details.amount);
     const amountText = Number.isFinite(amountNum) ? `HK$${Math.round(amountNum)}` : '—';
+    const isTable = !!(details.table || isTableMode());
     
+    const titleEl = document.getElementById('confirm-modal-title');
+    const descEl = document.getElementById('confirm-modal-desc');
     const orderNoEl = document.getElementById('confirm-modal-order-no');
     const amountEl = document.getElementById('confirm-modal-amount');
     const storeEl = document.getElementById('confirm-modal-store');
     const timeEl = document.getElementById('confirm-modal-time');
     // 只改 value span，唔好整段覆寫外層 <p>（保留 單號／金額／分店／取餐 label）
+    if (titleEl) {
+        titleEl.innerHTML = isTable
+            ? `<span class="en">Sent to kitchen</span><span class="zh">已送到廚房</span>`
+            : `<span class="en">Payment Confirmed!</span><span class="zh">付款成功！</span>`;
+    }
+    if (descEl) {
+        descEl.innerHTML = isTable
+            ? `<span class="en">Please pay at the counter. In-store card fees are lower than paying on your phone.</span><span class="zh">請到櫃檯付款。堂食用店內卡機，手續費低少少。</span>`
+            : `<span class="en">Your paid order has been sent to the kitchen. Please pick it up at the designated time!</span><span class="zh">已付款訂單已送去廚房。請準時前往分店取餐！</span>`;
+    }
     if (orderNoEl) orderNoEl.textContent = orderNo ? `#${orderNo}` : '—';
     if (amountEl) amountEl.textContent = amountText;
     if (storeEl) storeEl.textContent = lang(store, storeZh) || '—';
     if (timeEl) timeEl.textContent = time || '—';
     
     const dirBtn = document.getElementById('confirm-modal-direction-btn');
-    if (dirBtn && storeObj && storeObj.lat && storeObj.lng) {
-        dirBtn.href = `https://maps.google.com/?q=${storeObj.lat},${storeObj.lng}`;
+    if (dirBtn) {
+        dirBtn.classList.toggle('hidden', isTable);
+        if (!isTable && storeObj && storeObj.lat && storeObj.lng) {
+            dirBtn.href = `https://maps.google.com/?q=${storeObj.lat},${storeObj.lng}`;
+        }
     }
     
     const modal = document.getElementById('order-confirmed-modal');
@@ -1430,6 +1518,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCartUI();
     updatePlaceholders(); populateStoresDropdown(); renderStores(); renderGoogleReviews();
     applyStoreFromQuery();
+    applyTableMode();
+    if (isTableMode()) {
+        setTimeout(() => startTableOrdering(), 400);
+    }
     fetchLiveMenu();
     fetchStoreSettings();
     startStoreSettingsRealtime();
