@@ -37,6 +37,7 @@ async function insertPendingOrder(row) {
             customer_phone: row.customer_phone,
             pickup_time: row.pickup_time,
             items: row.items_json,
+            fulfill: (typeof deliveryMode !== 'undefined' && deliveryMode !== 'pickup') ? 'dine_in' : 'takeaway',
         }),
     });
     const data = await res.json().catch(() => ({}));

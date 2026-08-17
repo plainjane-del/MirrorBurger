@@ -16,6 +16,7 @@ module.exports = async (req, res) => {
                 customer_phone: body.customer_phone,
                 pickup_time: body.pickup_time,
                 items: body.items,
+                fulfill: body.fulfill || body.delivery_mode,
             });
             return res.status(200).json({ ok: true, ...result });
         }

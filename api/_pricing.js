@@ -135,10 +135,23 @@ function priceLine(item, catalog) {
 
     if (item.size) {
         const sizeMap = sizes[menuId];
-        if (!sizeMap || !(item.size in sizeMap)) {
-            throw new Error(`Invalid size "${item.size}" for ${menuId}`);
+        const raw = String(item.size);
+        const aliases = {
+            M: ['M', '中', '中份'],
+            L: ['L', '大', '大份'],
+            '3pcs': ['3pcs', '3', '三件'],
+            '5pcs': ['5pcs', '5', '五件'],
+        };
+        let key = sizeMap && Object.prototype.hasOwnProperty.call(sizeMap, raw) ? raw : null;
+        if (!key && sizeMap) {
+            for (const [canon, names] of Object.entries(aliases)) {
+                if (names.includes(raw) && Object.prototype.hasOwnProperty.call(sizeMap, canon)) {
+                    key = canon;
+                    break;
+                }
+            }
         }
-        line += sizeMap[item.size];
+        if (key && sizeMap) line += Number(sizeMap[key]) || 0;
     }
 
     for (const aid of Array.isArray(item.addonIds) ? item.addonIds : []) {

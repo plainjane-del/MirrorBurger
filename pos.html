@@ -47,7 +47,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17r</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17s</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -70,7 +70,7 @@
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
-                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect()">出單機</button>
+                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
             <div class="mt-2 grid grid-cols-3 gap-1">
@@ -257,7 +257,25 @@
             const src = cloudinaryUrl(url, 320);
             return `<div class="pos-thumb"><img src="${src}" alt="" loading="lazy" decoding="async"></div>`;
         }
-        function sizesOf(item) { return Array.isArray(item && item.sizes) ? item.sizes : []; }
+        function sizesOf(item) {
+            if (Array.isArray(item && item.sizes) && item.sizes.length) return item.sizes;
+            return ({
+                s1: [{ label: 'M', upcharge: 0 }, { label: 'L', upcharge: 8 }],
+                s2: [{ label: 'M', upcharge: 0 }, { label: 'L', upcharge: 8 }],
+                s5: [{ label: 'M', upcharge: 0 }, { label: 'L', upcharge: 13 }],
+                s3: [{ label: '3pcs', upcharge: 0 }, { label: '5pcs', upcharge: 13 }],
+            })[item && item.id] || [];
+        }
+        function sizeChipLabel(s) {
+            const label = s.label || s.value;
+            const zh = label === 'M' ? '中' : (label === 'L' ? '大' : label);
+            return zh + (s.upcharge ? ' +$' + s.upcharge : '');
+        }
+        function sizeUpcharge(item, size) {
+            if (!size) return 0;
+            const sz = sizesOf(item).find((s) => (s.label || s.value) === size);
+            return Number(sz && sz.upcharge) || 0;
+        }
         function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
         function isSpicy(item) { return Array.isArray(item.dietary) && item.dietary.some((d) => String(d).includes('🌶')); }
         function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
@@ -328,11 +346,7 @@
         }
         function linePrice(line) {
             let n = unitOf(line);
-            const sizes = sizesOf(catalogItem(line.menuId) || {});
-            if (line.size) {
-                const sz = sizes.find((s) => (s.label || s.value) === line.size);
-                n += Number(sz && sz.upcharge) || 0;
-            }
+            if (line.size) n += sizeUpcharge(catalogItem(line.menuId) || { id: line.menuId }, line.size);
             for (const id of line.addonIds || []) n += Number((findMod('addon', id) || {}).price) || 0;
             for (const id of line.sauceIds || []) n += Number((findMod('sauce', id) || {}).price) || 0;
             if (line.comboSnackId && line.comboDrinkId) {
@@ -365,7 +379,7 @@
                 size: existing ? existing.size : (sz.length ? (sz[0].label || sz[0].value) : null),
                 bun: existing ? (String(existing.detailsEn || '').includes('Lettuce') ? 'Lettuce Wrap' : (isBurger(item) ? 'Nissin Bun' : null)) : (isBurger(item) ? 'Nissin Bun' : null),
                 spice: existing && String(existing.detailsEn || '').includes('Mild') ? 'Mild' : (isSpicy(item) ? 'Normal' : null),
-                temp: existing && String(existing.detailsEn || '').includes('Iced') ? 'Iced' : (item.has_temp ? 'Hot' : null),
+                temp: existing && String(existing.detailsEn || '').includes('Iced') ? 'Iced' : (itemNeedsTemp(item) ? 'Hot' : null),
                 addonIds: existing && Array.isArray(existing.addonIds) ? existing.addonIds.slice() : [],
                 sauceIds: existing && Array.isArray(existing.sauceIds) ? existing.sauceIds.slice() : [],
                 combo: !!(existing && existing.comboSnackId),
@@ -404,7 +418,7 @@
             if (sz.length) {
                 bits.push(chipRow('份量', sz.map((s) => {
                     const label = s.label || s.value;
-                    return optChip(cfg.size === label, label + (s.upcharge ? ' +$' + s.upcharge : ''), `setCfg('size', '${escapeHtml(label)}')`);
+                    return optChip(cfg.size === label, sizeChipLabel(s), `setCfg('size', '${escapeHtml(label)}')`);
                 }).join('')));
             }
             if (isBurger(item)) {
@@ -413,7 +427,7 @@
             if (isSpicy(item)) {
                 bits.push(chipRow('辣度', optChip(cfg.spice === 'Normal', '正常', "setCfg('spice','Normal')") + optChip(cfg.spice === 'Mild', '小辣', "setCfg('spice','Mild')")));
             }
-            if (item.has_temp) {
+            if (itemNeedsTemp(item)) {
                 bits.push(chipRow('溫度', optChip(cfg.temp === 'Hot', '熱', "setCfg('temp','Hot')") + optChip(cfg.temp === 'Iced', '凍', "setCfg('temp','Iced')")));
             }
             if (isBurger(item)) {
@@ -461,7 +475,11 @@
             const item = cfgItem;
             const detailsZh = [];
             const detailsEn = [];
-            if (cfg.size) { detailsZh.push('份量: ' + cfg.size); detailsEn.push('Size: ' + cfg.size); }
+            if (cfg.size) {
+                const zh = cfg.size === 'M' ? '中' : (cfg.size === 'L' ? '大' : cfg.size);
+                detailsZh.push('份量: ' + zh);
+                detailsEn.push('Size: ' + cfg.size);
+            }
             if (cfg.bun) {
                 detailsZh.push(cfg.bun === 'Nissin Bun' ? '日清麵包' : '生菜包');
                 detailsEn.push(cfg.bun);
@@ -509,6 +527,7 @@
         function confirmCfg() {
             if (!cfgItem) return;
             if (sizesOf(cfgItem).length && !cfg.size) return alert('請揀份量');
+            if (itemNeedsTemp(cfgItem) && !cfg.temp) return alert('請揀熱定凍');
             if (isBurger(cfgItem) && cfg.combo && (!cfg.comboSnackId || !cfg.comboDrinkId)) {
                 return alert('套餐請揀小食同飲品。');
             }
@@ -667,12 +686,17 @@
             const o = todayRows[i];
             if (!o) return;
             closeToday();
+            let items = o.items_json;
+            if (typeof items === 'string') {
+                try { items = JSON.parse(items); } catch (_) { items = []; }
+            }
             showTicket({
                 orderNo: o.order_no,
                 total: o.total_amount,
                 pay_method: o.pay_method,
                 pickup_time: o.pickup_time,
-            }, Array.isArray(o.items_json) ? o.items_json : []);
+                customer_name: o.customer_name,
+            }, Array.isArray(items) ? items : []);
         }
 
         let voiceRec = null;
@@ -1104,9 +1128,7 @@
             return null;
         }
         function itemNeedsSize(item) {
-            if (!item) return false;
-            if (sizesOf(item).length) return true;
-            return ['s1', 's2', 's5'].includes(item.id);
+            return sizesOf(item).length > 0;
         }
         function itemNeedsTemp(item) {
             if (!item) return false;
@@ -1652,12 +1674,13 @@
                 : '冇加入任何餸');
         }
 
-        async function charge(payMethod, skipConfirm) {
+        async function charge(payMethod) {
             if (charging || !cart.length) return;
-            const t = cartTotals();
-            if (!skipConfirm && !confirm(`收 ${PAY_LABEL[payMethod]} $${t.total}？`)) return;
             charging = true;
+            document.querySelectorAll('#pos-cart .pay-btn').forEach((b) => { b.disabled = true; });
             const snapshot = cart.slice();
+            const guest = document.getElementById('guest-name').value.trim();
+            const note = document.getElementById('order-note').value.trim();
             try {
                 const items = snapshot.map((line) => ({
                     menuId: line.menuId,
@@ -1672,8 +1695,6 @@
                     detailsEn: line.detailsEn,
                     detailsZh: line.detailsZh,
                 }));
-                const guest = document.getElementById('guest-name').value.trim();
-                const note = document.getElementById('order-note').value.trim();
                 const data = await posApi({
                     action: 'create_pos_order',
                     store_name: currentStore,
@@ -1698,7 +1719,10 @@
                 }
             } catch (err) {
                 alert('入單失敗：' + (err.message || err));
-            } finally { charging = false; }
+            } finally {
+                charging = false;
+                document.querySelectorAll('#pos-cart .pay-btn').forEach((b) => { b.disabled = false; });
+            }
         }
 
         async function bootPos() {
@@ -1706,7 +1730,7 @@
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
             await loadMenu();
-            try { await PosPrint.connect(); } catch (_) {}
+            try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
         window.onload = async () => {
             const existing = getToken();

@@ -245,14 +245,19 @@ async function createPendingOrder(input) {
     }
     const customerName = clip(input && input.customer_name, 80);
     const customerPhone = clip(input && input.customer_phone, 40);
-    const pickupTime = clip(input && input.pickup_time, 40);
+    const pickupTimeRaw = clip(input && input.pickup_time, 40);
+    const fulfillRaw = String((input && (input.fulfill || input.delivery_mode)) || '').toLowerCase();
+    const dineIn = fulfillRaw === 'dine_in' || fulfillRaw === 'dine' || fulfillRaw === 'dine-in' || fulfillRaw === '堂食';
+    const pickupTime = dineIn && pickupTimeRaw && !pickupTimeRaw.startsWith('堂食')
+        ? clip(`堂食 · ${pickupTimeRaw}`, 40)
+        : pickupTimeRaw;
     const items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
     if (!customerName || !customerPhone || !pickupTime) {
         const err = new Error('Missing customer details');
         err.status = 400;
         throw err;
     }
-    if (pickupTime === 'CLOSED') {
+    if (pickupTime === 'CLOSED' || pickupTimeRaw === 'CLOSED') {
         const err = new Error('Store is closed');
         err.status = 400;
         throw err;
@@ -261,6 +266,8 @@ async function createPendingOrder(input) {
     const priced = await recalculateOrderTotal({
         store_name: storeName,
         items_json: items,
+        fulfill: dineIn ? 'dine_in' : 'takeaway',
+        pickup_time: pickupTime,
     });
 
     let lastError = null;

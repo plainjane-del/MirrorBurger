@@ -9,7 +9,6 @@
 
     let sdk = null;
     let ready = false;
-    let lastJob = null;
 
     function isAndroid() {
         return /android/i.test(navigator.userAgent || '');
@@ -20,45 +19,61 @@
         el.textContent = label;
         el.classList.toggle('is-on', !!ok);
     }
+    function isSocketUp() {
+        return !!(sdk && sdk.socketManager && sdk.socketManager.connected);
+    }
     function waitConnected(ms) {
         return new Promise((resolve) => {
             const t0 = Date.now();
             (function tick() {
-                if (sdk && sdk.socketManager && sdk.socketManager.connected) return resolve(true);
+                if (isSocketUp()) return resolve(true);
                 if (Date.now() - t0 > ms) return resolve(false);
                 setTimeout(tick, 200);
             })();
         });
     }
-    async function connectSunmi() {
+    function resetSocket() {
+        try { sdk && sdk.socketManager && sdk.socketManager.disconnect(); } catch (_) {}
+        if (sdk) {
+            sdk.socketManager = null;
+            sdk.printer = null;
+        }
+    }
+    async function connectSunmi(opts) {
+        const launch = !!(opts && opts.launch);
         if (typeof SUNMI !== 'function') {
             setStatus('無打印 SDK', false);
             return false;
         }
         if (!sdk) sdk = new SUNMI();
-        if (sdk.socketManager && sdk.socketManager.connected) {
+        if (isSocketUp()) {
             ready = true;
             setStatus('出單機已駁', true);
             return true;
         }
         if (!isAndroid()) {
-            setStatus('瀏覽器打印', false);
+            ready = false;
+            setStatus('撳重印用瀏覽器', false);
             return false;
         }
         setStatus('駁緊出單機…', false);
-        try {
-            sdk.init();
-        } catch (_) {}
-        if (await waitConnected(800)) {
+        if (!sdk.socketManager) sdk.init();
+        if (await waitConnected(1000)) {
             ready = true;
             setStatus('出單機已駁', true);
             return true;
         }
+        if (!launch) {
+            ready = false;
+            setStatus('出單機未駁', false);
+            return false;
+        }
         try {
             await sdk.launchPrinterService();
-            sdk.init();
         } catch (_) {}
-        ready = await waitConnected(5000);
+        resetSocket();
+        sdk.init();
+        ready = await waitConnected(4000);
         setStatus(ready ? '出單機已駁' : '出單機未駁', ready);
         return ready;
     }
@@ -92,14 +107,15 @@
         const line = sdk.printer.lineApi;
         const center = () => TextStyle.getStyle().setAlign(Align.CENTER).setEnableBold(true);
         const left = () => TextStyle.getStyle().setAlign(Align.LEFT);
-        const big = () => TextStyle.getStyle().setAlign(Align.CENTER).setEnableBold(true).setTextSize(48).setTextHeightRatio(1).setTextWidthRatio(1);
+        const huge = () => TextStyle.getStyle().setAlign(Align.CENTER).setEnableBold(true).setTextSize(56).setTextHeightRatio(1).setTextWidthRatio(1);
 
         await line.initLine(BaseStyle.getStyle().setAlign(Align.CENTER));
-        await line.printText('MIRROR BURGER', center().setTextSize(28));
+        await line.printText('廚房單', center().setTextSize(28));
+        await line.printText('MIRROR BURGER', center().setTextSize(24));
         if (job.store) await line.printText(job.store, center());
         await line.printDividingLine(sdk.ENUM.DividingLine.DOTTED, 2);
-        await line.printText('#' + job.orderNo, big());
-        if (job.fulfill) await line.printText(job.fulfill, center().setTextSize(28));
+        await line.printText('#' + job.orderNo, huge());
+        if (job.fulfill) await line.printText(job.fulfill, center().setTextSize(32));
         if (job.pay) await line.printText(job.pay, center());
         await line.printDividingLine(sdk.ENUM.DividingLine.DOTTED, 2);
         await line.initLine(BaseStyle.getStyle().setAlign(Align.LEFT));
@@ -112,9 +128,8 @@
         }
         await line.printDividingLine(sdk.ENUM.DividingLine.DOTTED, 2);
         if (job.guest) await line.printText('客人 ' + job.guest, left());
-        await line.printText('實收 $' + job.total, center().setTextSize(32).setEnableBold(true));
+        await line.printText('$' + job.total, center().setTextSize(32).setEnableBold(true));
         await line.printText(job.when, center().setTextSize(20));
-        await line.printText('多謝惠顧', center());
         await line.autoOut();
 
         if (openDrawer) {
@@ -142,6 +157,7 @@ h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
 .detail { font-size: 12px; padding-left: 8px; font-weight: 700; }
 hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
 </style></head><body>
+<h1>廚房單</h1>
 <h1>MIRROR BURGER</h1>
 <div class="center">${escapeHtml(job.store)}</div>
 <hr>
@@ -179,9 +195,8 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 
     async function printTicket(data, items, opts) {
         const job = ticketLines(data, items);
-        lastJob = { data, items, pay: data.pay_method };
         const openDrawer = !!(opts && opts.openDrawer);
-        if (!ready) await connectSunmi();
+        if (!ready) await connectSunmi({ launch: isAndroid() });
         if (ready) {
             try {
                 await printSunmi(job, openDrawer);
@@ -198,24 +213,14 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             return true;
         }
         if (typeof global.showToast === 'function') {
-            global.showToast('單已入廚房。出單機未駁，可撳「重印」。');
+            global.showToast('單已入廚房。出單機未駁，撳右上「出單機」再重印。');
         }
         return false;
-    }
-
-    async function reprint() {
-        if (!lastJob) return;
-        const printed = await printTicket(lastJob.data, lastJob.items, {
-            openDrawer: lastJob.pay === 'cash',
-            forceBrowser: true,
-        });
-        if (!printed) printBrowser(ticketLines(lastJob.data, lastJob.items));
     }
 
     global.PosPrint = {
         connect: connectSunmi,
         printTicket,
-        reprint,
         isReady: () => ready,
     };
 })(window);
