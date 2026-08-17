@@ -20,6 +20,9 @@
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
         .pay-btn:disabled { opacity:.45; }
         .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+        #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
+        #pos-toast.is-on { display:block; }
+        #pos-cart.is-flash { outline: 3px solid #FFD131; outline-offset: -3px; }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
@@ -31,10 +34,11 @@
     </style>
 </head>
 <body class="antialiased">
+    <div id="pos-toast" role="status"></div>
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17f</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17g</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -110,13 +114,13 @@
                 <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
                 <div id="voice-lines" class="space-y-2"></div>
                 <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
-                <p class="text-xs font-bold text-neutral-500 mt-3">確認之後會即刻入廚房。未收款唔會入系統。</p>
+                <p class="text-xs font-bold text-neutral-500 mt-3">先確認入購物車。之後喺下面用現金／轉數快／PayMe 先會入廚房。</p>
+                <button type="button" class="mt-3 w-full min-h-[56px] rounded-xl bg-yellow-400 text-black font-black text-lg" onclick="acceptVoice()">確認放入購物車</button>
                 <div class="grid grid-cols-3 gap-2 mt-3">
                     <button type="button" class="pay-btn bg-emerald-600" onclick="confirmVoicePay('cash')">現金入單</button>
                     <button type="button" class="pay-btn bg-sky-600" onclick="confirmVoicePay('fps')">轉數快</button>
                     <button type="button" class="pay-btn bg-violet-600" onclick="confirmVoicePay('payme')">PayMe</button>
                 </div>
-                <button type="button" class="chip-btn w-full mt-2" onclick="acceptVoice()">只放入購物車</button>
                 <button type="button" class="chip-btn w-full mt-2" onclick="closeVoice()">取消</button>
             </div>
         </div>
@@ -600,10 +604,17 @@
         let voiceWanted = false;
         let voiceFinal = '';
         let voiceInterim = '';
+        let voiceAlts = [];
         let voiceDraft = [];
+        let voiceFinishTimer = null;
+        let toastTimer = null;
 
         function speechEngine() {
             return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+        }
+        function voiceHeardText() {
+            const bits = [voiceFinal, voiceInterim].concat(voiceAlts);
+            return bits.map((s) => String(s || '').trim()).filter(Boolean).join(' ');
         }
         function updateVoiceLive() {
             const live = document.getElementById('voice-live');
@@ -629,14 +640,20 @@
             rec.lang = 'zh-HK';
             rec.continuous = true;
             rec.interimResults = true;
-            rec.maxAlternatives = 1;
+            rec.maxAlternatives = 5;
             rec.onresult = (ev) => {
                 let interim = '';
                 for (let i = ev.resultIndex; i < ev.results.length; i++) {
-                    const piece = ev.results[i][0] && ev.results[i][0].transcript;
+                    const row = ev.results[i];
+                    const piece = row[0] && row[0].transcript;
                     if (!piece) continue;
-                    if (ev.results[i].isFinal) voiceFinal += (voiceFinal && !voiceFinal.endsWith(' ') ? ' ' : '') + piece;
-                    else interim += piece;
+                    if (row.isFinal) {
+                        voiceFinal += (voiceFinal && !voiceFinal.endsWith(' ') ? ' ' : '') + piece;
+                        for (let a = 0; a < row.length; a++) {
+                            const alt = row[a] && row[a].transcript;
+                            if (alt) voiceAlts.push(alt);
+                        }
+                    } else interim += piece;
                 }
                 voiceInterim = interim;
                 updateVoiceLive();
@@ -664,8 +681,10 @@
                 alert('呢部機嘅瀏覽器唔支援語音。商米／Android 請用 Chrome 打開本頁。');
                 return;
             }
+            clearTimeout(voiceFinishTimer);
             voiceFinal = '';
             voiceInterim = '';
+            voiceAlts = [];
             voiceDraft = [];
             document.getElementById('voice-phase-listen').classList.remove('hidden');
             document.getElementById('voice-phase-review').classList.add('hidden');
@@ -680,33 +699,66 @@
             beginRec();
         }
         function finishVoice() {
-            const text = (voiceFinal + ' ' + voiceInterim).trim();
-            stopVoiceEngine();
-            if (!text) {
-                updateVoiceLive();
-                document.getElementById('voice-live').textContent = '冇聽到內容。再撳上面紅掣重新講，或者用手撳餸。';
-                voiceWanted = true;
-                beginRec();
-                return;
+            const snap = voiceHeardText();
+            voiceWanted = false;
+            try { if (voiceRec) voiceRec.stop(); } catch (_) {}
+            const btn = document.getElementById('mic-btn');
+            if (btn) {
+                btn.classList.remove('is-on');
+                btn.textContent = '講單';
             }
-            showVoiceDraft(text);
+            const live = document.getElementById('voice-live');
+            if (live) live.textContent = (snap || '聽緊最後一句…');
+            clearTimeout(voiceFinishTimer);
+            voiceFinishTimer = setTimeout(() => {
+                voiceRec = null;
+                const text = voiceHeardText() || snap;
+                if (!text) {
+                    document.getElementById('voice-live').textContent = '冇聽到內容。再撳上面紅掣重新講，或者用手撳餸。';
+                    voiceWanted = true;
+                    beginRec();
+                    return;
+                }
+                showVoiceDraft(text);
+            }, 500);
         }
         function closeVoice() {
+            clearTimeout(voiceFinishTimer);
             stopVoiceEngine();
             document.getElementById('voice-sheet').classList.remove('is-open');
             voiceDraft = [];
         }
+        function showToast(msg) {
+            const el = document.getElementById('pos-toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.add('is-on');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('is-on'), 3200);
+        }
+        function flashCart() {
+            const el = document.getElementById('pos-cart');
+            if (!el) return;
+            el.classList.add('is-flash');
+            try { el.scrollIntoView({ behavior: 'smooth', block: 'end' }); } catch (_) {}
+            const list = document.getElementById('cart-list');
+            if (list) try { list.scrollTop = list.scrollHeight; } catch (_) {}
+            setTimeout(() => el.classList.remove('is-flash'), 1600);
+        }
 
         function compact(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
         function foldZh(s) {
-            return compact(s)
-                .replace(/汉堡/g, '漢堡')
+            return compact(String(s || '').normalize('NFKC'))
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/[^\u4e00-\u9fff0-9a-z]/g, '')
+                .replace(/我要|我想要|要一個|一個|兩個|两個|嘅|的|啦|呀|喎|咁|同埋|跟住|然後|然后/g, '')
+                .replace(/汉堡|漢飽|漢保|漢寶|漢堡包/g, '漢堡')
                 .replace(/薯条/g, '薯條')
-                .replace(/可乐/g, '可樂')
-                .replace(/经典/g, '經典')
-                .replace(/套餐/g, '套餐')
-                .replace(/芝士漢堡/g, '經典芝士牛肉')
-                .replace(/牛肉漢堡/g, '牛肉');
+                .replace(/可乐|可樂/g, '可樂')
+                .replace(/经典|金典|經點/g, '經典')
+                .replace(/套餐|setmeal|combo/g, '套餐')
+                .replace(/cheeseburger|芝士漢堡/g, '經典芝士牛肉')
+                .replace(/classicbeef|經典牛/g, '經典芝士牛肉');
         }
         function qtyWord(n) {
             const map = { '一':1,'二':2,'兩':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
@@ -716,13 +768,30 @@
         }
         function aliasesFor(item) {
             const extra = {
-                b1: ['經典芝士牛肉漢堡','經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉','經典漢堡','芝士漢堡'],
-                b3: ['墨辣芝士牛肉','墨辣牛肉','墨辣漢堡'],
-                b4: ['墨辣藍紋','藍紋芝士牛肉'],
-                b2: ['和牛','wagyu'],
-                v1: ['素食','素漢堡'],
+                b1: ['經典芝士牛肉漢堡','經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉','經典漢堡','芝士漢堡','cheeseburger','classicbeef'],
+                b3: ['墨辣芝士牛肉','墨辣牛肉','墨辣漢堡','hottestbeef'],
+                b4: ['墨辣藍紋芝士牛肉','墨辣藍紋','藍紋芝士牛肉'],
+                b2: ['和牛','wagyu','321'],
+                c1: ['水牛城脆雞','水牛城','脆雞'],
+                v2: ['煙三文魚','三文魚'],
+                v1: ['素食','素漢堡','啡菇'],
             };
             return [item.name_zh, item.name_en, item.id].concat(extra[item.id] || []).filter(Boolean);
+        }
+        function scoreItem(item, t) {
+            let best = 0;
+            for (const raw of aliasesFor(item)) {
+                const name = foldZh(raw);
+                if (!name || name.length < 2) continue;
+                if (t.includes(name)) {
+                    best = Math.max(best, 100 + name.length);
+                    continue;
+                }
+                let hit = 0;
+                for (const ch of name) if (t.includes(ch)) hit += 1;
+                if (name.length && hit / name.length >= 0.7) best = Math.max(best, Math.round((hit / name.length) * 50) + name.length);
+            }
+            return best;
         }
         function pickAddons(text) {
             const t = compact(text);
@@ -763,6 +832,25 @@
             if (/可樂|可乐|coke/.test(t)) return 'cd1';
             return 'cd1';
         }
+        function findLiveItem(id) {
+            return menuItems.find((i) => i.id === id && !isSold(i)) || null;
+        }
+        function guessItemByKeywords(text) {
+            const t = foldZh(text);
+            const rules = [
+                ['b4', /墨辣.*(藍|蓝)|藍紋|蓝纹/],
+                ['b3', /墨辣|hottest/],
+                ['b2', /和牛|wagyu|321/],
+                ['b1', /經典|classic|芝士牛|芝士漢堡|cheeseburger|漢堡|套餐|burger/],
+                ['c1', /水牛城|脆雞|chicken/],
+                ['v2', /三文魚|三文鱼|salmon/],
+            ];
+            for (const [id, re] of rules) {
+                const item = findLiveItem(id);
+                if (item && re.test(t)) return item;
+            }
+            return menuItems.find((i) => !isSold(i) && foldZh(i.name_zh || '').length >= 2 && t.includes(foldZh(i.name_zh))) || null;
+        }
         function lineFromItemOpts(item, opts) {
             const prevItem = cfgItem;
             const prevCfg = cfg;
@@ -779,7 +867,7 @@
                 bun: isBurger(item) ? (opts.bun || 'Nissin Bun') : null,
                 spice: isSpicy(item) ? (opts.spice || 'Normal') : null,
                 temp: item.has_temp ? (opts.temp || 'Hot') : null,
-                addonIds: Array.isArray(opts.addonIds) ? opts.addonIds : [],
+                addonIds: Array.isArray(opts.addonIds) ? opts.addonIds.slice() : [],
                 sauceIds: [],
                 combo: !!opts.combo,
                 comboSnackId: opts.comboSnackId || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
@@ -793,77 +881,62 @@
         }
         function parseVoice(text) {
             const original = String(text || '').trim();
-            let remaining = foldZh(original);
-            const wantCombo = /套餐|combo/.test(remaining);
+            const remaining = foldZh(original);
+            const wantCombo = /套餐|combo|薯條|可乐|可樂/.test(remaining + foldZh(original));
             const bun = /生菜/.test(remaining) ? 'Lettuce Wrap' : 'Nissin Bun';
             const spice = /小辣|微辣/.test(remaining) ? 'Mild' : 'Normal';
             const temp = /凍|冻|冰/.test(remaining) ? 'Iced' : (/熱|热/.test(remaining) ? 'Hot' : null);
             const big = /大薯條|薯條大|大杯|large/.test(remaining);
             const comboSnackId = wantCombo ? pickComboSnack(original) : null;
             const comboDrinkId = wantCombo ? pickComboDrink(original) : null;
-            const ranked = menuItems.filter((i) => !isSold(i)).slice().sort((a, b) => {
-                const la = Math.max(...aliasesFor(a).map((n) => foldZh(n).length));
-                const lb = Math.max(...aliasesFor(b).map((n) => foldZh(n).length));
-                return lb - la;
-            });
+            const qtyMatch = original.match(/([一二兩三四五六七八九十两\d]+)\s*(份|個|个|隻|只)?/);
+            const qty = qtyMatch ? qtyWord(qtyMatch[1]) : 1;
+            const live = menuItems.filter((i) => !isSold(i));
+            const ranked = live.map((item) => ({ item, score: scoreItem(item, remaining) })).sort((a, b) => b.score - a.score);
+            let picked = ranked[0] && ranked[0].score >= 8 ? ranked[0].item : null;
+            if (!picked) picked = guessItemByKeywords(original);
             const lines = [];
-            const used = new Set();
-            for (const item of ranked) {
-                const names = aliasesFor(item).map(foldZh).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
-                for (const name of names) {
-                    const idx = remaining.indexOf(name);
-                    if (idx === -1) continue;
-                    if (used.has(item.id)) break;
-                    const before = remaining.slice(Math.max(0, idx - 2), idx);
-                    const qm = before.match(/([一二兩三四五六七八九十两\d])$/);
-                    const qty = qm ? qtyWord(qm[1]) : 1;
-                    lines.push(lineFromItemOpts(item, {
-                        qty, bun, spice, temp, big, combo: wantCombo && isBurger(item),
-                        comboSnackId, comboDrinkId,
-                        addonIds: pickAddons(original),
-                    }));
-                    used.add(item.id);
-                    remaining = remaining.replace(name, '，');
-                    break;
-                }
-            }
-            if (!lines.length) {
-                const guessed = guessItemByKeywords(original);
-                if (guessed) {
-                    lines.push(lineFromItemOpts(guessed, {
-                        qty: 1, bun, spice, temp, big, combo: wantCombo && isBurger(guessed),
-                        comboSnackId, comboDrinkId,
-                        addonIds: pickAddons(original),
-                    }));
-                }
+            if (picked) {
+                lines.push(lineFromItemOpts(picked, {
+                    qty: qty || 1, bun, spice, temp, big, combo: wantCombo && isBurger(picked),
+                    comboSnackId, comboDrinkId,
+                    addonIds: pickAddons(original),
+                }));
             }
             return { original, lines, leftover: remaining };
         }
-        function guessItemByKeywords(text) {
-            const t = foldZh(text);
-            const rules = [
-                ['b4', /墨辣.*(藍|蓝)|藍紋|蓝纹/],
-                ['b3', /墨辣|hottest/],
-                ['b1', /經典|classic|芝士牛/],
-                ['b2', /和牛|wagyu/],
-                ['c1', /雞|鸡|chicken/],
-                ['c2', /三文魚|三文鱼|salmon/],
-            ];
-            for (const [id, re] of rules) {
-                const item = menuItems.find((i) => i.id === id && !isSold(i));
-                if (item && re.test(t)) return item;
-            }
-            return menuItems.find((i) => !isSold(i) && foldZh(i.name_zh || '').length >= 2 && t.includes(foldZh(i.name_zh))) || null;
-        }
         function showVoiceDraft(text) {
-            const parsed = parseVoice(text);
-            voiceDraft = parsed.lines;
+            let parsed;
+            try {
+                parsed = parseVoice(text);
+            } catch (err) {
+                parsed = { original: text, lines: [] };
+                console.warn('parseVoice', err);
+            }
+            voiceDraft = parsed.lines || [];
             document.getElementById('voice-phase-listen').classList.add('hidden');
             document.getElementById('voice-phase-review').classList.remove('hidden');
-            document.getElementById('voice-text').textContent = '聽到：' + parsed.original;
+            document.getElementById('voice-text').textContent = '聽到：' + (parsed.original || text || '（空白）');
             const box = document.getElementById('voice-lines');
             if (!voiceDraft.length) {
-                box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，撳「再講」或者用手撳。簡單一餐講完用加減數量就得。</p>';
+                const t = foldZh(text);
+                const classic = findLiveItem('b1');
+                const looksClassic = classic && /漢堡|套餐|經典|芝士|beef|burger/.test(t);
+                if (looksClassic) {
+                    voiceDraft = [lineFromItemOpts(classic, {
+                        qty: 1, bun: 'Nissin Bun', spice: 'Normal', temp: null, big: false, combo: /套餐|薯條|可樂|combo/.test(t),
+                        comboSnackId: pickComboSnack(text), comboDrinkId: pickComboDrink(text), addonIds: [],
+                    })];
+                    box.innerHTML = `<p class="font-bold text-yellow-300 mb-2">聽得唔完整，當咗經典芝士牛肉${voiceDraft[0].comboSnackId ? '套餐' : ''}。唔啱就再講。</p>` +
+                        voiceDraft.map((line) =>
+                            `<div class="rounded-xl bg-neutral-900 border border-yellow-500 p-3">
+                                <div class="font-black">${line.qty}× ${escapeHtml(line.nameZh || line.nameEn)}</div>
+                                <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
+                            </div>`
+                        ).join('');
+                } else {
+                    box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，撳「再講」或者用手撳。講「經典芝士牛肉漢堡套餐」再試。</p>';
+                }
             } else {
                 box.innerHTML = voiceDraft.map((line) =>
                     `<div class="rounded-xl bg-neutral-900 border border-neutral-800 p-3">
@@ -881,9 +954,13 @@
                 alert('未認到餸，未有嘢入購物車。請再講，或者用手撳。');
                 return;
             }
-            cart = cart.concat(voiceDraft);
+            const added = voiceDraft.slice();
+            cart = cart.concat(added);
             closeVoice();
             renderCart();
+            flashCart();
+            const names = added.map((l) => (l.qty || 1) + '× ' + (l.nameZh || l.nameEn)).join('、');
+            showToast('已放入購物車：' + names);
         }
         async function confirmVoicePay(payMethod) {
             if (!voiceDraft.length) {
