@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { notifyOrderPaid } = require('./_notify.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
-const { KNOWN_STORES } = require('./_storeSettings.js');
+const { KNOWN_STORES, getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
 
 /** Prefer service role — RLS trigger blocks anon from changing payment_status. */
 function getSupabaseConfig() {
@@ -261,6 +261,22 @@ async function createPendingOrder(input) {
         const err = new Error('Store is closed');
         err.status = 400;
         throw err;
+    }
+    try {
+        const settings = await getStoreRow(storeName);
+        if (!storeIsAcceptingOrders(storeName, settings || {})) {
+            const err = new Error('Store is closed');
+            err.status = 400;
+            throw err;
+        }
+    } catch (err) {
+        if (err.status === 400) throw err;
+        console.warn('store hours row read failed, using published hours:', err.message);
+        if (!storeIsAcceptingOrders(storeName, {})) {
+            const closed = new Error('Store is closed');
+            closed.status = 400;
+            throw closed;
+        }
     }
 
     const priced = await recalculateOrderTotal({

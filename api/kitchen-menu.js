@@ -1,14 +1,14 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
 const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder } = require('./_orders.js');
-const { setStoreOpen } = require('./_storeSettings.js');
+const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, create_pos_order, cancel_pos_order
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -129,6 +129,19 @@ module.exports = async (req, res) => {
                 ok: true,
                 store_name: row.store_name,
                 is_open: !!row.is_open,
+                override_until: row.override_until || null,
+            });
+        }
+
+        if (action === 'sync_store_hours') {
+            const storeName = String(body.store_name || '').trim();
+            if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
+            const row = await syncStoreToSchedule(storeName);
+            return res.status(200).json({
+                ok: true,
+                store_name: row && row.store_name,
+                is_open: !!(row && row.is_open),
+                override_until: (row && row.override_until) || null,
             });
         }
 

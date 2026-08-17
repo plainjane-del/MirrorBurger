@@ -189,11 +189,15 @@ const googleReviews = [
     }
 ];
 
-const storeOpenMap = {};
-stores.forEach(s => { storeOpenMap[s.name] = true; });
+const storeStatusByName = {};
 
 function isStoreOpen(storeName) {
-    return storeOpenMap[storeName] !== false;
+    if (typeof MBStoreHours !== 'undefined' && MBStoreHours.effectiveIsOpen) {
+        return MBStoreHours.effectiveIsOpen(storeName, storeStatusByName[storeName] || {});
+    }
+    const row = storeStatusByName[storeName];
+    if (!row) return true;
+    return row.is_open !== false;
 }
 
 // --- 4. 讀取 SUPABASE（菜單 100% 以 DB 為準；失敗先用本機 fallback） ---
@@ -276,11 +280,16 @@ async function fetchStoreSettings() {
     try {
         const { data, error } = await supabaseClient
             .from('store_settings')
-            .select('store_name, is_open');
+            .select('store_name, is_open, override_until');
         if (error) throw error;
 
         (data || []).forEach(row => {
-            if (row.store_name) storeOpenMap[row.store_name] = !!row.is_open;
+            if (row.store_name) {
+                storeStatusByName[row.store_name] = {
+                    is_open: !!row.is_open,
+                    override_until: row.override_until || null,
+                };
+            }
         });
         applyStoreOpenUI();
     } catch (err) {
@@ -297,7 +306,10 @@ function startStoreSettingsRealtime() {
             (payload) => {
                 const row = payload.new;
                 if (!row || !row.store_name) return;
-                storeOpenMap[row.store_name] = !!row.is_open;
+                storeStatusByName[row.store_name] = {
+                    is_open: !!row.is_open,
+                    override_until: row.override_until || null,
+                };
                 applyStoreOpenUI();
             }
         )
@@ -1038,29 +1050,13 @@ function generateTimeOptions() {
     const storeName = flowSelectedStore || document.getElementById('cust-store').value;
     if (!storeName) { s.innerHTML = `<option value="" disabled selected>${lang('Select Store First', '請先選擇分店')}</option>`; return; }
     
-    let openTime = "11:15";
-    let closeTime = "22:00";
-    
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    
-    if (storeName === 'Sai Ying Pun') {
-        openTime = "11:15"; closeTime = "24:00";
-    } else if (storeName === 'Fortress Hill') {
-        openTime = "11:15";
-        closeTime = (dayOfWeek === 5 || dayOfWeek === 6) ? "23:30" : "21:30";
-    } else if (storeName === 'Tsuen Wan (Takeaway Only)') {
-        openTime = "11:30"; closeTime = "23:30";
-    }
-    
-    const [openH, openM] = openTime.split(':').map(Number);
-    const [closeH, closeM] = closeTime.split(':').map(Number);
-    
-    const openTotal = openH * 60 + openM;
-    const closeTotal = closeH * 60 + closeM;
+    const hours = (typeof MBStoreHours !== 'undefined' && MBStoreHours.todayWindow)
+        ? MBStoreHours.todayWindow(storeName)
+        : null;
+    const openTotal = hours ? hours.open : (11 * 60 + 15);
+    const closeTotal = hours ? hours.close : (22 * 60);
     const lastOrderTotal = closeTotal - 15;
-    
-    const currentTotal = today.getHours() * 60 + today.getMinutes();
+    const currentTotal = hours ? hours.parts.minutes : (new Date().getHours() * 60 + new Date().getMinutes());
     
     s.innerHTML = "";
     
@@ -1437,6 +1433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchLiveMenu();
     fetchStoreSettings();
     startStoreSettingsRealtime();
+    setInterval(() => applyStoreOpenUI(), 30000);
 
     confirmPaymentFromRedirect();
     startDesktopNavSpy();

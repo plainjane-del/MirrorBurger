@@ -13,6 +13,7 @@
     <title>Mirror Burger | Kitchen Display System</title>
     <link href="./output.css?v=2.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/store-hours.js"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         body {
@@ -449,6 +450,8 @@
         }
         /** @type {boolean|null} null = 未載入 / 查無資料 */
         let storeIsOpen = null;
+        let storeOverrideUntil = null;
+        let hoursSyncTimer = null;
         /** @type {Map<string, object>} */
         let ordersMap = new Map();
         let kitchenBoardReady = false;
@@ -752,6 +755,7 @@
             document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
             loadOrders();
             loadStoreStatus();
+            syncScheduledHours();
             if (localStorage.getItem('mb_kds_push_on') === '1') {
                 enableKitchenPush({ silent: true }).catch(() => {});
             }
@@ -763,17 +767,42 @@
             }
         }
 
+        function storeStatusRow() {
+            return { is_open: storeIsOpen, override_until: storeOverrideUntil };
+        }
+
+        function effectiveStoreOpen() {
+            if (storeIsOpen === null) return null;
+            if (typeof MBStoreHours !== 'undefined' && MBStoreHours.effectiveIsOpen) {
+                return MBStoreHours.effectiveIsOpen(currentBranch, storeStatusRow());
+            }
+            return !!storeIsOpen;
+        }
+
+        function applyStoreRow(row) {
+            if (!row) {
+                storeIsOpen = null;
+                storeOverrideUntil = null;
+                return;
+            }
+            storeIsOpen = !!row.is_open;
+            storeOverrideUntil = row.override_until || null;
+        }
+
         function renderStoreStatusBtn() {
             const btn = document.getElementById('store-status-btn');
             if (!btn) return;
             btn.classList.remove('is-open', 'is-closed');
-            if (storeIsOpen === true) {
+            const effective = effectiveStoreOpen();
+            const manual = typeof MBStoreHours !== 'undefined' && MBStoreHours.overrideActive
+                && MBStoreHours.overrideActive(storeStatusRow());
+            if (effective === true) {
                 btn.classList.add('is-open');
                 btn.textContent = '營業中';
                 btn.disabled = false;
-            } else if (storeIsOpen === false) {
+            } else if (effective === false) {
                 btn.classList.add('is-closed');
-                btn.textContent = '已暫停';
+                btn.textContent = manual ? '已暫停' : '已收舖';
                 btn.disabled = false;
             } else {
                 btn.classList.add('is-closed');
@@ -789,26 +818,39 @@
                 btn.textContent = '載入中…';
             }
 
-            const { data, error } = await client
+            let query = client
                 .from('store_settings')
-                .select('is_open')
+                .select('is_open, override_until')
                 .eq('store_name', currentBranch)
                 .maybeSingle();
+            let { data, error } = await query;
+
+            if (error && /override_until/i.test(String(error.message || ''))) {
+                const fallback = await client
+                    .from('store_settings')
+                    .select('is_open')
+                    .eq('store_name', currentBranch)
+                    .maybeSingle();
+                data = fallback.data;
+                error = fallback.error;
+            }
 
             if (error) {
                 console.error('loadStoreStatus', error);
                 storeIsOpen = null;
+                storeOverrideUntil = null;
                 renderStoreStatusBtn();
                 return;
             }
 
-            storeIsOpen = data ? !!data.is_open : null;
+            applyStoreRow(data || { is_open: true, override_until: null });
             renderStoreStatusBtn();
         }
 
         async function toggleStoreStatus() {
-            if (storeIsOpen === null) return;
-            const next = !storeIsOpen;
+            const effective = effectiveStoreOpen();
+            if (effective === null) return;
+            const next = !effective;
             const btn = document.getElementById('store-status-btn');
             if (btn) btn.disabled = true;
 
@@ -825,13 +867,38 @@
                 if (!res.ok) {
                     throw new Error(data.error || ('HTTP ' + res.status));
                 }
-                storeIsOpen = !!data.is_open;
+                applyStoreRow(data);
                 renderStoreStatusBtn();
             } catch (err) {
                 console.error('toggleStoreStatus', err);
                 alert('更新營業狀態失敗：' + (err.message || err));
                 renderStoreStatusBtn();
             }
+        }
+
+        async function syncScheduledHours() {
+            try {
+                const res = await fetch('/api/kitchen-menu', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + getKitchenToken(),
+                    },
+                    body: JSON.stringify({ action: 'sync_store_hours', store_name: currentBranch }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) return;
+                applyStoreRow(data);
+                renderStoreStatusBtn();
+            } catch (err) {
+                console.warn('syncScheduledHours', err);
+            }
+        }
+
+        function startHoursSync() {
+            if (hoursSyncTimer) clearInterval(hoursSyncTimer);
+            syncScheduledHours();
+            hoursSyncTimer = setInterval(syncScheduledHours, 60000);
         }
 
         function sortOrders(list) {
@@ -1282,7 +1349,7 @@
                     const row = payload.new;
                     if (!row) return;
                     if ((row.store_name || '') === currentBranch) {
-                        storeIsOpen = !!row.is_open;
+                        applyStoreRow(row);
                         renderStoreStatusBtn();
                     }
                 })
@@ -1461,6 +1528,7 @@
             loadOrders();
             loadStoreStatus();
             startRealtime();
+            startHoursSync();
             scheduleOrdersPoll();
             ensureKitchenServiceWorker().catch(() => {});
             updatePushNudge();
