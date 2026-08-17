@@ -13,50 +13,24 @@
     <link href="./output.css?v=2.0" rel="stylesheet">
     <style>
         * { -webkit-tap-highlight-color: transparent; }
-        body {
-            background: #0a0a0a;
-            color: #f5f5f5;
-            font-family: "Avenir Next", "Helvetica Neue", "PingFang HK", "Noto Sans TC", sans-serif;
-            min-height: 100dvh;
-        }
-        .chip-btn {
-            min-height: 40px;
-            font-weight: 800;
-            font-size: 13px;
-            padding: 0 12px;
-            border-radius: 10px;
-            border: 1px solid #333;
-            background: #1a1a1a;
-            color: #e5e5e5;
-        }
-        .chip-btn.is-active { background: #FFD131; color: #0a0a0a; border-color: #FFD131; }
-        .item-btn {
-            text-align: left;
-            border: 1px solid #333;
-            background: #171717;
-            border-radius: 14px;
-            padding: 12px;
-            min-height: 88px;
-            cursor: pointer;
-        }
-        .item-btn:disabled { opacity: 0.4; }
-        .pay-btn {
-            min-height: 52px;
-            font-weight: 900;
-            border-radius: 14px;
-            font-size: 15px;
-        }
-        .pay-btn:disabled { opacity: 0.45; }
+        body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
+        .chip-btn { min-height:40px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
+        .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
+        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:12px; min-height:84px; cursor:pointer; }
+        .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
+        .pay-btn:disabled { opacity:.45; }
+        .sheet { position:fixed; inset:0; z-index:80; display:none; }
+        .sheet.is-open { display:block; }
+        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:88dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body class="antialiased">
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17b</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
-                <p class="text-sm font-bold text-neutral-400">用廚房密碼登入。客人網站唔會受影響。</p>
-                <p class="text-xs font-bold text-neutral-500 leading-relaxed">iPad：Safari 打開本頁 → 分享 →「加入主畫面」</p>
+                <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸揀配料，再收款入廚房。</p>
             </div>
             <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
@@ -90,9 +64,9 @@
                 <h2 class="text-base font-black">呢單</h2>
                 <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
-                <input id="order-note" type="text" maxlength="40" placeholder="備註，例如少冰／唔要青（選填）"
+                <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
-                <div id="cart-list" class="flex-1 min-h-[160px] space-y-2 overflow-y-auto"></div>
+                <div id="cart-list" class="flex-1 min-h-[140px] space-y-2 overflow-y-auto"></div>
                 <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
                 <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
                 <div class="grid grid-cols-3 gap-2">
@@ -105,43 +79,84 @@
         </main>
     </div>
 
+    <div id="cfg-sheet" class="sheet" onclick="if(event.target===this) closeCfg()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <div>
+                    <h3 id="cfg-title" class="text-lg font-black"></h3>
+                    <p id="cfg-price" class="text-sm font-bold text-yellow-400"></p>
+                </div>
+                <button type="button" class="chip-btn" onclick="closeCfg()">關閉</button>
+            </div>
+            <div id="cfg-body" class="space-y-4"></div>
+            <button type="button" id="cfg-add" class="mt-4 w-full rounded-2xl bg-yellow-400 text-black py-4 font-black" onclick="confirmCfg()">加入</button>
+        </div>
+    </div>
+
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const CATS = [
-            { id: 'beef', label: '牛肉' },
-            { id: 'others', label: '其他' },
-            { id: 'veggie', label: '素食' },
-            { id: 'snacks', label: '小食' },
-            { id: 'drinks', label: '飲品' },
-            { id: 'sauces', label: '醬汁' },
+            { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
+            { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
         ];
         const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe' };
+        const FALLBACK = {
+            addon: [
+                { id:'a1', name_zh:'自家製酸瓜', price:4 }, { id:'a2', name_zh:'墨西哥酸辣辣椒', price:4 },
+                { id:'a3', name_zh:'美國芝士', price:5 }, { id:'a4', name_zh:'煎蛋', price:6 },
+                { id:'a5', name_zh:'煙肉', price:12 }, { id:'a6', name_zh:'牛油果片', price:12 },
+                { id:'a7', name_zh:'丹麥藍芝士', price:16 }, { id:'a8', name_zh:'炸素雞排', price:23 },
+                { id:'a9', name_zh:'安格斯漢堡扒', price:33 },
+            ],
+            sauce: [
+                { id:'sc1', name_zh:'焦糖蒜蓉醬', price:6 }, { id:'sc2', name_zh:'煙燻墨西哥辣椒醬', price:8 },
+                { id:'sc3', name_zh:'水牛城辣醬', price:8 }, { id:'sc4', name_zh:'秘製他他醬', price:8 },
+                { id:'sc5', name_zh:'藍紋芝士醬', price:8 },
+            ],
+            combo_snack: [
+                { id:'cs1', name_zh:'脆炸薯條 (M)', price:0 }, { id:'cs3', name_zh:'脆炸薯條 (L)', price:4 },
+                { id:'cs2', name_zh:'蓮藕脆片 (M)', price:0 }, { id:'cs4', name_zh:'蓮藕脆片 (L)', price:4 },
+                { id:'cs5', name_zh:'炸番薯條 (M)', price:6 }, { id:'cs6', name_zh:'炸番薯條 (L)', price:11 },
+                { id:'cs7', name_zh:'煙燻雞翼 (3件)', price:6 },
+            ],
+            combo_drink: [
+                { id:'cd1', name_zh:'可口可樂', price:0 }, { id:'cd1a', name_zh:'零系可口可樂', price:0 },
+                { id:'cd2', name_zh:'忌廉哥冰', price:0 }, { id:'cd3', name_zh:'梳打水', price:2 },
+                { id:'cd4', name_zh:'肉桂凍檸茶', price:3 }, { id:'cd5h', name_zh:'美式咖啡 (熱)', price:6 },
+                { id:'cd5c', name_zh:'美式咖啡 (凍)', price:6 }, { id:'cd6h', name_zh:'鮮奶咖啡 (熱)', price:8 },
+                { id:'cd6c', name_zh:'鮮奶咖啡 (凍)', price:8 }, { id:'cd7h', name_zh:'朱古力咖啡 (熱)', price:8 },
+                { id:'cd7c', name_zh:'朱古力咖啡 (凍)', price:8 }, { id:'cd8h', name_zh:'朱古力 (熱)', price:8 },
+                { id:'cd8c', name_zh:'朱古力 (凍)', price:8 }, { id:'cd9', name_zh:'燕麥牛油果沙冰', price:18 },
+                { id:'cd10', name_zh:'雙重阿華田沙冰', price:20 },
+            ],
+        };
+
         let token = '';
         let currentStore = 'Sai Ying Pun';
         let currentCat = 'beef';
         let menuItems = [];
+        let mods = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
+        let comboBase = 19;
         let cart = [];
         let charging = false;
+        let cfgItem = null;
+        let cfg = {};
 
-        function getToken() {
-            return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token;
-        }
-        function saveToken(value) {
-            token = value;
-            localStorage.setItem(TOKEN_KEY, value);
-            sessionStorage.setItem(TOKEN_KEY, value);
-        }
+        function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
+        function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
         function escapeHtml(str) {
-            return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
+        function sizesOf(item) { return Array.isArray(item.sizes) ? item.sizes : []; }
+        function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
+        function isSpicy(item) { return Array.isArray(item.dietary) && item.dietary.some((d) => String(d).includes('🌶')); }
+        function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
+        function findMod(kind, id) { return modsOf(kind).find((m) => m.id === id); }
 
         async function posApi(payload) {
             const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + getToken(),
-                },
+                headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + getToken() },
                 body: JSON.stringify(payload),
             });
             const data = await res.json().catch(() => ({}));
@@ -153,12 +168,11 @@
             event.preventDefault();
             const btn = document.getElementById('pos-login-btn');
             const err = document.getElementById('pos-login-error');
-            btn.disabled = true;
-            err.classList.add('hidden');
+            btn.disabled = true; err.classList.add('hidden');
             try {
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({ password: document.getElementById('pos-password').value }),
                 });
                 const data = await res.json().catch(() => ({}));
@@ -168,126 +182,215 @@
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
                 err.classList.remove('hidden');
-            } finally {
-                btn.disabled = false;
-            }
+            } finally { btn.disabled = false; }
             return false;
         }
-
-        function logoutPos() {
-            localStorage.removeItem(TOKEN_KEY);
-            sessionStorage.removeItem(TOKEN_KEY);
-            location.reload();
-        }
-
+        function logoutPos() { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
         function selectStore(btn) {
             currentStore = btn.dataset.branch;
             document.querySelectorAll('[data-branch]').forEach((el) => el.classList.toggle('is-active', el === btn));
+            renderCart();
         }
 
-        function itemSizes(item) {
-            return Array.isArray(item.sizes) ? item.sizes : [];
-        }
-
-        function defaultSize(item) {
-            const sizes = itemSizes(item);
-            return sizes.length ? (sizes[0].label || sizes[0].value || null) : null;
-        }
-
-        function lineKey(menuId, size) {
-            return menuId + '::' + (size || '');
-        }
-
-        function addItem(item, size) {
-            if (item.is_sold_out) return;
-            const chosen = size || defaultSize(item);
-            if (itemSizes(item).length && !chosen) return;
-            const key = lineKey(item.id, chosen);
-            const existing = cart.find((c) => c.key === key);
-            if (existing) {
-                existing.qty += 1;
-            } else {
-                const details = [];
-                if (chosen) details.push('份量: ' + chosen);
-                if (['beef', 'others', 'veggie'].includes(item.category)) details.push('生菜包');
-                cart.push({
-                    key,
-                    menuId: item.id,
-                    nameEn: item.name_en,
-                    nameZh: item.name_zh,
-                    size: chosen,
-                    qty: 1,
-                    addonIds: [],
-                    sauceIds: [],
-                    detailsEn: chosen ? ('Size: ' + chosen) : '',
-                    detailsZh: details.join(' • '),
-                    unit: Number(item.price) || 0,
-                });
+        function linePrice(line) {
+            let n = Number(line.unit) || 0;
+            const sizes = sizesOf(menuItems.find((i) => i.id === line.menuId) || {});
+            if (line.size) {
+                const sz = sizes.find((s) => (s.label || s.value) === line.size);
+                n += Number(sz && sz.upcharge) || 0;
             }
-            renderCart();
+            for (const id of line.addonIds || []) n += Number((findMod('addon', id) || {}).price) || 0;
+            for (const id of line.sauceIds || []) n += Number((findMod('sauce', id) || {}).price) || 0;
+            if (line.comboSnackId && line.comboDrinkId) {
+                n += comboBase;
+                n += Number((findMod('combo_snack', line.comboSnackId) || {}).price) || 0;
+                n += Number((findMod('combo_drink', line.comboDrinkId) || {}).price) || 0;
+            }
+            return n * (line.qty || 1);
         }
-
-        function changeQty(key, delta) {
-            const line = cart.find((c) => c.key === key);
-            if (!line) return;
-            line.qty += delta;
-            if (line.qty <= 0) cart = cart.filter((c) => c.key !== key);
-            renderCart();
-        }
-
-        function clearCart() {
-            cart = [];
-            renderCart();
-        }
-
-        function displayTotal() {
-            const sub = cart.reduce((sum, line) => sum + line.unit * line.qty, 0);
-            const hasCombo = false;
+        function cartTotals() {
+            const lines = cart.map(linePrice);
+            const sub = lines.reduce((a, b) => a + b, 0);
+            const hasCombo = cart.some((l) => l.comboSnackId);
             let discount = 0;
             if (currentStore === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(sub * 0.15);
-            else if (sub >= 120) discount = Math.floor(sub * 0.10);
+            else if (sub >= 120 || hasCombo) discount = Math.floor(sub * 0.10);
             return { sub, discount, total: sub - discount };
         }
 
+        function openCfg(id) {
+            const item = menuItems.find((i) => i.id === id);
+            if (!item || item.is_sold_out) return;
+            cfgItem = item;
+            const sz = sizesOf(item);
+            cfg = {
+                size: sz.length ? (sz[0].label || sz[0].value) : null,
+                bun: isBurger(item) ? 'Nissin Bun' : null,
+                spice: isSpicy(item) ? 'Normal' : null,
+                temp: item.has_temp ? 'Hot' : null,
+                addonIds: [],
+                sauceIds: [],
+                combo: false,
+                comboSnackId: modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id,
+                comboDrinkId: modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id,
+            };
+            document.getElementById('cfg-title').textContent = item.name_zh || item.name_en;
+            renderCfg();
+            document.getElementById('cfg-sheet').classList.add('is-open');
+        }
+        function closeCfg() { document.getElementById('cfg-sheet').classList.remove('is-open'); cfgItem = null; }
+
+        function chipRow(title, html) {
+            return `<div><div class="text-[11px] font-black text-neutral-500 mb-1">${title}</div><div class="flex flex-wrap gap-1">${html}</div></div>`;
+        }
+        function optChip(on, label, fn) {
+            return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" onclick="${fn}">${escapeHtml(label)}</button>`;
+        }
+
+        function renderCfg() {
+            if (!cfgItem) return;
+            const item = cfgItem;
+            const bits = [];
+            const sz = sizesOf(item);
+            if (sz.length) {
+                bits.push(chipRow('份量', sz.map((s) => {
+                    const label = s.label || s.value;
+                    return optChip(cfg.size === label, label + (s.upcharge ? ' +$' + s.upcharge : ''), `setCfg('size', '${escapeHtml(label)}')`);
+                }).join('')));
+            }
+            if (isBurger(item)) {
+                bits.push(chipRow('包', optChip(cfg.bun === 'Nissin Bun', '日清麵包', "setCfg('bun','Nissin Bun')") + optChip(cfg.bun === 'Lettuce Wrap', '生菜包', "setCfg('bun','Lettuce Wrap')")));
+            }
+            if (isSpicy(item)) {
+                bits.push(chipRow('辣度', optChip(cfg.spice === 'Normal', '正常', "setCfg('spice','Normal')") + optChip(cfg.spice === 'Mild', '小辣', "setCfg('spice','Mild')")));
+            }
+            if (item.has_temp) {
+                bits.push(chipRow('溫度', optChip(cfg.temp === 'Hot', '熱', "setCfg('temp','Hot')") + optChip(cfg.temp === 'Iced', '凍', "setCfg('temp','Iced')")));
+            }
+            if (isBurger(item)) {
+                bits.push(chipRow('加料', modsOf('addon').map((a) => optChip(cfg.addonIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`)).join('')));
+                bits.push(chipRow('加醬', modsOf('sauce').map((a) => optChip(cfg.sauceIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('sauceIds','${a.id}')`)).join('')));
+                bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '唔要', "setCfg('combo', false)") + optChip(cfg.combo, '要', "setCfg('combo', true)")));
+                if (cfg.combo) {
+                    bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐小食</div>
+                        <select id="cfg-snack" class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboSnackId=this.value; renderCfg()">
+                            ${modsOf('combo_snack').map((m) => `<option value="${m.id}" ${m.id===cfg.comboSnackId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
+                        </select></div>`);
+                    bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐飲品</div>
+                        <select id="cfg-drink" class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboDrinkId=this.value; renderCfg()">
+                            ${modsOf('combo_drink').map((m) => `<option value="${m.id}" ${m.id===cfg.comboDrinkId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
+                        </select></div>`);
+                }
+            }
+            document.getElementById('cfg-body').innerHTML = bits.join('') || '<p class="text-neutral-500 font-bold">冇額外選項，直接加入。</p>';
+            const preview = buildLineFromCfg();
+            document.getElementById('cfg-price').textContent = '$' + linePrice(preview);
+            document.getElementById('cfg-add').textContent = '加入　$' + linePrice(preview);
+        }
+
+        function setCfg(key, value) { cfg[key] = value; renderCfg(); }
+        function toggleCfg(key, id) {
+            const arr = cfg[key].slice();
+            const i = arr.indexOf(id);
+            if (i >= 0) arr.splice(i, 1); else arr.push(id);
+            cfg[key] = arr;
+            renderCfg();
+        }
+
+        function buildLineFromCfg() {
+            const item = cfgItem;
+            const detailsZh = [];
+            const detailsEn = [];
+            if (cfg.size) { detailsZh.push('份量: ' + cfg.size); detailsEn.push('Size: ' + cfg.size); }
+            if (cfg.bun) {
+                detailsZh.push(cfg.bun === 'Nissin Bun' ? '日清麵包' : '生菜包');
+                detailsEn.push(cfg.bun);
+            }
+            if (cfg.spice) {
+                detailsZh.push('辣度: ' + (cfg.spice === 'Mild' ? '小辣' : '正常'));
+                detailsEn.push('Spice: ' + cfg.spice);
+            }
+            if (cfg.temp) {
+                detailsZh.push(cfg.temp === 'Iced' ? '凍' : '熱');
+                detailsEn.push(cfg.temp);
+            }
+            for (const id of cfg.addonIds) {
+                const m = findMod('addon', id);
+                if (m) { detailsZh.push(m.name_zh || m.name_en); detailsEn.push(m.name_en || m.name_zh); }
+            }
+            for (const id of cfg.sauceIds) {
+                const m = findMod('sauce', id);
+                if (m) { detailsZh.push(m.name_zh || m.name_en); detailsEn.push(m.name_en || m.name_zh); }
+            }
+            let comboSnackId = null, comboDrinkId = null;
+            if (cfg.combo) {
+                comboSnackId = cfg.comboSnackId;
+                comboDrinkId = cfg.comboDrinkId;
+                const s = findMod('combo_snack', comboSnackId);
+                const d = findMod('combo_drink', comboDrinkId);
+                detailsZh.push(`套餐 [${(s && s.name_zh) || ''}, ${(d && d.name_zh) || ''}]`);
+                detailsEn.push(`Combo [${(s && s.name_en) || ''}, ${(d && d.name_en) || ''}]`);
+            }
+            return {
+                menuId: item.id,
+                nameEn: item.name_en,
+                nameZh: item.name_zh,
+                size: cfg.size,
+                qty: 1,
+                addonIds: cfg.addonIds.slice(),
+                sauceIds: cfg.sauceIds.slice(),
+                comboSnackId,
+                comboDrinkId,
+                detailsEn: detailsEn.join(' • '),
+                detailsZh: detailsZh.join(' • '),
+                unit: Number(item.price) || 0,
+            };
+        }
+
+        function confirmCfg() {
+            if (!cfgItem) return;
+            if (sizesOf(cfgItem).length && !cfg.size) return alert('請揀份量');
+            cart.push(buildLineFromCfg());
+            closeCfg();
+            renderCart();
+        }
+
+        function changeQty(i, delta) {
+            cart[i].qty += delta;
+            if (cart[i].qty <= 0) cart.splice(i, 1);
+            renderCart();
+        }
+        function clearCart() { cart = []; renderCart(); }
+
         function renderCart() {
             const list = document.getElementById('cart-list');
-            if (!cart.length) {
-                list.innerHTML = '<p class="text-neutral-500 font-bold py-8 text-center">撳左邊加餸</p>';
-            } else {
-                list.innerHTML = cart.map((line) => `
-                    <div class="rounded-xl bg-neutral-900 border border-neutral-800 p-2">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <div class="font-black truncate">${escapeHtml(line.nameZh || line.nameEn)}</div>
-                                <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
-                            </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button type="button" class="chip-btn px-2" onclick="changeQty('${line.key}', -1)">−</button>
-                                <span class="font-black w-5 text-center">${line.qty}</span>
-                                <button type="button" class="chip-btn px-2" onclick="changeQty('${line.key}', 1)">+</button>
-                            </div>
+            if (!cart.length) list.innerHTML = '<p class="text-neutral-500 font-bold py-8 text-center">撳左邊加餸</p>';
+            else list.innerHTML = cart.map((line, i) => `
+                <div class="rounded-xl bg-neutral-900 border border-neutral-800 p-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="font-black truncate">${escapeHtml(line.nameZh || line.nameEn)}</div>
+                            <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button" class="chip-btn px-2" onclick="changeQty(${i}, -1)">−</button>
+                            <span class="font-black w-5 text-center">${line.qty}</span>
+                            <button type="button" class="chip-btn px-2" onclick="changeQty(${i}, 1)">+</button>
                         </div>
                     </div>
-                `).join('');
-            }
-            const priced = displayTotal();
-            document.getElementById('price-break').textContent =
-                priced.discount ? `小計 $${priced.sub} · 折扣 −$${priced.discount}（以伺服器核價為準）` : `小計 $${priced.sub}（以伺服器核價為準）`;
-            document.getElementById('cart-total').textContent = '$' + priced.total;
+                </div>`).join('');
+            const t = cartTotals();
+            document.getElementById('price-break').textContent = t.discount
+                ? `小計 $${t.sub} · 折扣 −$${t.discount}` : `小計 $${t.sub}`;
+            document.getElementById('cart-total').textContent = '$' + t.total;
         }
 
         function renderCats() {
-            document.getElementById('cat-tabs').innerHTML = CATS.map((c) => `
-                <button type="button" class="chip-btn shrink-0 ${currentCat === c.id ? 'is-active' : ''}" onclick="setCat('${c.id}')">${c.label}</button>
-            `).join('');
+            document.getElementById('cat-tabs').innerHTML = CATS.map((c) =>
+                `<button type="button" class="chip-btn shrink-0 ${currentCat===c.id?'is-active':''}" onclick="setCat('${c.id}')">${c.label}</button>`
+            ).join('');
         }
-
-        function setCat(id) {
-            currentCat = id;
-            renderCats();
-            renderMenu();
-        }
-
+        function setCat(id) { currentCat = id; renderCats(); renderMenu(); }
         function renderMenu() {
             const rows = menuItems.filter((i) => (i.category || '') === currentCat);
             const grid = document.getElementById('menu-grid');
@@ -297,36 +400,23 @@
             }
             grid.innerHTML = rows.map((item) => {
                 const sold = !!item.is_sold_out;
-                const sizes = itemSizes(item);
-                const id = escapeHtml(item.id);
-                const sizeHtml = sizes.length
-                    ? `<div class="mt-2 flex flex-wrap gap-1">${sizes.map((s) => {
-                        const label = String(s.label || s.value || '');
-                        return `<button type="button" class="chip-btn text-[11px] min-h-[32px]" ${sold ? 'disabled' : ''} onclick="addItemById('${id}', '${escapeHtml(label)}')">${escapeHtml(label)}</button>`;
-                    }).join('')}</div>`
-                    : '';
-                const tap = sold || sizes.length ? '' : `onclick="addItemById('${id}')"`;
-                return `
-                    <div class="item-btn ${sold ? 'opacity-40' : ''}" ${tap}>
-                        <div class="font-black leading-tight">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
-                        <div class="text-sm font-bold text-neutral-400 mt-1">$${Number(item.price) || 0}${sold ? ' · 賣晒' : ''}</div>
-                        ${sizeHtml}
-                    </div>
-                `;
+                return `<button type="button" class="item-btn ${sold ? 'opacity-40' : ''}" ${sold ? 'disabled' : ''} onclick="openCfg('${escapeHtml(item.id)}')">
+                    <div class="font-black leading-tight">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
+                    <div class="text-sm font-bold text-neutral-400 mt-1">$${Number(item.price)||0}${sold ? ' · 賣晒' : ''}</div>
+                </button>`;
             }).join('');
-        }
-
-        function addItemById(id, size) {
-            const item = menuItems.find((i) => i.id === id);
-            if (item) addItem(item, size || null);
         }
 
         async function loadMenu() {
             const data = await posApi({ action: 'list' });
             menuItems = data.items || [];
-            renderCats();
-            renderMenu();
-            renderCart();
+            const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
+            for (const m of data.modifiers || []) {
+                if (grouped[m.kind]) grouped[m.kind].push(m);
+            }
+            mods = grouped;
+            if (Number.isFinite(Number(data.combo_base))) comboBase = Number(data.combo_base);
+            renderCats(); renderMenu(); renderCart();
         }
 
         async function charge(payMethod) {
@@ -339,8 +429,10 @@
                     nameZh: line.nameZh,
                     size: line.size || null,
                     qty: line.qty,
-                    addonIds: [],
-                    sauceIds: [],
+                    addonIds: line.addonIds || [],
+                    sauceIds: line.sauceIds || [],
+                    comboSnackId: line.comboSnackId || null,
+                    comboDrinkId: line.comboDrinkId || null,
                     detailsEn: line.detailsEn,
                     detailsZh: line.detailsZh,
                 }));
@@ -352,17 +444,14 @@
                     note: document.getElementById('order-note').value.trim(),
                     items,
                 });
-                document.getElementById('last-ticket').textContent =
-                    `#${data.orderNo} · ${PAY_LABEL[payMethod]} · $${data.total} 已入廚房`;
+                document.getElementById('last-ticket').textContent = `#${data.orderNo} · ${PAY_LABEL[payMethod]} · $${data.total} 已入廚房`;
                 clearCart();
                 document.getElementById('guest-name').value = '';
                 document.getElementById('order-note').value = '';
-                alert('已入單 #' + data.orderNo + '　$' + data.total + '\n廚房而家應該見到。');
+                alert('已入單 #' + data.orderNo + '　$' + data.total);
             } catch (err) {
                 alert('入單失敗：' + (err.message || err));
-            } finally {
-                charging = false;
-            }
+            } finally { charging = false; }
         }
 
         async function bootPos() {
@@ -370,14 +459,13 @@
             document.getElementById('pos-app').classList.remove('hidden');
             await loadMenu();
         }
-
         window.onload = async () => {
             const existing = getToken();
             if (!existing) return;
             try {
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({ token: existing }),
                 });
                 if (!res.ok) return;

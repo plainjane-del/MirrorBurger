@@ -1,5 +1,5 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
-const { listMenuItems, setMenuItemSoldOut } = require('./_menuDb.js');
+const { listMenuItems, listModifiers, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
 const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder } = require('./_orders.js');
 const { setStoreOpen } = require('./_storeSettings.js');
 
@@ -20,7 +20,25 @@ module.exports = async (req, res) => {
 
         if (action === 'list') {
             const items = await listMenuItems({ includeInactive: false });
-            return res.status(200).json({ items: items || [] });
+            let modifiers = [];
+            let combo_base = 19;
+            try {
+                modifiers = await listModifiers({ includeInactive: false }) || [];
+            } catch (err) {
+                console.warn('POS modifiers skipped:', err.message);
+            }
+            try {
+                const raw = await getSetting('combo_base');
+                const n = Number(raw);
+                if (Number.isFinite(n)) combo_base = n;
+            } catch (err) {
+                console.warn('combo_base skipped:', err.message);
+            }
+            return res.status(200).json({
+                items: items || [],
+                modifiers,
+                combo_base,
+            });
         }
 
         if (action === 'set_sold_out') {
