@@ -34,7 +34,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17d</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17e</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -52,7 +52,6 @@
                     <div class="text-sm font-black text-yellow-400">測試 POS</div>
                     <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
                 </div>
-                <button type="button" id="mic-btn" class="chip-btn mic-btn" onclick="toggleVoice()">講單</button>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
@@ -61,6 +60,7 @@
                 <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
                 <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
             </div>
+            <button type="button" id="mic-btn" class="mt-2 w-full min-h-[56px] rounded-xl bg-red-700 font-black text-lg mic-btn" onclick="startVoiceSession()">講單</button>
         </header>
 
         <main class="flex-1 grid grid-cols-1 md:grid-cols-[1fr_340px] min-h-0">
@@ -92,18 +92,28 @@
         </main>
     </div>
 
-    <div id="voice-sheet" class="sheet" onclick="if(event.target===this) closeVoice()">
+    <div id="voice-sheet" class="sheet" onclick="if(event.target===this && !voiceWanted) closeVoice()">
         <div class="sheet-panel" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-black">語音草稿</h3>
-                <button type="button" class="chip-btn" onclick="closeVoice()">關閉</button>
+            <div id="voice-phase-listen">
+                <h3 class="text-lg font-black mb-1">而家可以講</h3>
+                <p class="text-sm font-bold text-neutral-400 mb-3">慢慢講完成個餐，加料同飲都可以。講完撳下面大紅掣。</p>
+                <p id="voice-live" class="min-h-[88px] rounded-xl bg-neutral-900 border border-red-800 p-3 text-base font-bold text-yellow-300">聽緊咪高峰…</p>
+                <p id="voice-hint" class="text-xs font-bold text-neutral-500 mt-2">未聽到字就再靠近啲講。</p>
+                <button type="button" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">講完</button>
+                <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消</button>
             </div>
-            <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
-            <div id="voice-lines" class="space-y-2"></div>
-            <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
-            <div class="grid grid-cols-2 gap-2 mt-4">
-                <button type="button" class="chip-btn min-h-[48px]" onclick="closeVoice()">唔要</button>
-                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="acceptVoice()">加入購物車</button>
+            <div id="voice-phase-review" class="hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-black">語音草稿</h3>
+                    <button type="button" class="chip-btn" onclick="startVoiceSession()">再講</button>
+                </div>
+                <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
+                <div id="voice-lines" class="space-y-2"></div>
+                <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <button type="button" class="chip-btn min-h-[48px]" onclick="closeVoice()">唔要</button>
+                    <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="acceptVoice()">加入購物車</button>
+                </div>
             </div>
         </div>
     </div>
@@ -583,8 +593,105 @@
         }
 
         let voiceRec = null;
-        let voiceListening = false;
+        let voiceWanted = false;
+        let voiceFinal = '';
+        let voiceInterim = '';
         let voiceDraft = [];
+
+        function speechEngine() {
+            return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+        }
+        function updateVoiceLive() {
+            const live = document.getElementById('voice-live');
+            if (!live) return;
+            const text = (voiceFinal + (voiceInterim ? ' ' + voiceInterim : '')).trim();
+            live.textContent = text || '聽緊咪高峰…你可以慢慢講。';
+        }
+        function stopVoiceEngine() {
+            voiceWanted = false;
+            try { if (voiceRec) voiceRec.stop(); } catch (_) {}
+            voiceRec = null;
+            const btn = document.getElementById('mic-btn');
+            if (btn) {
+                btn.classList.remove('is-on');
+                btn.textContent = '講單';
+            }
+        }
+        function beginRec() {
+            const SR = speechEngine();
+            if (!SR || !voiceWanted) return;
+            const rec = new SR();
+            voiceRec = rec;
+            rec.lang = 'zh-HK';
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.maxAlternatives = 1;
+            rec.onresult = (ev) => {
+                let interim = '';
+                for (let i = ev.resultIndex; i < ev.results.length; i++) {
+                    const piece = ev.results[i][0] && ev.results[i][0].transcript;
+                    if (!piece) continue;
+                    if (ev.results[i].isFinal) voiceFinal += (voiceFinal && !voiceFinal.endsWith(' ') ? ' ' : '') + piece;
+                    else interim += piece;
+                }
+                voiceInterim = interim;
+                updateVoiceLive();
+            };
+            rec.onerror = (ev) => {
+                if (!voiceWanted) return;
+                if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+                if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+                    stopVoiceEngine();
+                    alert('請允許咪高峰。iPhone 要用 Safari 打開本頁；商米用 Chrome。');
+                }
+            };
+            rec.onend = () => {
+                if (voiceWanted) setTimeout(beginRec, 120);
+            };
+            try {
+                rec.start();
+            } catch (_) {
+                setTimeout(beginRec, 250);
+            }
+        }
+        function startVoiceSession() {
+            const SR = speechEngine();
+            if (!SR) {
+                alert('呢部機嘅瀏覽器唔支援語音。商米／Android 請用 Chrome 打開本頁。');
+                return;
+            }
+            voiceFinal = '';
+            voiceInterim = '';
+            voiceDraft = [];
+            document.getElementById('voice-phase-listen').classList.remove('hidden');
+            document.getElementById('voice-phase-review').classList.add('hidden');
+            document.getElementById('voice-sheet').classList.add('is-open');
+            updateVoiceLive();
+            voiceWanted = true;
+            const btn = document.getElementById('mic-btn');
+            if (btn) {
+                btn.classList.add('is-on');
+                btn.textContent = '聽緊… 講完入去撳「講完」';
+            }
+            beginRec();
+        }
+        function finishVoice() {
+            const text = (voiceFinal + ' ' + voiceInterim).trim();
+            stopVoiceEngine();
+            if (!text) {
+                updateVoiceLive();
+                document.getElementById('voice-live').textContent = '冇聽到內容。再撳上面紅掣重新講，或者用手撳餸。';
+                voiceWanted = true;
+                beginRec();
+                return;
+            }
+            showVoiceDraft(text);
+        }
+        function closeVoice() {
+            stopVoiceEngine();
+            document.getElementById('voice-sheet').classList.remove('is-open');
+            voiceDraft = [];
+        }
 
         function compact(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
         function qtyWord(n) {
@@ -602,6 +709,25 @@
                 v1: ['素食','素漢堡'],
             };
             return [item.name_zh, item.name_en, item.id].concat(extra[item.id] || []).filter(Boolean);
+        }
+        function pickAddons(text) {
+            const t = compact(text);
+            const hits = [];
+            const rules = [
+                ['a4', /煎蛋|加蛋|荷包蛋/],
+                ['a5', /煙肉|烟肉|bacon/],
+                ['a6', /牛油果/],
+                ['a7', /藍芝士|蓝芝士|藍紋加/],
+                ['a3', /加芝士|美國芝士|加片芝士/],
+                ['a1', /酸瓜/],
+                ['a2', /jalapeno|辣椒圈|墨西哥辣椒/],
+                ['a8', /素雞|炸素/],
+                ['a9', /加扒|多塊肉|加牛肉扒/],
+            ];
+            for (const [id, re] of rules) {
+                if (re.test(t)) hits.push(id);
+            }
+            return hits;
         }
         function pickComboSnack(text) {
             const t = compact(text);
@@ -639,7 +765,7 @@
                 bun: isBurger(item) ? (opts.bun || 'Nissin Bun') : null,
                 spice: isSpicy(item) ? (opts.spice || 'Normal') : null,
                 temp: item.has_temp ? (opts.temp || 'Hot') : null,
-                addonIds: [],
+                addonIds: Array.isArray(opts.addonIds) ? opts.addonIds : [],
                 sauceIds: [],
                 combo: !!opts.combo,
                 comboSnackId: opts.comboSnackId || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
@@ -678,6 +804,7 @@
                     lines.push(lineFromItemOpts(item, {
                         qty, bun, spice, temp, big, combo: wantCombo && isBurger(item),
                         comboSnackId, comboDrinkId,
+                        addonIds: pickAddons(original),
                     }));
                     remaining = remaining.replace(name, '，');
                     break;
@@ -685,53 +812,15 @@
             }
             return { original, lines, leftover: remaining };
         }
-        function setMic(on) {
-            voiceListening = on;
-            const btn = document.getElementById('mic-btn');
-            if (!btn) return;
-            btn.classList.toggle('is-on', on);
-            btn.textContent = on ? '聽緊…' : '講單';
-        }
-        function toggleVoice() {
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SR) {
-                alert('呢部機嘅瀏覽器唔支援語音。商米／Android 請用 Chrome 打開本頁。');
-                return;
-            }
-            if (voiceListening && voiceRec) {
-                try { voiceRec.stop(); } catch (_) {}
-                return;
-            }
-            voiceRec = new SR();
-            voiceRec.lang = 'zh-HK';
-            voiceRec.interimResults = false;
-            voiceRec.maxAlternatives = 1;
-            voiceRec.onresult = (ev) => {
-                const text = ev.results && ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript;
-                if (text) showVoiceDraft(text);
-            };
-            voiceRec.onerror = (ev) => {
-                setMic(false);
-                if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
-                    alert('語音失敗：' + (ev.error || 'unknown') + '\n可試再講一次，或改用手撳。');
-                }
-            };
-            voiceRec.onend = () => setMic(false);
-            try {
-                voiceRec.start();
-                setMic(true);
-            } catch (err) {
-                setMic(false);
-                alert('開唔到咪：' + (err.message || err));
-            }
-        }
         function showVoiceDraft(text) {
             const parsed = parseVoice(text);
             voiceDraft = parsed.lines;
+            document.getElementById('voice-phase-listen').classList.add('hidden');
+            document.getElementById('voice-phase-review').classList.remove('hidden');
             document.getElementById('voice-text').textContent = '聽到：' + parsed.original;
             const box = document.getElementById('voice-lines');
             if (!voiceDraft.length) {
-                box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，請再講清楚名，或者用手撳。</p>';
+                box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，撳「再講」或者用手撳。簡單一餐講完用加減數量就得。</p>';
             } else {
                 box.innerHTML = voiceDraft.map((line) =>
                     `<div class="rounded-xl bg-neutral-900 border border-neutral-800 p-3">
@@ -743,9 +832,7 @@
             const miss = document.getElementById('voice-miss');
             miss.classList.toggle('hidden', !!voiceDraft.length);
             miss.textContent = voiceDraft.length ? '' : '未加入任何項目';
-            document.getElementById('voice-sheet').classList.add('is-open');
         }
-        function closeVoice() { document.getElementById('voice-sheet').classList.remove('is-open'); voiceDraft = []; }
         function acceptVoice() {
             if (!voiceDraft.length) return closeVoice();
             cart = cart.concat(voiceDraft);
