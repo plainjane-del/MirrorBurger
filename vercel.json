@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": false,
   "functions": {
     "api/*.js": {
       "maxDuration": 10
@@ -9,6 +10,44 @@
     {
       "path": "/api/cleanup-pending",
       "schedule": "0 16 * * *"
+    }
+  ],
+  "redirects": [
+    { "source": "/sai-ying-pun.html", "destination": "/sai-ying-pun", "permanent": true },
+    { "source": "/tin-hau.html", "destination": "/tin-hau", "permanent": true },
+    { "source": "/tsuen-wan.html", "destination": "/tsuen-wan", "permanent": true },
+    { "source": "/fortress-hill", "destination": "/tin-hau", "permanent": true },
+    { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
+    { "source": "/tin-hau", "destination": "/tin-hau.html" },
+    { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" }
+  ],
+  "headers": [
+    {
+      "source": "/admin",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/admin.html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/pos",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/pos.html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/kitchen",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/kitchen.html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     }
   ]
 }

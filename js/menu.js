@@ -167,9 +167,9 @@ let comboDrinks = comboDrinksFallback.slice();
 let comboBasePrice = 19;
 
 const stores = [
-    { name: 'Sai Ying Pun', nameZh: '西營盤', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
-    { name: 'Fortress Hill', nameZh: '天后', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://maps.app.goo.gl/8944PrWNxNKrNXaZ9', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
-    { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://maps.app.goo.gl/6oxTsRNSUwmtibUx9', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
+    { name: 'Sai Ying Pun', nameZh: '西營盤', slug: 'sai-ying-pun', addr: 'G/F 194 Queen\'s Rd West', addrZh: '皇后大道西 194號地下', hrs: 'Every Day 11:15am – 12:00mn', hrsZh: '每天 11:15am – 12:00mn', lat: 22.286866, lng: 114.144379, mapLink: 'https://maps.app.goo.gl/MnNp3yi6eyedsFfM9', keeta: 'https://url.mykeeta.com/TXrih7Gz', panda: 'https://foodpanda.go.link/a8X5L' },
+    { name: 'Fortress Hill', nameZh: '天后', slug: 'tin-hau', addr: '1A Merlin St', addrZh: '麥連街 1A號', hrs: 'Sun-Thu 11:15am–9:30pm • Fri-Sat 11:15am–11:30pm', hrsZh: '日-四 11:15am–9:30pm • 五-六 11:15am–11:30pm', lat: 22.287105, lng: 114.192261, mapLink: 'https://maps.app.goo.gl/8944PrWNxNKrNXaZ9', keeta: 'https://url.mykeeta.com/ixe3ihSz', panda: 'https://foodpanda.go.link/kzqnZ' },
+    { name: 'Tsuen Wan (Takeaway Only)', nameZh: '荃灣 (只限外賣自取)', slug: 'tsuen-wan', addr: 'Flat 01, 13/F, Yue Fung Ind. Bldg', addrZh: '柴灣角街 35-45號裕豐工業大廈 13樓01室', hrs: '11:30am – 11:30pm', hrsZh: '11:30am – 11:30pm', lat: 22.373556, lng: 114.107284, mapLink: 'https://maps.app.goo.gl/6oxTsRNSUwmtibUx9', keeta: 'https://url.mykeeta.com/YNjywtYz', panda: 'https://foodpanda.go.link/1ML5Y', wa: true }
 ];
 
 const googleReviews = [
@@ -1148,7 +1148,7 @@ function renderStores() {
         return `<div class="store-card bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4">
             <div>
                 <div class="flex items-center justify-between gap-3 mb-2">
-                    <h3 class="text-lg font-black uppercase">${lang(s.name, s.nameZh)}</h3>
+                    <h3 class="text-lg font-black uppercase"><a href="/${s.slug}" class="hover:underline">${lang(s.name, s.nameZh)}</a></h3>
                     <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
                 </div>
                 <div class="store-addr-row">
@@ -1171,6 +1171,35 @@ function orderFromStore(storeName) {
     }
     showOrderFlow();
     setFlowStore(storeName);
+}
+
+const STORE_SLUGS = {
+    'sai-ying-pun': 'Sai Ying Pun',
+    'syp': 'Sai Ying Pun',
+    'tin-hau': 'Fortress Hill',
+    'fortress-hill': 'Fortress Hill',
+    'tsuen-wan': 'Tsuen Wan (Takeaway Only)',
+};
+
+function applyLangFromQuery() {
+    const langParam = new URLSearchParams(location.search).get('lang');
+    if (!langParam) return;
+    if (langParam.toLowerCase().startsWith('zh')) currentLang = 'zh';
+    else if (langParam.toLowerCase().startsWith('en')) currentLang = 'en';
+}
+
+function applyStoreFromQuery() {
+    const params = new URLSearchParams(location.search);
+    const slug = (params.get('store') || '').toLowerCase();
+    const storeName = STORE_SLUGS[slug];
+    if (!storeName) return;
+    flowSelectedStore = storeName;
+    populateStoresDropdown();
+    updateCartStoreUI();
+    if (params.get('order') === '1') {
+        showOrderFlow();
+        setFlowStore(storeName);
+    }
 }
 
 function openPaymentChecking(orderNo) {
@@ -1394,6 +1423,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => { 
     const userLang = navigator.language || navigator.userLanguage;
     currentLang = userLang.toLowerCase().includes('zh') ? 'zh' : 'en';
+    applyLangFromQuery();
     document.body.classList.toggle('lang-en', currentLang === 'en');
     document.body.classList.toggle('lang-zh', currentLang === 'zh');
     document.querySelectorAll('.js-lang-btn').forEach((btn) => {
@@ -1403,6 +1433,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMenuByCategory(currentCategory);
     updateCartUI();
     updatePlaceholders(); populateStoresDropdown(); renderStores(); renderGoogleReviews();
+    applyStoreFromQuery();
     fetchLiveMenu();
     fetchStoreSettings();
     startStoreSettingsRealtime();

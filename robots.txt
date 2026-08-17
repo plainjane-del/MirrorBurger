@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /pos
+Disallow: /pos.html
+Disallow: /kitchen
+Disallow: /kitchen.html
+Disallow: /api/
+
+Sitemap: https://mirrorburger.com/sitemap.xml

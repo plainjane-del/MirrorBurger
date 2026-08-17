@@ -1,4 +1,4 @@
-const CACHE = 'mirror-burger-v7';
+const CACHE = 'mirror-burger-v8';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -66,15 +66,18 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.mode === 'navigate') {
+    const isKitchen = url.pathname.includes('kitchen');
+    const cacheKey = isKitchen ? '/kitchen.html' : (url.pathname === '/' || url.pathname === '/index.html' ? '/index.html' : null);
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          const key = url.pathname.includes('kitchen') ? '/kitchen.html' : '/index.html';
-          caches.open(CACHE).then((cache) => cache.put(key, copy));
+          if (cacheKey) {
+            const copy = res.clone();
+            caches.open(CACHE).then((cache) => cache.put(cacheKey, copy));
+          }
           return res;
         })
-        .catch(() => caches.match(url.pathname.includes('kitchen') ? '/kitchen.html' : '/index.html'))
+        .catch(() => caches.match(isKitchen ? '/kitchen.html' : '/index.html'))
     );
     return;
   }

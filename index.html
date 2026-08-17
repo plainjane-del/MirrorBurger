@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="zh-Hant-HK" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -17,9 +17,29 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#FFD131">
 
-    <title>Mirror Burger | Michelin Flavors in HK</title>
-    <meta name="description" content="Premium Halal burgers in Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.">
-    <meta name="robots" content="max-image-preview:none">
+    <title>Mirror Burger | Halal Burgers in Sai Ying Pun, Tin Hau &amp; Tsuen Wan</title>
+    <meta name="description" content="Halal burgers in Hong Kong — Sai Ying Pun, Tin Hau (Fortress Hill) and Tsuen Wan. Michelin-inspired recipe, Aussie Black Angus &amp; Wagyu. 西營盤、天后、荃灣清真漢堡，外賣自取。">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="geo.region" content="HK">
+    <meta name="geo.placename" content="Hong Kong">
+    <link rel="canonical" href="https://mirrorburger.com/">
+    <link rel="alternate" hreflang="zh-Hant-HK" href="https://mirrorburger.com/">
+    <link rel="alternate" hreflang="en" href="https://mirrorburger.com/">
+    <link rel="alternate" hreflang="x-default" href="https://mirrorburger.com/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Mirror Burger">
+    <meta property="og:locale" content="zh_HK">
+    <meta property="og:locale:alternate" content="en_HK">
+    <meta property="og:url" content="https://mirrorburger.com/">
+    <meta property="og:title" content="Mirror Burger | Halal Burgers in Hong Kong">
+    <meta property="og:description" content="Halal burgers in Sai Ying Pun, Tin Hau and Tsuen Wan. Angus, Wagyu, vegetarian. 西營盤／天后／荃灣清真漢堡。">
+    <meta property="og:image" content="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_1200,h_630,c_fill,g_auto,f_auto,q_auto/v1777801017/IMG_2364_sr2yuj.jpg">
+    <meta property="og:image:alt" content="Halal Angus and Wagyu burger from Mirror Burger Hong Kong">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Mirror Burger | Halal Burgers in Hong Kong">
+    <meta name="twitter:description" content="Sai Ying Pun, Tin Hau and Tsuen Wan. 西營盤、天后、荃灣清真漢堡。">
+    <meta name="twitter:image" content="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_1200,h_630,c_fill,g_auto,f_auto,q_auto/v1777801017/IMG_2364_sr2yuj.jpg">
 
     <!-- 網站 Icon 與 iPhone 主畫面 Icon -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
@@ -46,7 +66,12 @@
           "areaServed": {
             "@type": "City",
             "name": "Hong Kong"
-          }
+          },
+          "location": [
+            { "@id": "https://mirrorburger.com/#sai-ying-pun" },
+            { "@id": "https://mirrorburger.com/#fortress-hill" },
+            { "@id": "https://mirrorburger.com/#tsuen-wan" }
+          ]
         },
         {
           "@type": "Menu",
@@ -145,7 +170,7 @@
           "@id": "https://mirrorburger.com/#sai-ying-pun",
           "name": "Mirror Burger Sai Ying Pun",
           "alternateName": "Mirror Burger 西營盤",
-          "url": "https://mirrorburger.com",
+          "url": "https://mirrorburger.com/sai-ying-pun",
           "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
           "logo": "https://mirrorburger.com/apple-touch-icon.png",
           "description": "Premium Halal burgers in Sai Ying Pun, Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
@@ -183,7 +208,7 @@
             "@type": "OrderAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://mirrorburger.com",
+              "urlTemplate": "https://mirrorburger.com/?store=sai-ying-pun&order=1",
               "inLanguage": ["en", "zh-HK"],
               "actionPlatform": [
                 "http://schema.org/DesktopWebPlatform",
@@ -198,7 +223,7 @@
           "@id": "https://mirrorburger.com/#fortress-hill",
           "name": "Mirror Burger Fortress Hill",
           "alternateName": "Mirror Burger 天后",
-          "url": "https://mirrorburger.com",
+          "url": "https://mirrorburger.com/tin-hau",
           "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
           "logo": "https://mirrorburger.com/apple-touch-icon.png",
           "description": "Premium Halal burgers in Tin Hau / Fortress Hill, Hong Kong. Michelin recipe, Aussie Black Angus & Wagyu.",
@@ -242,7 +267,7 @@
             "@type": "OrderAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://mirrorburger.com",
+              "urlTemplate": "https://mirrorburger.com/?store=tin-hau&order=1",
               "inLanguage": ["en", "zh-HK"],
               "actionPlatform": [
                 "http://schema.org/DesktopWebPlatform",
@@ -257,7 +282,7 @@
           "@id": "https://mirrorburger.com/#tsuen-wan",
           "name": "Mirror Burger Tsuen Wan",
           "alternateName": "Mirror Burger 荃灣 (只限外賣自取)",
-          "url": "https://mirrorburger.com",
+          "url": "https://mirrorburger.com/tsuen-wan",
           "image": "https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg",
           "logo": "https://mirrorburger.com/apple-touch-icon.png",
           "description": "Premium Halal burgers in Tsuen Wan, Hong Kong. Takeaway only. Michelin recipe, Aussie Black Angus & Wagyu.",
@@ -295,7 +320,7 @@
             "@type": "OrderAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://mirrorburger.com",
+              "urlTemplate": "https://mirrorburger.com/?store=tsuen-wan&order=1",
               "inLanguage": ["en", "zh-HK"],
               "actionPlatform": [
                 "http://schema.org/DesktopWebPlatform",
@@ -1312,10 +1337,10 @@
         </nav>
 
         <section class="hero-section relative h-[85dvh] flex flex-col justify-end px-8 pb-12 bg-apple-bg overflow-hidden">
-            <div class="hero-media absolute top-0 left-0 w-full h-[75svh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" srcset="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 800w, https://res.cloudinary.com/dnuhe2uwy/image/upload/w_1400,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 1400w, https://res.cloudinary.com/dnuhe2uwy/image/upload/w_2000,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 2000w" sizes="100vw" alt="Hero" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
+            <div class="hero-media absolute top-0 left-0 w-full h-[75svh]"><img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg" srcset="https://res.cloudinary.com/dnuhe2uwy/image/upload/w_800,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 800w, https://res.cloudinary.com/dnuhe2uwy/image/upload/w_1400,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 1400w, https://res.cloudinary.com/dnuhe2uwy/image/upload/w_2000,f_auto,q_auto,e_improve,e_saturation:20/v1777801017/IMG_2364_sr2yuj.jpg 2000w" sizes="100vw" alt="Halal Angus and Wagyu burger from Mirror Burger in Hong Kong" fetchpriority="high" class="w-full h-full object-cover object-center"><div class="absolute inset-0 bg-gradient-to-t from-apple-bg via-apple-bg/40 to-black/60"></div></div>
             <div class="hero-copy relative z-10 space-y-6">
-                <h1 class="text-5xl md:text-6xl font-black tracking-tighter text-[#1d1d1f] leading-[0.9] uppercase"><span class="en">Freshness<br>you can<br>see.</span><span class="zh">新鮮，<br>肉眼可見。</span></h1>
-                <p class="text-[10px] font-bold text-gray-800 uppercase tracking-widest leading-relaxed mt-2"><span class="en">Michelin Recipe • ☪️ Halal Certified<br>Nissin Flour Bun • Aussie Black Angus + Wagyu</span><span class="zh">米芝蓮配方 • ☪️ 清真認證<br>日清麵包 • 澳洲黑安格斯及和牛</span></p>
+                <h1 class="text-5xl md:text-6xl font-black tracking-tighter text-[#1d1d1f] leading-[0.9] uppercase"><span class="en">Halal burgers<br>in Hong Kong.</span><span class="zh">香港<br>清真漢堡</span></h1>
+                <p class="text-[10px] font-bold text-gray-800 uppercase tracking-widest leading-relaxed mt-2"><span class="en">Sai Ying Pun · Tin Hau · Tsuen Wan<br>Michelin Recipe • Halal Certified • Angus + Wagyu</span><span class="zh">西營盤 · 天后 · 荃灣<br>米芝蓮配方 • 清真認證 • 澳洲黑安格斯及和牛</span></p>
                 <div><div class="inline-flex bg-burger-gold/90 backdrop-blur-sm text-black px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border border-yellow-400 text-center"><span class="en">🎉 10% OFF TAKEAWAY OVER $120 OR ANY COMBO<br>(TSUEN WAN: 15% OFF)</span><span class="zh">🎉 外賣自取滿 $120 或任何套餐 即享 9折<br>(荃灣分店：85折)</span></div></div>
                 <div><button onclick="showOrderFlow()" aria-label="Start Order" class="bg-black text-white px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-transform flex items-center gap-3"><span class="en">Order Now</span><span class="zh">立即點餐</span><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg></button></div>
             </div>
@@ -1356,12 +1381,18 @@
 
         <footer class="site-footer p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px] space-y-4 border-t">
             <p>Mirror Burger © 2026</p>
-            <p><span class="en">Michelin Standard · ☪️ Halal Certified</span><span class="zh">米芝蓮標準 · ☪️ 清真認證</span></p>
+            <p><span class="en">Halal burgers in Sai Ying Pun, Tin Hau &amp; Tsuen Wan</span><span class="zh">西營盤、天后、荃灣清真漢堡</span></p>
+            <nav class="flex flex-col gap-2 normal-case tracking-normal font-semibold text-gray-500">
+                <a href="/sai-ying-pun" class="hover:text-black">Sai Ying Pun 西營盤 · G/F, 194 Queen's Road West</a>
+                <a href="/tin-hau" class="hover:text-black">Tin Hau / Fortress Hill 天后 · 1A Merlin Street</a>
+                <a href="/tsuen-wan" class="hover:text-black">Tsuen Wan 荃灣 · Takeaway only 只限外賣自取</a>
+            </nav>
+            <p><span class="en">Michelin Standard · Halal Certified</span><span class="zh">米芝蓮標準 · 清真認證</span></p>
         </footer>
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=2.6"></script>
+    <script src="js/menu.js?v=2.7"></script>
     <script src="js/order-handler.js?v=2.1"></script>
 </body>
 </html>
