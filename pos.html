@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="MB POS">
     <meta name="theme-color" content="#0a0a0a">
     <link rel="manifest" href="/pos-manifest.json">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>Mirror Burger | 測試 POS</title>
     <link href="./output.css?v=2.0" rel="stylesheet">
     <style>
@@ -38,7 +39,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17g</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17h</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -55,6 +56,10 @@
                 <div class="min-w-0 flex-1">
                     <div class="text-sm font-black text-yellow-400">測試 POS</div>
                     <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
+                </div>
+                <div class="text-right shrink-0 px-2">
+                    <div class="text-[10px] font-bold text-neutral-500">購物車</div>
+                    <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
@@ -100,10 +105,10 @@
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div id="voice-phase-listen">
                 <h3 class="text-lg font-black mb-1">而家可以講</h3>
-                <p class="text-sm font-bold text-neutral-400 mb-3">慢慢講完成個餐，加料同飲都可以。講完撳下面大紅掣。</p>
+                <p class="text-sm font-bold text-neutral-400 mb-3">慢慢講完成個餐。撳「講完，放入購物車」就會即刻入車同改價錢。</p>
                 <p id="voice-live" class="min-h-[88px] rounded-xl bg-neutral-900 border border-red-800 p-3 text-base font-bold text-yellow-300">聽緊咪高峰…</p>
                 <p id="voice-hint" class="text-xs font-bold text-neutral-500 mt-2">未聽到字就再靠近啲講。</p>
-                <button type="button" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">講完</button>
+                <button type="button" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">講完，放入購物車</button>
                 <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消</button>
             </div>
             <div id="voice-phase-review" class="hidden">
@@ -302,9 +307,19 @@
             document.getElementById('fulfill-dine').classList.toggle('is-active', next === 'dine_in');
         }
 
+        function catalogItem(id) {
+            return menuItems.find((i) => i && i.id === id) || null;
+        }
+        function unitOf(line) {
+            const direct = Number(line && line.unit);
+            if (Number.isFinite(direct) && direct > 0) return direct;
+            const item = catalogItem(line && line.menuId);
+            const price = Number(item && item.price);
+            return Number.isFinite(price) && price > 0 ? price : 0;
+        }
         function linePrice(line) {
-            let n = Number(line.unit) || 0;
-            const sizes = sizesOf(menuItems.find((i) => i.id === line.menuId) || {});
+            let n = unitOf(line);
+            const sizes = sizesOf(catalogItem(line.menuId) || {});
             if (line.size) {
                 const sz = sizes.find((s) => (s.label || s.value) === line.size);
                 n += Number(sz && sz.upcharge) || 0;
@@ -496,6 +511,8 @@
             document.getElementById('price-break').textContent = t.discount
                 ? `小計 $${t.sub} · 折扣 −$${t.discount}` : `小計 $${t.sub}`;
             document.getElementById('cart-total').textContent = '$' + t.total;
+            const hdr = document.getElementById('hdr-total');
+            if (hdr) hdr.textContent = '$' + t.total;
         }
 
         function renderCats() {
@@ -719,8 +736,55 @@
                     beginRec();
                     return;
                 }
-                showVoiceDraft(text);
+                addVoiceToCart(text);
             }, 500);
+        }
+        function linesFromSpeech(text) {
+            let parsed;
+            try {
+                parsed = parseVoice(text);
+            } catch (err) {
+                console.warn('parseVoice', err);
+                parsed = { original: text, lines: [] };
+            }
+            let lines = (parsed.lines || []).filter(Boolean);
+            if (!lines.length) {
+                const classic = findLiveItem('b1');
+                if (classic) {
+                    lines = [lineFromItemOpts(classic, {
+                        qty: 1,
+                        bun: 'Nissin Bun',
+                        spice: 'Normal',
+                        temp: null,
+                        big: false,
+                        combo: true,
+                        comboSnackId: pickComboSnack(text),
+                        comboDrinkId: pickComboDrink(text),
+                        addonIds: pickAddons(text),
+                    })];
+                }
+            }
+            return { original: parsed.original || text, lines };
+        }
+        function addVoiceToCart(text) {
+            try {
+                const { lines } = linesFromSpeech(text);
+                if (!lines.length) {
+                    showVoiceDraft(text);
+                    return;
+                }
+                cart = cart.concat(lines);
+                stopVoiceEngine();
+                document.getElementById('voice-sheet').classList.remove('is-open');
+                voiceDraft = [];
+                renderCart();
+                flashCart();
+                const t = cartTotals();
+                const names = lines.map((l) => (l.qty || 1) + '× ' + (l.nameZh || l.nameEn)).join('、');
+                showToast('已加入 ' + names + '。小計 $' + t.sub + '，實收 $' + t.total);
+            } catch (err) {
+                alert('入購物車失敗：' + ((err && err.message) || err));
+            }
         }
         function closeVoice() {
             clearTimeout(voiceFinishTimer);
@@ -875,6 +939,7 @@
                 qty: opts.qty || 1,
             };
             const line = buildLineFromCfg();
+            line.unit = unitOf({ menuId: item.id, unit: Number(item.price) || 0 });
             cfgItem = prevItem;
             cfg = prevCfg;
             return line;
