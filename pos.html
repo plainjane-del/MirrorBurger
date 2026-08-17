@@ -17,9 +17,12 @@
         body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
         .chip-btn { min-height:44px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
         .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
-        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:8px; min-height:84px; cursor:pointer; }
+        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:8px; cursor:pointer; }
+        .pos-thumb { aspect-ratio: 1 / 1; width: 100%; max-height: 180px; background:#111; overflow:hidden; border-radius:10px; margin-bottom:8px; }
+        .pos-thumb img { width:100%; height:100%; object-fit:contain; object-position:center; display:block; }
+        button { touch-action: manipulation; }
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
-        .pay-btn:disabled { opacity:.45; }
+        .pay-btn:disabled, #cfg-add:disabled { opacity:.45; }
         .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
@@ -39,7 +42,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17i</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17j</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -77,7 +80,7 @@
                 <input id="menu-search" type="search" placeholder="搜尋餸名" oninput="renderMenu()"
                     class="w-full mb-2 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
-                <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2"></div>
+                <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
             </section>
             <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-auto">
                 <div class="grid grid-cols-2 gap-1">
@@ -105,28 +108,11 @@
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div id="voice-phase-listen">
                 <h3 class="text-lg font-black mb-1">而家可以講</h3>
-                <p class="text-sm font-bold text-neutral-400 mb-3">慢慢講完成個餐。撳「講完，放入購物車」就會即刻入車同改價錢。</p>
+                <p class="text-sm font-bold text-neutral-400 mb-3">好似收銀咁講，例如「經典芝士漢堡套餐」。講完會問小食同飲，唔會自己入兩份。</p>
                 <p id="voice-live" class="min-h-[88px] rounded-xl bg-neutral-900 border border-red-800 p-3 text-base font-bold text-yellow-300">聽緊咪高峰…</p>
                 <p id="voice-hint" class="text-xs font-bold text-neutral-500 mt-2">未聽到字就再靠近啲講。</p>
-                <button type="button" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">講完，放入購物車</button>
+                <button type="button" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">講完，核對配料</button>
                 <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消</button>
-            </div>
-            <div id="voice-phase-review" class="hidden">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-lg font-black">語音草稿</h3>
-                    <button type="button" class="chip-btn" onclick="startVoiceSession()">再講</button>
-                </div>
-                <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
-                <div id="voice-lines" class="space-y-2"></div>
-                <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
-                <p class="text-xs font-bold text-neutral-500 mt-3">先確認入購物車。之後喺下面用現金／轉數快／PayMe 先會入廚房。</p>
-                <button type="button" class="mt-3 w-full min-h-[56px] rounded-xl bg-yellow-400 text-black font-black text-lg" onclick="acceptVoice()">確認放入購物車</button>
-                <div class="grid grid-cols-3 gap-2 mt-3">
-                    <button type="button" class="pay-btn bg-emerald-600" onclick="confirmVoicePay('cash')">現金入單</button>
-                    <button type="button" class="pay-btn bg-sky-600" onclick="confirmVoicePay('fps')">轉數快</button>
-                    <button type="button" class="pay-btn bg-violet-600" onclick="confirmVoicePay('payme')">PayMe</button>
-                </div>
-                <button type="button" class="chip-btn w-full mt-2" onclick="closeVoice()">取消</button>
             </div>
         </div>
     </div>
@@ -253,10 +239,10 @@
         function thumbHtml(item) {
             const url = itemImg(item);
             if (!url) {
-                return `<div class="h-20 rounded-lg bg-neutral-800 flex items-center justify-center text-[10px] font-black text-yellow-400">MB</div>`;
+                return `<div class="pos-thumb flex items-center justify-center text-[10px] font-black text-yellow-400">MB</div>`;
             }
             const src = cloudinaryUrl(url, 320);
-            return `<div class="h-20 rounded-lg bg-neutral-800 overflow-hidden mb-1"><img src="${src}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async"></div>`;
+            return `<div class="pos-thumb"><img src="${src}" alt="" loading="lazy" decoding="async"></div>`;
         }
         function sizesOf(item) { return Array.isArray(item && item.sizes) ? item.sizes : []; }
         function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
@@ -351,7 +337,7 @@
             return { sub, discount, total: sub - discount };
         }
 
-        function openCfg(id, editIndex) {
+        function openCfg(id, editIndex, presets) {
             const item = menuItems.find((i) => i.id === id);
             if (!item || (isSold(item) && editIndex == null)) return;
             cfgItem = item;
@@ -366,11 +352,21 @@
                 addonIds: existing && Array.isArray(existing.addonIds) ? existing.addonIds.slice() : [],
                 sauceIds: existing && Array.isArray(existing.sauceIds) ? existing.sauceIds.slice() : [],
                 combo: !!(existing && existing.comboSnackId),
-                comboSnackId: (existing && existing.comboSnackId) || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
-                comboDrinkId: (existing && existing.comboDrinkId) || (modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id),
+                comboSnackId: (existing && existing.comboSnackId) || null,
+                comboDrinkId: (existing && existing.comboDrinkId) || null,
                 qty: existing ? existing.qty : 1,
             };
             if (existing && existing.detailsZh && existing.detailsZh.includes('生菜包')) cfg.bun = 'Lettuce Wrap';
+            if (presets && typeof presets === 'object') {
+                if (presets.qty) cfg.qty = presets.qty;
+                if (presets.bun != null) cfg.bun = presets.bun;
+                if (presets.spice != null) cfg.spice = presets.spice;
+                if (presets.temp != null) cfg.temp = presets.temp;
+                if (Array.isArray(presets.addonIds)) cfg.addonIds = presets.addonIds.slice();
+                if (presets.combo != null) cfg.combo = !!presets.combo;
+                if (presets.comboSnackId !== undefined) cfg.comboSnackId = presets.comboSnackId;
+                if (presets.comboDrinkId !== undefined) cfg.comboDrinkId = presets.comboDrinkId;
+            }
             document.getElementById('cfg-title').textContent = item.name_zh || item.name_en;
             renderCfg();
             document.getElementById('cfg-sheet').classList.add('is-open');
@@ -406,24 +402,37 @@
             if (isBurger(item)) {
                 bits.push(chipRow('加料', modsOf('addon').map((a) => optChip(cfg.addonIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`)).join('')));
                 bits.push(chipRow('加醬', modsOf('sauce').map((a) => optChip(cfg.sauceIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('sauceIds','${a.id}')`)).join('')));
-                bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '唔要', "setCfg('combo', false)") + optChip(cfg.combo, '要', "setCfg('combo', true)")));
+                bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '單點', "setCfg('combo', false)") + optChip(cfg.combo, '套餐', "setCfg('combo', true)")));
                 if (cfg.combo) {
-                    bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐小食</div>
-                        <select class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboSnackId=this.value; renderCfg()">
-                            ${modsOf('combo_snack').map((m) => `<option value="${m.id}" ${m.id===cfg.comboSnackId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
-                        </select></div>`);
-                    bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐飲品</div>
-                        <select class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboDrinkId=this.value; renderCfg()">
-                            ${modsOf('combo_drink').map((m) => `<option value="${m.id}" ${m.id===cfg.comboDrinkId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
-                        </select></div>`);
+                    bits.push(chipRow('套餐小食（請揀）', modsOf('combo_snack').map((m) =>
+                        optChip(cfg.comboSnackId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboSnackId','${m.id}')`)
+                    ).join('')));
+                    bits.push(chipRow('套餐飲品（請揀）', modsOf('combo_drink').map((m) =>
+                        optChip(cfg.comboDrinkId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboDrinkId','${m.id}')`)
+                    ).join('')));
+                    if (!cfg.comboSnackId || !cfg.comboDrinkId) {
+                        bits.push('<p class="text-sm font-bold text-red-300">套餐未揀齊。客人講咗先剔，冇講就要問：小食要咩、飲品要咩。</p>');
+                    }
                 }
             }
             document.getElementById('cfg-body').innerHTML = bits.join('');
             const preview = buildLineFromCfg();
             document.getElementById('cfg-price').textContent = '$' + linePrice(preview);
-            document.getElementById('cfg-add').textContent = (cfgEditIndex >= 0 ? '更新　$' : '加入　$') + linePrice(preview);
+            const addBtn = document.getElementById('cfg-add');
+            const comboNeed = isBurger(item) && cfg.combo && (!cfg.comboSnackId || !cfg.comboDrinkId);
+            addBtn.disabled = comboNeed;
+            addBtn.textContent = comboNeed
+                ? '請揀套餐小食同飲品'
+                : ((cfgEditIndex >= 0 ? '更新　$' : '加入　$') + linePrice(preview));
         }
-        function setCfg(key, value) { cfg[key] = value; renderCfg(); }
+        function setCfg(key, value) {
+            cfg[key] = value;
+            if (key === 'combo' && value === false) {
+                cfg.comboSnackId = null;
+                cfg.comboDrinkId = null;
+            }
+            renderCfg();
+        }
         function toggleCfg(key, id) {
             const arr = cfg[key].slice();
             const i = arr.indexOf(id);
@@ -483,7 +492,11 @@
         function confirmCfg() {
             if (!cfgItem) return;
             if (sizesOf(cfgItem).length && !cfg.size) return alert('請揀份量');
+            if (isBurger(cfgItem) && cfg.combo && (!cfg.comboSnackId || !cfg.comboDrinkId)) {
+                return alert('套餐請揀小食同飲品。');
+            }
             const line = buildLineFromCfg();
+            line.unit = unitOf({ menuId: cfgItem.id, unit: Number(cfgItem.price) || 0 });
             if (cfgEditIndex >= 0) cart[cfgEditIndex] = line;
             else cart.push(line);
             closeCfg();
@@ -639,8 +652,9 @@
             return window.SpeechRecognition || window.webkitSpeechRecognition || null;
         }
         function voiceHeardText() {
-            const bits = [voiceFinal, voiceInterim].concat(voiceAlts);
-            return bits.map((s) => String(s || '').trim()).filter(Boolean).join(' ');
+            const primary = (voiceFinal + (voiceInterim ? ' ' + voiceInterim : '')).trim();
+            if (primary) return primary;
+            return voiceAlts.map((s) => String(s || '').trim()).filter(Boolean)[0] || '';
         }
         function updateVoiceLive() {
             const live = document.getElementById('voice-live');
@@ -712,8 +726,6 @@
             voiceInterim = '';
             voiceAlts = [];
             voiceDraft = [];
-            document.getElementById('voice-phase-listen').classList.remove('hidden');
-            document.getElementById('voice-phase-review').classList.add('hidden');
             document.getElementById('voice-sheet').classList.add('is-open');
             updateVoiceLive();
             voiceWanted = true;
@@ -725,6 +737,7 @@
             beginRec();
         }
         function finishVoice() {
+            if (voiceFinishTimer) return;
             const snap = voiceHeardText();
             voiceWanted = false;
             try { if (voiceRec) voiceRec.stop(); } catch (_) {}
@@ -735,8 +748,8 @@
             }
             const live = document.getElementById('voice-live');
             if (live) live.textContent = (snap || '聽緊最後一句…');
-            clearTimeout(voiceFinishTimer);
             voiceFinishTimer = setTimeout(() => {
+                voiceFinishTimer = null;
                 voiceRec = null;
                 const text = voiceHeardText() || snap;
                 if (!text) {
@@ -745,58 +758,12 @@
                     beginRec();
                     return;
                 }
-                addVoiceToCart(text);
-            }, 500);
-        }
-        function linesFromSpeech(text) {
-            let parsed;
-            try {
-                parsed = parseVoice(text);
-            } catch (err) {
-                console.warn('parseVoice', err);
-                parsed = { original: text, lines: [] };
-            }
-            let lines = (parsed.lines || []).filter(Boolean);
-            if (!lines.length) {
-                const classic = findLiveItem('b1');
-                if (classic) {
-                    lines = [lineFromItemOpts(classic, {
-                        qty: 1,
-                        bun: 'Nissin Bun',
-                        spice: 'Normal',
-                        temp: null,
-                        big: false,
-                        combo: true,
-                        comboSnackId: pickComboSnack(text),
-                        comboDrinkId: pickComboDrink(text),
-                        addonIds: pickAddons(text),
-                    })];
-                }
-            }
-            return { original: parsed.original || text, lines };
-        }
-        function addVoiceToCart(text) {
-            try {
-                const { lines } = linesFromSpeech(text);
-                if (!lines.length) {
-                    showVoiceDraft(text);
-                    return;
-                }
-                cart = cart.concat(lines);
-                stopVoiceEngine();
-                document.getElementById('voice-sheet').classList.remove('is-open');
-                voiceDraft = [];
-                renderCart();
-                flashCart();
-                const t = cartTotals();
-                const names = lines.map((l) => (l.qty || 1) + '× ' + (l.nameZh || l.nameEn)).join('、');
-                showToast('已加入 ' + names + '。小計 $' + t.sub + '，實收 $' + t.total);
-            } catch (err) {
-                alert('入購物車失敗：' + ((err && err.message) || err));
-            }
+                applyVoiceOrder(text);
+            }, 400);
         }
         function closeVoice() {
             clearTimeout(voiceFinishTimer);
+            voiceFinishTimer = null;
             stopVoiceEngine();
             document.getElementById('voice-sheet').classList.remove('is-open');
             voiceDraft = [];
@@ -824,7 +791,7 @@
             return compact(String(s || '').normalize('NFKC'))
                 .replace(/[\u200B-\u200D\uFEFF]/g, '')
                 .replace(/[^\u4e00-\u9fff0-9a-z]/g, '')
-                .replace(/我要|我想要|要一個|一個|兩個|两個|嘅|的|啦|呀|喎|咁|同埋|跟住|然後|然后/g, '')
+                .replace(/我要|我想要|要一個|一個|嘅|的|啦|呀|喎|咁|同埋|跟住|然後|然后/g, '')
                 .replace(/汉堡|漢飽|漢保|漢寶|漢堡包/g, '漢堡')
                 .replace(/薯条/g, '薯條')
                 .replace(/可乐|可樂/g, '可樂')
@@ -838,6 +805,11 @@
             if (map[n]) return map[n];
             const x = Number(n);
             return Number.isFinite(x) && x > 0 ? x : 1;
+        }
+        function parseQty(text) {
+            const t = String(text || '');
+            const m = t.match(/([一二兩三四五六七八九十两]|[1-9]|10)\s*(份|個|个|隻|只|客)/);
+            return m ? qtyWord(m[1]) : 1;
         }
         function aliasesFor(item) {
             const extra = {
@@ -887,12 +859,12 @@
         }
         function pickComboSnack(text) {
             const t = compact(text);
-            const big = /大|l份|l$/.test(t);
+            const big = /大薯條|薯條大|大份番薯|大蓮藕/.test(t);
             if (/番薯/.test(t)) return big ? 'cs6' : 'cs5';
             if (/蓮藕/.test(t)) return big ? 'cs4' : 'cs2';
             if (/雞翼|鸡翼/.test(t)) return 'cs7';
             if (/薯條|薯条|fries/.test(t)) return big ? 'cs3' : 'cs1';
-            return 'cs1';
+            return null;
         }
         function pickComboDrink(text) {
             const t = compact(text);
@@ -902,8 +874,10 @@
             if (/梳打/.test(t)) return 'cd3';
             if (/美式/.test(t)) return /凍|冰/.test(t) ? 'cd5c' : 'cd5h';
             if (/拿鐵|鮮奶咖啡|鲜奶咖啡|latte/.test(t)) return /凍|冰/.test(t) ? 'cd6c' : 'cd6h';
+            if (/朱古力咖啡|mocha/.test(t)) return /凍|冰/.test(t) ? 'cd7c' : 'cd7h';
+            if (/朱古力/.test(t)) return /凍|冰/.test(t) ? 'cd8c' : 'cd8h';
             if (/可樂|可乐|coke/.test(t)) return 'cd1';
-            return 'cd1';
+            return null;
         }
         function findLiveItem(id) {
             return menuItems.find((i) => i.id === id && !isSold(i)) || null;
@@ -914,7 +888,7 @@
                 ['b4', /墨辣.*(藍|蓝)|藍紋|蓝纹/],
                 ['b3', /墨辣|hottest/],
                 ['b2', /和牛|wagyu|321/],
-                ['b1', /經典|classic|芝士牛|芝士漢堡|cheeseburger|漢堡|套餐|burger/],
+                ['b1', /經典|classic|芝士牛|芝士漢堡|cheeseburger/],
                 ['c1', /水牛城|脆雞|chicken/],
                 ['v2', /三文魚|三文鱼|salmon/],
             ];
@@ -922,129 +896,65 @@
                 const item = findLiveItem(id);
                 if (item && re.test(t)) return item;
             }
+            if (/漢堡|burger/.test(t) && !/墨辣|和牛|雞|鸡|素/.test(t)) return findLiveItem('b1');
             return menuItems.find((i) => !isSold(i) && foldZh(i.name_zh || '').length >= 2 && t.includes(foldZh(i.name_zh))) || null;
         }
-        function lineFromItemOpts(item, opts) {
-            const prevItem = cfgItem;
-            const prevCfg = cfg;
-            cfgItem = item;
-            const sz = sizesOf(item);
-            let size = opts.size || null;
-            if (!size && sz.length) {
-                const wantBig = opts.big;
-                const labels = sz.map((s) => s.label || s.value);
-                size = wantBig ? (labels.find((l) => /L|大|5/.test(l)) || labels[labels.length - 1]) : labels[0];
-            }
-            cfg = {
-                size,
-                bun: isBurger(item) ? (opts.bun || 'Nissin Bun') : null,
-                spice: isSpicy(item) ? (opts.spice || 'Normal') : null,
-                temp: item.has_temp ? (opts.temp || 'Hot') : null,
-                addonIds: Array.isArray(opts.addonIds) ? opts.addonIds.slice() : [],
-                sauceIds: [],
-                combo: !!opts.combo,
-                comboSnackId: opts.comboSnackId || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
-                comboDrinkId: opts.comboDrinkId || (modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id),
-                qty: opts.qty || 1,
-            };
-            const line = buildLineFromCfg();
-            line.unit = unitOf({ menuId: item.id, unit: Number(item.price) || 0 });
-            cfgItem = prevItem;
-            cfg = prevCfg;
-            return line;
-        }
-        function parseVoice(text) {
+        function parseVoiceOrder(text) {
             const original = String(text || '').trim();
             const remaining = foldZh(original);
-            const wantCombo = /套餐|combo|薯條|可乐|可樂/.test(remaining + foldZh(original));
+            const wantCombo = /套餐|combo/.test(remaining);
             const bun = /生菜/.test(remaining) ? 'Lettuce Wrap' : 'Nissin Bun';
             const spice = /小辣|微辣/.test(remaining) ? 'Mild' : 'Normal';
             const temp = /凍|冻|冰/.test(remaining) ? 'Iced' : (/熱|热/.test(remaining) ? 'Hot' : null);
-            const big = /大薯條|薯條大|大杯|large/.test(remaining);
-            const comboSnackId = wantCombo ? pickComboSnack(original) : null;
-            const comboDrinkId = wantCombo ? pickComboDrink(original) : null;
-            const qtyMatch = original.match(/([一二兩三四五六七八九十两\d]+)\s*(份|個|个|隻|只)?/);
-            const qty = qtyMatch ? qtyWord(qtyMatch[1]) : 1;
+            const qty = parseQty(original);
             const live = menuItems.filter((i) => !isSold(i));
             const ranked = live.map((item) => ({ item, score: scoreItem(item, remaining) })).sort((a, b) => b.score - a.score);
-            let picked = ranked[0] && ranked[0].score >= 8 ? ranked[0].item : null;
+            let picked = ranked[0] && ranked[0].score >= 20 ? ranked[0].item : null;
             if (!picked) picked = guessItemByKeywords(original);
-            const lines = [];
-            if (picked) {
-                lines.push(lineFromItemOpts(picked, {
-                    qty: qty || 1, bun, spice, temp, big, combo: wantCombo && isBurger(picked),
-                    comboSnackId, comboDrinkId,
-                    addonIds: pickAddons(original),
-                }));
-            }
-            return { original, lines, leftover: remaining };
+            return {
+                original,
+                item: picked,
+                qty: qty || 1,
+                bun,
+                spice,
+                temp,
+                combo: !!(wantCombo && picked && isBurger(picked)),
+                comboSnackId: wantCombo ? pickComboSnack(original) : null,
+                comboDrinkId: wantCombo ? pickComboDrink(original) : null,
+                addonIds: pickAddons(original),
+            };
         }
-        function showVoiceDraft(text) {
-            let parsed;
+        function applyVoiceOrder(text) {
+            let order;
             try {
-                parsed = parseVoice(text);
+                order = parseVoiceOrder(text);
             } catch (err) {
-                parsed = { original: text, lines: [] };
-                console.warn('parseVoice', err);
-            }
-            voiceDraft = parsed.lines || [];
-            document.getElementById('voice-phase-listen').classList.add('hidden');
-            document.getElementById('voice-phase-review').classList.remove('hidden');
-            document.getElementById('voice-text').textContent = '聽到：' + (parsed.original || text || '（空白）');
-            const box = document.getElementById('voice-lines');
-            if (!voiceDraft.length) {
-                const t = foldZh(text);
-                const classic = findLiveItem('b1');
-                const looksClassic = classic && /漢堡|套餐|經典|芝士|beef|burger/.test(t);
-                if (looksClassic) {
-                    voiceDraft = [lineFromItemOpts(classic, {
-                        qty: 1, bun: 'Nissin Bun', spice: 'Normal', temp: null, big: false, combo: /套餐|薯條|可樂|combo/.test(t),
-                        comboSnackId: pickComboSnack(text), comboDrinkId: pickComboDrink(text), addonIds: [],
-                    })];
-                    box.innerHTML = `<p class="font-bold text-yellow-300 mb-2">聽得唔完整，當咗經典芝士牛肉${voiceDraft[0].comboSnackId ? '套餐' : ''}。唔啱就再講。</p>` +
-                        voiceDraft.map((line) =>
-                            `<div class="rounded-xl bg-neutral-900 border border-yellow-500 p-3">
-                                <div class="font-black">${line.qty}× ${escapeHtml(line.nameZh || line.nameEn)}</div>
-                                <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
-                            </div>`
-                        ).join('');
-                } else {
-                    box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，撳「再講」或者用手撳。講「經典芝士牛肉漢堡套餐」再試。</p>';
-                }
-            } else {
-                box.innerHTML = voiceDraft.map((line) =>
-                    `<div class="rounded-xl bg-neutral-900 border border-neutral-800 p-3">
-                        <div class="font-black">${line.qty}× ${escapeHtml(line.nameZh || line.nameEn)}</div>
-                        <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
-                    </div>`
-                ).join('');
-            }
-            const miss = document.getElementById('voice-miss');
-            miss.classList.toggle('hidden', !!voiceDraft.length);
-            miss.textContent = voiceDraft.length ? '' : '未加入任何項目';
-        }
-        function acceptVoice() {
-            if (!voiceDraft.length) {
-                alert('未認到餸，未有嘢入購物車。請再講，或者用手撳。');
+                alert('語音辨識失敗：' + ((err && err.message) || err));
                 return;
             }
-            const added = voiceDraft.slice();
-            cart = cart.concat(added);
-            closeVoice();
-            renderCart();
-            flashCart();
-            const names = added.map((l) => (l.qty || 1) + '× ' + (l.nameZh || l.nameEn)).join('、');
-            showToast('已放入購物車：' + names);
-        }
-        async function confirmVoicePay(payMethod) {
-            if (!voiceDraft.length) {
-                alert('未認到餸，未有入單。請再講，或者用手撳餸之後先收款。');
+            if (!order.item) {
+                const live = document.getElementById('voice-live');
+                if (live) live.textContent = '聽到「' + (order.original || '') + '」，認唔到餸。再講一次，或者取消之後用手撳。';
+                voiceWanted = true;
+                beginRec();
                 return;
             }
-            cart = cart.concat(voiceDraft);
             closeVoice();
-            renderCart();
-            await charge(payMethod, true);
+            openCfg(order.item.id, null, {
+                qty: order.qty,
+                bun: order.bun,
+                spice: order.spice,
+                temp: order.temp,
+                addonIds: order.addonIds,
+                combo: order.combo,
+                comboSnackId: order.comboSnackId,
+                comboDrinkId: order.comboDrinkId,
+            });
+            const needSides = order.combo && (!order.comboSnackId || !order.comboDrinkId);
+            showToast(
+                '聽到：' + order.original +
+                (needSides ? '　套餐，請揀小食同飲品，再撳加入' : '　核對之後撳加入')
+            );
         }
 
         async function charge(payMethod, skipConfirm) {
