@@ -14,22 +14,27 @@
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
-        .chip-btn { min-height:40px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
+        .chip-btn { min-height:44px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
         .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
-        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:12px; min-height:84px; cursor:pointer; }
+        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:8px; min-height:84px; cursor:pointer; }
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
         .pay-btn:disabled { opacity:.45; }
+        .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
         .ticket-no { font-size:clamp(42px, 12vw, 88px); line-height:1; font-weight:900; letter-spacing:-.04em; }
+        @media (max-width: 767px) {
+            #pos-cart { max-height: 46vh; }
+            #pos-menu { padding-bottom: 8px; }
+        }
     </style>
 </head>
 <body class="antialiased">
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17c</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17d</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -40,13 +45,14 @@
         </form>
     </div>
 
-    <div id="pos-app" class="hidden min-h-dvh flex flex-col">
+    <div id="pos-app" class="hidden h-dvh flex flex-col overflow-hidden">
         <header class="sticky top-0 z-40 bg-black/95 border-b border-neutral-800 px-3 py-2">
             <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
                     <div class="text-sm font-black text-yellow-400">測試 POS</div>
                     <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
                 </div>
+                <button type="button" id="mic-btn" class="chip-btn mic-btn" onclick="toggleVoice()">講單</button>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
@@ -57,14 +63,14 @@
             </div>
         </header>
 
-        <main class="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px]">
-            <section class="p-3">
+        <main class="flex-1 grid grid-cols-1 md:grid-cols-[1fr_340px] min-h-0">
+            <section id="pos-menu" class="p-3 min-h-0 overflow-auto">
                 <input id="menu-search" type="search" placeholder="搜尋餸名" oninput="renderMenu()"
                     class="w-full mb-2 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
-                <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+                <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2"></div>
             </section>
-            <aside class="border-t lg:border-t-0 lg:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950">
+            <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-auto">
                 <div class="grid grid-cols-2 gap-1">
                     <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')">即取</button>
                     <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
@@ -84,6 +90,22 @@
                 <button type="button" class="chip-btn w-full" onclick="clearCart()">清空</button>
             </aside>
         </main>
+    </div>
+
+    <div id="voice-sheet" class="sheet" onclick="if(event.target===this) closeVoice()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">語音草稿</h3>
+                <button type="button" class="chip-btn" onclick="closeVoice()">關閉</button>
+            </div>
+            <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
+            <div id="voice-lines" class="space-y-2"></div>
+            <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
+            <div class="grid grid-cols-2 gap-2 mt-4">
+                <button type="button" class="chip-btn min-h-[48px]" onclick="closeVoice()">唔要</button>
+                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="acceptVoice()">加入購物車</button>
+            </div>
+        </div>
     </div>
 
     <div id="cfg-sheet" class="sheet" onclick="if(event.target===this) closeCfg()">
@@ -179,8 +201,30 @@
 
         function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
         function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
-        function escapeHtml(str) {
-            return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        function itemImg(item) {
+            return (item && (item.img || item.image_url)) || '';
+        }
+        function cloudinaryUrl(url, width) {
+            if (!url || typeof url !== 'string') return '';
+            const marker = '/image/upload/';
+            const idx = url.indexOf(marker);
+            if (idx === -1) return url;
+            const prefix = url.slice(0, idx + marker.length);
+            const parts = url.slice(idx + marker.length).split('/');
+            let assetStart = 0;
+            while (assetStart < parts.length - 1 && !/^v\d+$/.test(parts[assetStart])) assetStart += 1;
+            const assetPath = parts.slice(assetStart).join('/');
+            const w = Number(width);
+            const tx = Number.isFinite(w) && w > 0 ? `c_limit,w_${Math.round(w)}/f_auto/q_auto` : 'f_auto/q_auto';
+            return `${prefix}${tx}/${assetPath}`;
+        }
+        function thumbHtml(item) {
+            const url = itemImg(item);
+            if (!url) {
+                return `<div class="h-20 rounded-lg bg-neutral-800 flex items-center justify-center text-[10px] font-black text-yellow-400">MB</div>`;
+            }
+            const src = cloudinaryUrl(url, 320);
+            return `<div class="h-20 rounded-lg bg-neutral-800 overflow-hidden mb-1"><img src="${src}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async"></div>`;
         }
         function sizesOf(item) { return Array.isArray(item && item.sizes) ? item.sizes : []; }
         function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
@@ -457,8 +501,9 @@
             grid.innerHTML = rows.map((item) => {
                 const sold = isSold(item);
                 return `<button type="button" class="item-btn ${sold ? 'opacity-40' : ''}" ${sold ? 'disabled' : ''} onclick="openCfg('${escapeHtml(item.id)}')">
-                    <div class="font-black leading-tight">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
-                    <div class="text-sm font-bold text-neutral-400 mt-1">$${Number(item.price)||0}${sold ? ' · 賣晒' : ''}</div>
+                    ${thumbHtml(item)}
+                    <div class="font-black leading-tight text-sm">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
+                    <div class="text-sm font-bold text-neutral-400 mt-0.5">$${Number(item.price)||0}${sold ? ' · 賣晒' : ''}</div>
                 </button>`;
             }).join('');
         }
@@ -535,6 +580,177 @@
                 pay_method: o.pay_method,
                 pickup_time: o.pickup_time,
             }, Array.isArray(o.items_json) ? o.items_json : []);
+        }
+
+        let voiceRec = null;
+        let voiceListening = false;
+        let voiceDraft = [];
+
+        function compact(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+        function qtyWord(n) {
+            const map = { '一':1,'二':2,'兩':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
+            if (map[n]) return map[n];
+            const x = Number(n);
+            return Number.isFinite(x) && x > 0 ? x : 1;
+        }
+        function aliasesFor(item) {
+            const extra = {
+                b1: ['經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉'],
+                b3: ['墨辣芝士牛肉','墨辣牛肉','墨辣漢堡'],
+                b4: ['墨辣藍紋','藍紋芝士牛肉'],
+                b2: ['和牛','wagyu'],
+                v1: ['素食','素漢堡'],
+            };
+            return [item.name_zh, item.name_en, item.id].concat(extra[item.id] || []).filter(Boolean);
+        }
+        function pickComboSnack(text) {
+            const t = compact(text);
+            const big = /大|l份|l$/.test(t);
+            if (/番薯/.test(t)) return big ? 'cs6' : 'cs5';
+            if (/蓮藕/.test(t)) return big ? 'cs4' : 'cs2';
+            if (/雞翼|鸡翼/.test(t)) return 'cs7';
+            if (/薯條|薯条|fries/.test(t)) return big ? 'cs3' : 'cs1';
+            return 'cs1';
+        }
+        function pickComboDrink(text) {
+            const t = compact(text);
+            if (/零糖|無糖|无糖|zero/.test(t)) return 'cd1a';
+            if (/忌廉/.test(t)) return 'cd2';
+            if (/檸茶|柠茶/.test(t)) return 'cd4';
+            if (/梳打/.test(t)) return 'cd3';
+            if (/美式/.test(t)) return /凍|冰/.test(t) ? 'cd5c' : 'cd5h';
+            if (/拿鐵|鮮奶咖啡|鲜奶咖啡|latte/.test(t)) return /凍|冰/.test(t) ? 'cd6c' : 'cd6h';
+            if (/可樂|可乐|coke/.test(t)) return 'cd1';
+            return 'cd1';
+        }
+        function lineFromItemOpts(item, opts) {
+            const prevItem = cfgItem;
+            const prevCfg = cfg;
+            cfgItem = item;
+            const sz = sizesOf(item);
+            let size = opts.size || null;
+            if (!size && sz.length) {
+                const wantBig = opts.big;
+                const labels = sz.map((s) => s.label || s.value);
+                size = wantBig ? (labels.find((l) => /L|大|5/.test(l)) || labels[labels.length - 1]) : labels[0];
+            }
+            cfg = {
+                size,
+                bun: isBurger(item) ? (opts.bun || 'Nissin Bun') : null,
+                spice: isSpicy(item) ? (opts.spice || 'Normal') : null,
+                temp: item.has_temp ? (opts.temp || 'Hot') : null,
+                addonIds: [],
+                sauceIds: [],
+                combo: !!opts.combo,
+                comboSnackId: opts.comboSnackId || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
+                comboDrinkId: opts.comboDrinkId || (modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id),
+                qty: opts.qty || 1,
+            };
+            const line = buildLineFromCfg();
+            cfgItem = prevItem;
+            cfg = prevCfg;
+            return line;
+        }
+        function parseVoice(text) {
+            const original = String(text || '').trim();
+            let remaining = compact(original);
+            const wantCombo = /套餐|combo/.test(remaining);
+            const bun = /生菜/.test(remaining) ? 'Lettuce Wrap' : 'Nissin Bun';
+            const spice = /小辣|微辣/.test(remaining) ? 'Mild' : 'Normal';
+            const temp = /凍|冻|冰/.test(remaining) ? 'Iced' : (/熱|热/.test(remaining) ? 'Hot' : null);
+            const big = /大薯條|薯條大|大杯|large/.test(remaining);
+            const comboSnackId = wantCombo ? pickComboSnack(original) : null;
+            const comboDrinkId = wantCombo ? pickComboDrink(original) : null;
+            const ranked = menuItems.filter((i) => !isSold(i)).slice().sort((a, b) => {
+                const la = Math.max(...aliasesFor(a).map((n) => compact(n).length));
+                const lb = Math.max(...aliasesFor(b).map((n) => compact(n).length));
+                return lb - la;
+            });
+            const lines = [];
+            for (const item of ranked) {
+                const names = aliasesFor(item).map(compact).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
+                for (const name of names) {
+                    const idx = remaining.indexOf(name);
+                    if (idx === -1) continue;
+                    const before = remaining.slice(Math.max(0, idx - 2), idx);
+                    const qm = before.match(/([一二兩三四五六七八九十两\d])$/);
+                    const qty = qm ? qtyWord(qm[1]) : 1;
+                    lines.push(lineFromItemOpts(item, {
+                        qty, bun, spice, temp, big, combo: wantCombo && isBurger(item),
+                        comboSnackId, comboDrinkId,
+                    }));
+                    remaining = remaining.replace(name, '，');
+                    break;
+                }
+            }
+            return { original, lines, leftover: remaining };
+        }
+        function setMic(on) {
+            voiceListening = on;
+            const btn = document.getElementById('mic-btn');
+            if (!btn) return;
+            btn.classList.toggle('is-on', on);
+            btn.textContent = on ? '聽緊…' : '講單';
+        }
+        function toggleVoice() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                alert('呢部機嘅瀏覽器唔支援語音。商米／Android 請用 Chrome 打開本頁。');
+                return;
+            }
+            if (voiceListening && voiceRec) {
+                try { voiceRec.stop(); } catch (_) {}
+                return;
+            }
+            voiceRec = new SR();
+            voiceRec.lang = 'zh-HK';
+            voiceRec.interimResults = false;
+            voiceRec.maxAlternatives = 1;
+            voiceRec.onresult = (ev) => {
+                const text = ev.results && ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript;
+                if (text) showVoiceDraft(text);
+            };
+            voiceRec.onerror = (ev) => {
+                setMic(false);
+                if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
+                    alert('語音失敗：' + (ev.error || 'unknown') + '\n可試再講一次，或改用手撳。');
+                }
+            };
+            voiceRec.onend = () => setMic(false);
+            try {
+                voiceRec.start();
+                setMic(true);
+            } catch (err) {
+                setMic(false);
+                alert('開唔到咪：' + (err.message || err));
+            }
+        }
+        function showVoiceDraft(text) {
+            const parsed = parseVoice(text);
+            voiceDraft = parsed.lines;
+            document.getElementById('voice-text').textContent = '聽到：' + parsed.original;
+            const box = document.getElementById('voice-lines');
+            if (!voiceDraft.length) {
+                box.innerHTML = '<p class="font-bold text-neutral-400">認唔到餸，請再講清楚名，或者用手撳。</p>';
+            } else {
+                box.innerHTML = voiceDraft.map((line) =>
+                    `<div class="rounded-xl bg-neutral-900 border border-neutral-800 p-3">
+                        <div class="font-black">${line.qty}× ${escapeHtml(line.nameZh || line.nameEn)}</div>
+                        <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
+                    </div>`
+                ).join('');
+            }
+            const miss = document.getElementById('voice-miss');
+            miss.classList.toggle('hidden', !!voiceDraft.length);
+            miss.textContent = voiceDraft.length ? '' : '未加入任何項目';
+            document.getElementById('voice-sheet').classList.add('is-open');
+        }
+        function closeVoice() { document.getElementById('voice-sheet').classList.remove('is-open'); voiceDraft = []; }
+        function acceptVoice() {
+            if (!voiceDraft.length) return closeVoice();
+            cart = cart.concat(voiceDraft);
+            closeVoice();
+            renderCart();
         }
 
         async function charge(payMethod) {
