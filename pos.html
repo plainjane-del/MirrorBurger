@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MB POS">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="manifest" href="/pos-manifest.json">
+    <title>Mirror Burger | 測試 POS</title>
+    <link href="./output.css?v=2.0" rel="stylesheet">
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            background: #0a0a0a;
+            color: #f5f5f5;
+            font-family: "Avenir Next", "Helvetica Neue", "PingFang HK", "Noto Sans TC", sans-serif;
+            min-height: 100dvh;
+        }
+        .chip-btn {
+            min-height: 40px;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 0 12px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #e5e5e5;
+        }
+        .chip-btn.is-active { background: #FFD131; color: #0a0a0a; border-color: #FFD131; }
+        .item-btn {
+            text-align: left;
+            border: 1px solid #333;
+            background: #171717;
+            border-radius: 14px;
+            padding: 12px;
+            min-height: 88px;
+            cursor: pointer;
+        }
+        .item-btn:disabled { opacity: 0.4; }
+        .pay-btn {
+            min-height: 52px;
+            font-weight: 900;
+            border-radius: 14px;
+            font-size: 15px;
+        }
+        .pay-btn:disabled { opacity: 0.45; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
+        <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
+            <div class="text-center space-y-2">
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17</p>
+                <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
+                <p class="text-sm font-bold text-neutral-400">用廚房密碼登入。客人網站唔會受影響。</p>
+                <p class="text-xs font-bold text-neutral-500 leading-relaxed">iPad：Safari 打開本頁 → 分享 →「加入主畫面」</p>
+            </div>
+            <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
+                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
+            <p id="pos-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
+            <button type="submit" id="pos-login-btn" class="w-full rounded-2xl bg-yellow-400 text-black py-4 text-base font-black">進入 POS</button>
+        </form>
+    </div>
+
+    <div id="pos-app" class="hidden min-h-dvh flex flex-col">
+        <header class="sticky top-0 z-40 bg-black/95 border-b border-neutral-800 px-3 py-2">
+            <div class="flex items-center gap-2">
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-black text-yellow-400">測試 POS</div>
+                    <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
+                </div>
+                <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
+            </div>
+            <div class="mt-2 grid grid-cols-3 gap-1">
+                <button type="button" class="chip-btn is-active" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
+                <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
+                <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
+            </div>
+        </header>
+
+        <main class="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px]">
+            <section class="p-3">
+                <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
+                <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+            </section>
+            <aside class="border-t lg:border-t-0 lg:border-l border-neutral-800 p-3 flex flex-col gap-3 bg-neutral-950">
+                <h2 class="text-base font-black">呢單</h2>
+                <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
+                <input id="order-note" type="text" maxlength="40" placeholder="備註，例如少冰／唔要青（選填）"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
+                <div id="cart-list" class="flex-1 min-h-[160px] space-y-2 overflow-y-auto"></div>
+                <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
+                <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" class="pay-btn bg-emerald-600" onclick="charge('cash')">現金</button>
+                    <button type="button" class="pay-btn bg-sky-600" onclick="charge('fps')">轉數快</button>
+                    <button type="button" class="pay-btn bg-violet-600" onclick="charge('payme')">PayMe</button>
+                </div>
+                <button type="button" class="chip-btn w-full" onclick="clearCart()">清空</button>
+            </aside>
+        </main>
+    </div>
+
+    <script>
+        const TOKEN_KEY = 'mb_kds_token';
+        const CATS = [
+            { id: 'beef', label: '牛肉' },
+            { id: 'others', label: '其他' },
+            { id: 'veggie', label: '素食' },
+            { id: 'snacks', label: '小食' },
+            { id: 'drinks', label: '飲品' },
+            { id: 'sauces', label: '醬汁' },
+        ];
+        const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe' };
+        let token = '';
+        let currentStore = 'Sai Ying Pun';
+        let currentCat = 'beef';
+        let menuItems = [];
+        let cart = [];
+        let charging = false;
+
+        function getToken() {
+            return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token;
+        }
+        function saveToken(value) {
+            token = value;
+            localStorage.setItem(TOKEN_KEY, value);
+            sessionStorage.setItem(TOKEN_KEY, value);
+        }
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function posApi(payload) {
+            const res = await fetch('/api/kitchen-menu', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + getToken(),
+                },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        async function submitPosLogin(event) {
+            event.preventDefault();
+            const btn = document.getElementById('pos-login-btn');
+            const err = document.getElementById('pos-login-error');
+            btn.disabled = true;
+            err.classList.add('hidden');
+            try {
+                const res = await fetch('/api/kitchen-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: document.getElementById('pos-password').value }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || '密碼錯誤');
+                saveToken(data.token);
+                await bootPos();
+            } catch (e) {
+                err.textContent = e.message || '登入失敗';
+                err.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+            }
+            return false;
+        }
+
+        function logoutPos() {
+            localStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(TOKEN_KEY);
+            location.reload();
+        }
+
+        function selectStore(btn) {
+            currentStore = btn.dataset.branch;
+            document.querySelectorAll('[data-branch]').forEach((el) => el.classList.toggle('is-active', el === btn));
+        }
+
+        function itemSizes(item) {
+            return Array.isArray(item.sizes) ? item.sizes : [];
+        }
+
+        function defaultSize(item) {
+            const sizes = itemSizes(item);
+            return sizes.length ? (sizes[0].label || sizes[0].value || null) : null;
+        }
+
+        function lineKey(menuId, size) {
+            return menuId + '::' + (size || '');
+        }
+
+        function addItem(item, size) {
+            if (item.is_sold_out) return;
+            const chosen = size || defaultSize(item);
+            if (itemSizes(item).length && !chosen) return;
+            const key = lineKey(item.id, chosen);
+            const existing = cart.find((c) => c.key === key);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                const details = [];
+                if (chosen) details.push('份量: ' + chosen);
+                if (['beef', 'others', 'veggie'].includes(item.category)) details.push('生菜包');
+                cart.push({
+                    key,
+                    menuId: item.id,
+                    nameEn: item.name_en,
+                    nameZh: item.name_zh,
+                    size: chosen,
+                    qty: 1,
+                    addonIds: [],
+                    sauceIds: [],
+                    detailsEn: chosen ? ('Size: ' + chosen) : '',
+                    detailsZh: details.join(' • '),
+                    unit: Number(item.price) || 0,
+                });
+            }
+            renderCart();
+        }
+
+        function changeQty(key, delta) {
+            const line = cart.find((c) => c.key === key);
+            if (!line) return;
+            line.qty += delta;
+            if (line.qty <= 0) cart = cart.filter((c) => c.key !== key);
+            renderCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            renderCart();
+        }
+
+        function displayTotal() {
+            const sub = cart.reduce((sum, line) => sum + line.unit * line.qty, 0);
+            const hasCombo = false;
+            let discount = 0;
+            if (currentStore === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(sub * 0.15);
+            else if (sub >= 120) discount = Math.floor(sub * 0.10);
+            return { sub, discount, total: sub - discount };
+        }
+
+        function renderCart() {
+            const list = document.getElementById('cart-list');
+            if (!cart.length) {
+                list.innerHTML = '<p class="text-neutral-500 font-bold py-8 text-center">撳左邊加餸</p>';
+            } else {
+                list.innerHTML = cart.map((line) => `
+                    <div class="rounded-xl bg-neutral-900 border border-neutral-800 p-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="font-black truncate">${escapeHtml(line.nameZh || line.nameEn)}</div>
+                                <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" class="chip-btn px-2" onclick="changeQty('${line.key}', -1)">−</button>
+                                <span class="font-black w-5 text-center">${line.qty}</span>
+                                <button type="button" class="chip-btn px-2" onclick="changeQty('${line.key}', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            const priced = displayTotal();
+            document.getElementById('price-break').textContent =
+                priced.discount ? `小計 $${priced.sub} · 折扣 −$${priced.discount}（以伺服器核價為準）` : `小計 $${priced.sub}（以伺服器核價為準）`;
+            document.getElementById('cart-total').textContent = '$' + priced.total;
+        }
+
+        function renderCats() {
+            document.getElementById('cat-tabs').innerHTML = CATS.map((c) => `
+                <button type="button" class="chip-btn shrink-0 ${currentCat === c.id ? 'is-active' : ''}" onclick="setCat('${c.id}')">${c.label}</button>
+            `).join('');
+        }
+
+        function setCat(id) {
+            currentCat = id;
+            renderCats();
+            renderMenu();
+        }
+
+        function renderMenu() {
+            const rows = menuItems.filter((i) => (i.category || '') === currentCat);
+            const grid = document.getElementById('menu-grid');
+            if (!rows.length) {
+                grid.innerHTML = '<p class="col-span-full text-center font-bold text-neutral-500 py-10">呢類暫時冇嘢</p>';
+                return;
+            }
+            grid.innerHTML = rows.map((item) => {
+                const sold = !!item.is_sold_out;
+                const sizes = itemSizes(item);
+                const id = escapeHtml(item.id);
+                const sizeHtml = sizes.length
+                    ? `<div class="mt-2 flex flex-wrap gap-1">${sizes.map((s) => {
+                        const label = String(s.label || s.value || '');
+                        return `<button type="button" class="chip-btn text-[11px] min-h-[32px]" ${sold ? 'disabled' : ''} onclick="addItemById('${id}', '${escapeHtml(label)}')">${escapeHtml(label)}</button>`;
+                    }).join('')}</div>`
+                    : '';
+                const tap = sold || sizes.length ? '' : `onclick="addItemById('${id}')"`;
+                return `
+                    <div class="item-btn ${sold ? 'opacity-40' : ''}" ${tap}>
+                        <div class="font-black leading-tight">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
+                        <div class="text-sm font-bold text-neutral-400 mt-1">$${Number(item.price) || 0}${sold ? ' · 賣晒' : ''}</div>
+                        ${sizeHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addItemById(id, size) {
+            const item = menuItems.find((i) => i.id === id);
+            if (item) addItem(item, size || null);
+        }
+
+        async function loadMenu() {
+            const data = await posApi({ action: 'list' });
+            menuItems = data.items || [];
+            renderCats();
+            renderMenu();
+            renderCart();
+        }
+
+        async function charge(payMethod) {
+            if (charging || !cart.length) return;
+            charging = true;
+            try {
+                const items = cart.map((line) => ({
+                    menuId: line.menuId,
+                    nameEn: line.nameEn,
+                    nameZh: line.nameZh,
+                    size: line.size || null,
+                    qty: line.qty,
+                    addonIds: [],
+                    sauceIds: [],
+                    detailsEn: line.detailsEn,
+                    detailsZh: line.detailsZh,
+                }));
+                const data = await posApi({
+                    action: 'create_pos_order',
+                    store_name: currentStore,
+                    pay_method: payMethod,
+                    customer_name: document.getElementById('guest-name').value.trim(),
+                    note: document.getElementById('order-note').value.trim(),
+                    items,
+                });
+                document.getElementById('last-ticket').textContent =
+                    `#${data.orderNo} · ${PAY_LABEL[payMethod]} · $${data.total} 已入廚房`;
+                clearCart();
+                document.getElementById('guest-name').value = '';
+                document.getElementById('order-note').value = '';
+                alert('已入單 #' + data.orderNo + '　$' + data.total + '\n廚房而家應該見到。');
+            } catch (err) {
+                alert('入單失敗：' + (err.message || err));
+            } finally {
+                charging = false;
+            }
+        }
+
+        async function bootPos() {
+            document.getElementById('pos-lock').classList.add('hidden');
+            document.getElementById('pos-app').classList.remove('hidden');
+            await loadMenu();
+        }
+
+        window.onload = async () => {
+            const existing = getToken();
+            if (!existing) return;
+            try {
+                const res = await fetch('/api/kitchen-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: existing }),
+                });
+                if (!res.ok) return;
+                const data = await res.json().catch(() => ({}));
+                if (data.token) saveToken(data.token);
+                await bootPos();
+            } catch (_) {}
+        };
+    </script>
+</body>
+</html>

@@ -294,6 +294,102 @@ async function createPendingOrder(input) {
     throw lastError || new Error('Failed to create order');
 }
 
+const POS_PAY_METHODS = new Set(['cash', 'fps', 'payme']);
+
+async function insertOrderWithFallback(row) {
+    try {
+        return await sbRest('orders', { method: 'POST', body: JSON.stringify(row) });
+    } catch (err) {
+        const msg = String(err.message || '');
+        let next = { ...row };
+        if (/channel|pay_method/i.test(msg)) {
+            delete next.channel;
+            delete next.pay_method;
+            try {
+                return await sbRest('orders', { method: 'POST', body: JSON.stringify(next) });
+            } catch (err2) {
+                const msg2 = String(err2.message || '');
+                if (/status/i.test(msg2) && next.status) {
+                    delete next.status;
+                    return await sbRest('orders', { method: 'POST', body: JSON.stringify(next) });
+                }
+                throw err2;
+            }
+        }
+        if (/status/i.test(msg) && row.status) {
+            delete next.status;
+            return await sbRest('orders', { method: 'POST', body: JSON.stringify(next) });
+        }
+        throw err;
+    }
+}
+
+async function createPosOrder(input) {
+    const storeName = clip(input && input.store_name, 80);
+    if (!KNOWN_STORES.includes(storeName)) {
+        const err = new Error('Invalid store');
+        err.status = 400;
+        throw err;
+    }
+    const payMethod = clip(input && input.pay_method, 20).toLowerCase();
+    if (!POS_PAY_METHODS.has(payMethod)) {
+        const err = new Error('Invalid pay_method (cash / fps / payme)');
+        err.status = 400;
+        throw err;
+    }
+    const items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
+    if (!items.length) {
+        const err = new Error('No items');
+        err.status = 400;
+        throw err;
+    }
+    const customerName = clip(input && input.customer_name, 80) || '店取客人';
+    const note = clip(input && input.note, 80);
+    const pickupTime = note ? `即取 · ${note}` : '即取';
+
+    const priced = await recalculateOrderTotal({
+        store_name: storeName,
+        items_json: items,
+    });
+
+    let lastError = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const orderNo = generateOrderNo();
+        try {
+            const saved = await insertOrderWithFallback({
+                order_no: orderNo,
+                store_name: storeName,
+                customer_name: customerName,
+                customer_phone: 'POS',
+                pickup_time: pickupTime,
+                items_json: items,
+                total_amount: priced.total,
+                payment_status: 'PAID',
+                status: 'PAID',
+                channel: 'pos',
+                pay_method: payMethod,
+            });
+            const row = Array.isArray(saved) ? saved[0] : saved;
+            const order = (await getOrderByNo(orderNo)) || row;
+            await notifyOrderPaid(order).catch((err) => {
+                console.error('POS notifyOrderPaid failed:', err);
+            });
+            return {
+                orderNo: (row && row.order_no) || orderNo,
+                total: priced.total,
+                subtotal: priced.subtotal,
+                discount: priced.discount,
+                pay_method: payMethod,
+            };
+        } catch (err) {
+            lastError = err;
+            const msg = String(err.message || '');
+            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+        }
+    }
+    throw lastError || new Error('Failed to create POS order');
+}
+
 async function getPublicOrderStatus(orderNo) {
     const no = clip(orderNo, 32);
     if (!no) return null;
@@ -320,11 +416,21 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
         'payment_status',
         'status',
         'store_name',
+        'channel',
+        'pay_method',
         'created_at',
     ].join(',');
     let path = `orders?store_name=eq.${encodeURIComponent(store)}&select=${select}&order=created_at.desc&limit=${Number(limit) || 200}`;
     if (since) path += `&created_at=gte.${encodeURIComponent(since)}`;
-    return sbRest(path);
+    try {
+        return await sbRest(path);
+    } catch (err) {
+        if (!/channel|pay_method/i.test(String(err.message || ''))) throw err;
+        const legacy = select.replace(',channel,pay_method', '');
+        let fallback = `orders?store_name=eq.${encodeURIComponent(store)}&select=${legacy}&order=created_at.desc&limit=${Number(limit) || 200}`;
+        if (since) fallback += `&created_at=gte.${encodeURIComponent(since)}`;
+        return sbRest(fallback);
+    }
 }
 
 module.exports = {
@@ -333,6 +439,7 @@ module.exports = {
     updateOrderTotalAmount,
     updateKitchenOrderStatus,
     createPendingOrder,
+    createPosOrder,
     getPublicOrderStatus,
     listKitchenOrders,
     startOfTodayHkIso,

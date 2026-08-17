@@ -1,6 +1,6 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus } = require('./_orders.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder } = require('./_orders.js');
 const { setStoreOpen } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -8,7 +8,7 @@ const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, create_pos_order
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -69,6 +69,17 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ error: `Invalid status (allowed: ${[...ALLOWED_STATUS].join(', ')})` });
             }
             const result = await updateKitchenOrderStatus(orderNo, status);
+            return res.status(200).json({ ok: true, ...result });
+        }
+
+        if (action === 'create_pos_order') {
+            const result = await createPosOrder({
+                store_name: body.store_name,
+                pay_method: body.pay_method,
+                customer_name: body.customer_name,
+                note: body.note,
+                items: body.items,
+            });
             return res.status(200).json({ ok: true, ...result });
         }
 

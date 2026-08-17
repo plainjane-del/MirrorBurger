@@ -1,0 +1,26 @@
+{
+  "name": "Mirror Burger POS",
+  "short_name": "MB POS",
+  "description": "Mirror Burger in-store test POS",
+  "lang": "zh-HK",
+  "start_url": "/pos.html?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_192,h_192,b_black/v1777801810/logo_only_kqxyfg.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://res.cloudinary.com/dnuhe2uwy/image/upload/c_pad,w_512,h_512,b_black/v1777801810/logo_only_kqxyfg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

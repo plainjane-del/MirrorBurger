@@ -1162,6 +1162,7 @@
                             <div>
                                 <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
                                 <div class="text-xl font-black text-white tracking-tight">#${orderNo}</div>
+                                ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">店內 POS</div>' : ''}
                                 <div class="text-lg font-black text-kds-yellow">${amount}</div>
                             </div>
                             <div class="text-right">
