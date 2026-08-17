@@ -42,7 +42,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17k</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17l</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -649,6 +649,7 @@
         let voiceFinishTimer = null;
         let voiceBusy = false;
         let voiceJob = null;
+        let voiceResumeToken = 0;
         let toastTimer = null;
 
         const SNACK_KIND = {
@@ -691,10 +692,34 @@
             const text = (voiceFinal + (voiceInterim ? ' ' + voiceInterim : '')).trim();
             live.textContent = text || '聽緊咪高峰…你可以慢慢講。';
         }
-        function stopVoiceEngine() {
+        function pauseListen() {
             voiceWanted = false;
             try { if (voiceRec) voiceRec.stop(); } catch (_) {}
             voiceRec = null;
+        }
+        function resumeListen(msg) {
+            if (!document.getElementById('voice-sheet').classList.contains('is-open')) return;
+            clearVoiceBuffer();
+            const live = document.getElementById('voice-live');
+            if (live) live.textContent = msg || '而家輪到你講。講完撳大紅掣。';
+            voiceWanted = true;
+            const btn = document.getElementById('mic-btn');
+            if (btn) {
+                btn.classList.add('is-on');
+                btn.textContent = '聽緊… 講完入去撳「講完呢句」';
+            }
+            beginRec();
+        }
+        function scheduleResumeListen(ms, msg) {
+            const token = ++voiceResumeToken;
+            setTimeout(() => {
+                if (token !== voiceResumeToken) return;
+                resumeListen(msg);
+            }, ms);
+        }
+        function stopVoiceEngine() {
+            voiceResumeToken += 1;
+            pauseListen();
             const btn = document.getElementById('mic-btn');
             if (btn) {
                 btn.classList.remove('is-on');
@@ -702,19 +727,37 @@
             }
             try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
         }
-        function speakAsk(text) {
+        function speakAskThenListen(text) {
+            pauseListen();
+            const live = document.getElementById('voice-live');
+            if (live) live.textContent = '問緊你，請等我講完再答。';
+            let settled = false;
+            const done = () => {
+                if (settled) return;
+                settled = true;
+                scheduleResumeListen(500, '而家輪到你講。講完撳大紅掣。');
+            };
             try {
-                if (!window.speechSynthesis) return;
+                if (!window.speechSynthesis) {
+                    done();
+                    return;
+                }
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'zh-HK';
-                u.rate = 1.05;
+                u.rate = 1.02;
+                u.onend = done;
+                u.onerror = done;
                 window.speechSynthesis.speak(u);
-            } catch (_) {}
+                setTimeout(done, 9000);
+            } catch (_) {
+                done();
+            }
         }
         function beginRec() {
             const SR = speechEngine();
             if (!SR || !voiceWanted) return;
+            if (voiceRec) return;
             const rec = new SR();
             voiceRec = rec;
             rec.lang = 'zh-HK';
@@ -722,6 +765,7 @@
             rec.interimResults = true;
             rec.maxAlternatives = 5;
             rec.onresult = (ev) => {
+                if (!voiceWanted) return;
                 let interim = '';
                 for (let i = ev.resultIndex; i < ev.results.length; i++) {
                     const row = ev.results[i];
@@ -740,19 +784,21 @@
             };
             rec.onerror = (ev) => {
                 if (!voiceWanted) return;
-                if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+                if (ev.error === 'no-speech' || ev.error === 'aborted' || ev.error === 'network') return;
                 if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
                     stopVoiceEngine();
                     alert('請允許咪高峰。iPhone 要用 Safari 打開本頁；商米用 Chrome。');
                 }
             };
             rec.onend = () => {
-                if (voiceWanted) setTimeout(beginRec, 120);
+                if (voiceRec === rec) voiceRec = null;
+                if (voiceWanted && !voiceRec) setTimeout(beginRec, 160);
             };
             try {
                 rec.start();
             } catch (_) {
-                setTimeout(beginRec, 250);
+                voiceRec = null;
+                if (voiceWanted) setTimeout(beginRec, 280);
             }
         }
         function resetVoiceAskUi() {
@@ -772,31 +818,35 @@
             voiceFinishTimer = null;
             voiceBusy = false;
             voiceJob = null;
+            voiceResumeToken += 1;
             clearVoiceBuffer();
             resetVoiceAskUi();
             document.getElementById('voice-sheet').classList.add('is-open');
-            voiceWanted = true;
-            const btn = document.getElementById('mic-btn');
-            if (btn) {
-                btn.classList.add('is-on');
-                btn.textContent = '聽緊… 講完入去撳「講完呢句」';
-            }
-            beginRec();
+            resumeListen('聽緊。講完成句就撳「講完呢句」。');
         }
         function finishVoice() {
             if (voiceBusy) return;
+            if (!document.getElementById('voice-sheet').classList.contains('is-open')) return;
             voiceBusy = true;
             const snap = voiceHeardText();
             const live = document.getElementById('voice-live');
-            if (live) live.textContent = snap || '聽緊最後一句…';
+            if (live) live.textContent = snap || '截緊最後一句…';
+            pauseListen();
             clearTimeout(voiceFinishTimer);
             voiceFinishTimer = setTimeout(() => {
                 voiceFinishTimer = null;
-                const text = (snap + ' ' + voiceHeardText()).trim();
+                let text = (snap + ' ' + voiceHeardText()).trim();
+                if (looksLikePromptEcho(text)) text = '';
                 clearVoiceBuffer();
-                handleVoiceTurn(text);
-                voiceBusy = false;
-            }, 350);
+                try {
+                    handleVoiceTurn(text);
+                } catch (err) {
+                    document.getElementById('voice-live').textContent = '處理失敗：' + ((err && err.message) || err);
+                    scheduleResumeListen(400);
+                } finally {
+                    voiceBusy = false;
+                }
+            }, 480);
         }
         function closeVoice() {
             clearTimeout(voiceFinishTimer);
@@ -908,11 +958,14 @@
             return null;
         }
         function parseSnackSize(text, kind) {
+            const raw = compact(String(text || '').normalize('NFKC'));
             const t = foldZh(text);
-            if (/大薯條|薯條大|大蓮藕|蓮藕大|大番薯|番薯大|大份|要大|large/.test(t)) return 'L';
-            if (/中份|要m|m份|medium|中杯/.test(t)) return 'M';
+            if (/大薯條|薯條大|大蓮藕|蓮藕大|大番薯|番薯大|大份|大號|要大|large/.test(t)) return 'L';
+            if (/^(l|el)$/.test(raw) || (/(^|[^a-z])l([^a-z]|$)/.test(raw) && !/mild|latte/.test(raw))) return 'L';
+            if (/^(m|em)$/.test(raw) || /中份|中號|medium/.test(t) || /(^|[^a-z])m([^a-z]|$)/.test(raw)) return 'M';
+            if (kind && /中/.test(t)) return 'M';
             if (kind && /大/.test(t) && !/小辣|微辣/.test(t)) return 'L';
-            if (kind && /(細|小份)/.test(t)) return 'M';
+            if (kind && /(細|小份)/.test(t) && !/小辣|微辣/.test(t)) return 'M';
             return null;
         }
         function parseDrinkKind(text) {
@@ -968,6 +1021,7 @@
                 if (item && re.test(t)) return item;
             }
             if (/漢堡|burger/.test(t) && !/墨辣|和牛|雞|鸡|素/.test(t)) return findLiveItem('b1');
+            if (/321/.test(t) || /三二一|三點二/.test(t)) return findLiveItem('b2');
             return menuItems.find((i) => !isSold(i) && foldZh(i.name_zh || '').length >= 2 && t.includes(foldZh(i.name_zh))) || null;
         }
         function parseVoiceOrder(text) {
@@ -979,7 +1033,7 @@
             const qty = parseQty(original);
             const live = menuItems.filter((i) => !isSold(i));
             const ranked = live.map((item) => ({ item, score: scoreItem(item, remaining) })).sort((a, b) => b.score - a.score);
-            let picked = ranked[0] && ranked[0].score >= 20 ? ranked[0].item : null;
+            let picked = ranked[0] && ranked[0].score >= 100 ? ranked[0].item : null;
             if (!picked) picked = guessItemByKeywords(original);
             const snackKind = wantCombo ? parseSnackKind(original) : null;
             const drinkKind = wantCombo ? parseDrinkKind(original) : null;
@@ -1063,23 +1117,43 @@
             document.getElementById('voice-hint').textContent = '講完呢句答案，撳大紅掣。';
             document.getElementById('voice-done-btn').textContent = '講完呢句';
         }
+        function looksLikePromptEcho(text) {
+            const t = foldZh(text);
+            if (!t) return false;
+            const snackHits = [/薯條/, /蓮藕/, /番薯/, /雞翼/].filter((re) => re.test(t)).length;
+            const drinkHits = [/可樂/, /忌廉/, /美式/, /拿鐵/, /朱古力/, /檸茶/, /梳打/].filter((re) => re.test(t)).length;
+            return snackHits >= 2 || drinkHits >= 2 || (t.includes('套餐小食') || t.includes('飲品要'));
+        }
+        function jobFingerprint(job) {
+            if (!job) return '';
+            return [job.item && job.item.id, job.combo, job.snackKind, job.snackSize, job.drinkKind, job.drinkTemp, job.qty].join('|');
+        }
         function handleVoiceTurn(text) {
-            if (!text) {
-                document.getElementById('voice-live').textContent = '冇聽到內容。再講一次，然後撳「講完呢句」。';
-                voiceWanted = true;
-                if (!voiceRec) beginRec();
+            if (!text || looksLikePromptEcho(text)) {
+                document.getElementById('voice-live').textContent = text && looksLikePromptEcho(text)
+                    ? '聽到嘅係問題本身，唔好理喇叭。而家再講你嘅答案。'
+                    : '冇聽到內容。再講一次，然後撳「講完呢句」。';
+                scheduleResumeListen(300);
                 return;
             }
             if (!voiceJob || !voiceJob.item) {
                 voiceJob = parseVoiceOrder(text);
                 if (!voiceJob.item) {
                     document.getElementById('voice-ask').textContent = '聽到「' + text + '」，認唔到餸。請再講餸名。';
-                    voiceWanted = true;
-                    if (!voiceRec) beginRec();
+                    document.getElementById('voice-live').textContent = '聽到：' + text;
+                    scheduleResumeListen(300);
                     return;
                 }
             } else {
+                const before = jobFingerprint(voiceJob);
                 mergeVoiceAnswer(voiceJob, text);
+                if (jobFingerprint(voiceJob) === before) {
+                    const ask = nextAsk(voiceJob);
+                    document.getElementById('voice-live').textContent = '聽到「' + text + '」，呢句認唔到。請再講。';
+                    renderVoiceAsk(ask);
+                    scheduleResumeListen(400);
+                    return;
+                }
             }
             const ask = nextAsk(voiceJob);
             if (ask.step === 'done') {
@@ -1087,9 +1161,7 @@
                 return;
             }
             renderVoiceAsk(ask);
-            speakAsk(ask.prompt);
-            voiceWanted = true;
-            if (!voiceRec) beginRec();
+            speakAskThenListen(ask.prompt);
         }
         function commitVoiceJob() {
             const job = voiceJob;
@@ -1098,7 +1170,9 @@
                 job.comboSnackId = snackIdOf(job.snackKind, job.snackSize);
                 job.comboDrinkId = drinkIdOf(job.drinkKind, job.drinkTemp);
                 if (!job.comboSnackId || !job.comboDrinkId) {
-                    renderVoiceAsk(nextAsk(job));
+                    const ask = nextAsk(job);
+                    renderVoiceAsk(ask);
+                    speakAskThenListen(ask.prompt);
                     return;
                 }
             }
