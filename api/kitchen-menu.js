@@ -1,6 +1,6 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
-const { listMenuItems, listModifiers, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder } = require('./_orders.js');
+const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder } = require('./_orders.js');
 const { setStoreOpen } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -8,7 +8,7 @@ const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, create_pos_order
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, create_pos_order, cancel_pos_order
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -34,8 +34,17 @@ module.exports = async (req, res) => {
             } catch (err) {
                 console.warn('combo_base skipped:', err.message);
             }
+            const storeName = String(body.store_name || '').trim();
+            let soldIds = new Set();
+            if (storeName) {
+                soldIds = await listSoldOutIds(storeName);
+            }
+            const merged = (items || []).map((item) => ({
+                ...item,
+                is_sold_out: !!(item.is_sold_out || soldIds.has(item.id)),
+            }));
             return res.status(200).json({
-                items: items || [],
+                items: merged,
                 modifiers,
                 combo_base,
             });
@@ -96,9 +105,17 @@ module.exports = async (req, res) => {
                 pay_method: body.pay_method,
                 customer_name: body.customer_name,
                 note: body.note,
+                fulfill: body.fulfill,
                 items: body.items,
             });
             return res.status(200).json({ ok: true, ...result });
+        }
+
+        if (action === 'cancel_pos_order') {
+            const orderNo = String(body.orderNo || '').trim();
+            if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const result = await cancelPosOrder(orderNo);
+            return res.status(200).json(result);
         }
 
         if (action === 'set_store_open') {

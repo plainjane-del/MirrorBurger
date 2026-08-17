@@ -130,6 +130,20 @@ async function getSetting(key) {
     return Array.isArray(rows) && rows[0] ? rows[0].value : null;
 }
 
+async function listSoldOutIds(storeName) {
+    const store = String(storeName || '').trim();
+    if (!store) return new Set();
+    try {
+        const rows = await sbFetch(
+            `menu_sold_out?store_name=eq.${encodeURIComponent(store)}&is_sold_out=eq.true&select=item_id`
+        );
+        return new Set((Array.isArray(rows) ? rows : []).map((r) => r.item_id).filter(Boolean));
+    } catch (err) {
+        console.warn('menu_sold_out list skipped:', err.message);
+        return new Set();
+    }
+}
+
 async function setMenuItemSoldOut(id, isSoldOut) {
     if (!id) throw new Error('Missing item id');
     return sbFetch(`menu_items?id=eq.${encodeURIComponent(id)}`, {
@@ -150,5 +164,6 @@ module.exports = {
     upsertModifier,
     deleteModifier,
     getSetting,
+    listSoldOutIds,
     setMenuItemSoldOut,
 };

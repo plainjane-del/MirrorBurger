@@ -19,18 +19,19 @@
         .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:12px; min-height:84px; cursor:pointer; }
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
         .pay-btn:disabled { opacity:.45; }
-        .sheet { position:fixed; inset:0; z-index:80; display:none; }
+        .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
-        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:88dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+        .ticket-no { font-size:clamp(42px, 12vw, 88px); line-height:1; font-weight:900; letter-spacing:-.04em; }
     </style>
 </head>
 <body class="antialiased">
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17b</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17c</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
-                <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸揀配料，再收款入廚房。</p>
+                <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
             <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
@@ -46,22 +47,28 @@
                     <div class="text-sm font-black text-yellow-400">測試 POS</div>
                     <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
                 </div>
+                <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
             <div class="mt-2 grid grid-cols-3 gap-1">
-                <button type="button" class="chip-btn is-active" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
+                <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
                 <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
                 <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
             </div>
         </header>
 
-        <main class="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px]">
+        <main class="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px]">
             <section class="p-3">
+                <input id="menu-search" type="search" placeholder="搜尋餸名" oninput="renderMenu()"
+                    class="w-full mb-2 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
                 <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
             </section>
-            <aside class="border-t lg:border-t-0 lg:border-l border-neutral-800 p-3 flex flex-col gap-3 bg-neutral-950">
-                <h2 class="text-base font-black">呢單</h2>
+            <aside class="border-t lg:border-t-0 lg:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950">
+                <div class="grid grid-cols-2 gap-1">
+                    <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')">即取</button>
+                    <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
+                </div>
                 <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
@@ -93,8 +100,33 @@
         </div>
     </div>
 
+    <div id="ticket-sheet" class="sheet" onclick="if(event.target===this) closeTicket()">
+        <div class="sheet-panel text-center" onclick="event.stopPropagation()">
+            <p class="text-[11px] font-black tracking-widest text-neutral-500 uppercase">請出示單號</p>
+            <div id="ticket-no" class="ticket-no text-yellow-400 my-3"></div>
+            <p id="ticket-meta" class="text-base font-black"></p>
+            <p id="ticket-pay" class="text-sm font-bold text-neutral-400 mt-1"></p>
+            <div id="ticket-items" class="text-left mt-4 space-y-1 text-sm font-bold"></div>
+            <div class="grid grid-cols-2 gap-2 mt-5">
+                <button type="button" class="chip-btn min-h-[48px]" onclick="cancelTicket()">作廢此單</button>
+                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="closeTicket()">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="today-sheet" class="sheet" onclick="if(event.target===this) closeToday()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">今日店內單</h3>
+                <button type="button" class="chip-btn" onclick="closeToday()">關閉</button>
+            </div>
+            <div id="today-list" class="space-y-2"></div>
+        </div>
+    </div>
+
     <script>
         const TOKEN_KEY = 'mb_kds_token';
+        const STORE_KEY = 'mb_pos_store';
         const CATS = [
             { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
             { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
@@ -132,8 +164,9 @@
         };
 
         let token = '';
-        let currentStore = 'Sai Ying Pun';
+        let currentStore = localStorage.getItem(STORE_KEY) || 'Sai Ying Pun';
         let currentCat = 'beef';
+        let fulfill = 'takeaway';
         let menuItems = [];
         let mods = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
         let comboBase = 19;
@@ -141,17 +174,20 @@
         let charging = false;
         let cfgItem = null;
         let cfg = {};
+        let cfgEditIndex = -1;
+        let lastTicket = null;
 
         function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
         function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
         function escapeHtml(str) {
             return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
-        function sizesOf(item) { return Array.isArray(item.sizes) ? item.sizes : []; }
+        function sizesOf(item) { return Array.isArray(item && item.sizes) ? item.sizes : []; }
         function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
         function isSpicy(item) { return Array.isArray(item.dietary) && item.dietary.some((d) => String(d).includes('🌶')); }
         function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
         function findMod(kind, id) { return modsOf(kind).find((m) => m.id === id); }
+        function isSold(item) { return !!(item && item.is_sold_out); }
 
         async function posApi(payload) {
             const res = await fetch('/api/kitchen-menu', {
@@ -186,10 +222,22 @@
             return false;
         }
         function logoutPos() { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
-        function selectStore(btn) {
+
+        function markStoreButtons() {
+            document.querySelectorAll('[data-branch]').forEach((el) => {
+                el.classList.toggle('is-active', el.dataset.branch === currentStore);
+            });
+        }
+        async function selectStore(btn) {
             currentStore = btn.dataset.branch;
-            document.querySelectorAll('[data-branch]').forEach((el) => el.classList.toggle('is-active', el === btn));
-            renderCart();
+            localStorage.setItem(STORE_KEY, currentStore);
+            markStoreButtons();
+            await loadMenu();
+        }
+        function setFulfill(next) {
+            fulfill = next;
+            document.getElementById('fulfill-takeaway').classList.toggle('is-active', next === 'takeaway');
+            document.getElementById('fulfill-dine').classList.toggle('is-active', next === 'dine_in');
         }
 
         function linePrice(line) {
@@ -209,8 +257,7 @@
             return n * (line.qty || 1);
         }
         function cartTotals() {
-            const lines = cart.map(linePrice);
-            const sub = lines.reduce((a, b) => a + b, 0);
+            const sub = cart.map(linePrice).reduce((a, b) => a + b, 0);
             const hasCombo = cart.some((l) => l.comboSnackId);
             let discount = 0;
             if (currentStore === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(sub * 0.15);
@@ -218,39 +265,42 @@
             return { sub, discount, total: sub - discount };
         }
 
-        function openCfg(id) {
+        function openCfg(id, editIndex) {
             const item = menuItems.find((i) => i.id === id);
-            if (!item || item.is_sold_out) return;
+            if (!item || (isSold(item) && editIndex == null)) return;
             cfgItem = item;
+            cfgEditIndex = editIndex == null ? -1 : editIndex;
+            const existing = cfgEditIndex >= 0 ? cart[cfgEditIndex] : null;
             const sz = sizesOf(item);
             cfg = {
-                size: sz.length ? (sz[0].label || sz[0].value) : null,
-                bun: isBurger(item) ? 'Nissin Bun' : null,
-                spice: isSpicy(item) ? 'Normal' : null,
-                temp: item.has_temp ? 'Hot' : null,
-                addonIds: [],
-                sauceIds: [],
-                combo: false,
-                comboSnackId: modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id,
-                comboDrinkId: modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id,
+                size: existing ? existing.size : (sz.length ? (sz[0].label || sz[0].value) : null),
+                bun: existing ? (String(existing.detailsEn || '').includes('Lettuce') ? 'Lettuce Wrap' : (isBurger(item) ? 'Nissin Bun' : null)) : (isBurger(item) ? 'Nissin Bun' : null),
+                spice: existing && String(existing.detailsEn || '').includes('Mild') ? 'Mild' : (isSpicy(item) ? 'Normal' : null),
+                temp: existing && String(existing.detailsEn || '').includes('Iced') ? 'Iced' : (item.has_temp ? 'Hot' : null),
+                addonIds: existing && Array.isArray(existing.addonIds) ? existing.addonIds.slice() : [],
+                sauceIds: existing && Array.isArray(existing.sauceIds) ? existing.sauceIds.slice() : [],
+                combo: !!(existing && existing.comboSnackId),
+                comboSnackId: (existing && existing.comboSnackId) || (modsOf('combo_snack')[0] && modsOf('combo_snack')[0].id),
+                comboDrinkId: (existing && existing.comboDrinkId) || (modsOf('combo_drink')[0] && modsOf('combo_drink')[0].id),
+                qty: existing ? existing.qty : 1,
             };
+            if (existing && existing.detailsZh && existing.detailsZh.includes('生菜包')) cfg.bun = 'Lettuce Wrap';
             document.getElementById('cfg-title').textContent = item.name_zh || item.name_en;
             renderCfg();
             document.getElementById('cfg-sheet').classList.add('is-open');
         }
-        function closeCfg() { document.getElementById('cfg-sheet').classList.remove('is-open'); cfgItem = null; }
-
+        function closeCfg() { document.getElementById('cfg-sheet').classList.remove('is-open'); cfgItem = null; cfgEditIndex = -1; }
         function chipRow(title, html) {
             return `<div><div class="text-[11px] font-black text-neutral-500 mb-1">${title}</div><div class="flex flex-wrap gap-1">${html}</div></div>`;
         }
         function optChip(on, label, fn) {
             return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" onclick="${fn}">${escapeHtml(label)}</button>`;
         }
-
         function renderCfg() {
             if (!cfgItem) return;
             const item = cfgItem;
             const bits = [];
+            bits.push(chipRow('數量', optChip(false,'−','cfg.qty=Math.max(1,(cfg.qty||1)-1);renderCfg()') + `<span class="font-black px-3 py-2">${cfg.qty||1}</span>` + optChip(false,'+','cfg.qty=(cfg.qty||1)+1;renderCfg()')));
             const sz = sizesOf(item);
             if (sz.length) {
                 bits.push(chipRow('份量', sz.map((s) => {
@@ -273,21 +323,20 @@
                 bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '唔要', "setCfg('combo', false)") + optChip(cfg.combo, '要', "setCfg('combo', true)")));
                 if (cfg.combo) {
                     bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐小食</div>
-                        <select id="cfg-snack" class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboSnackId=this.value; renderCfg()">
+                        <select class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboSnackId=this.value; renderCfg()">
                             ${modsOf('combo_snack').map((m) => `<option value="${m.id}" ${m.id===cfg.comboSnackId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
                         </select></div>`);
                     bits.push(`<div><div class="text-[11px] font-black text-neutral-500 mb-1">套餐飲品</div>
-                        <select id="cfg-drink" class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboDrinkId=this.value; renderCfg()">
+                        <select class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 font-bold" onchange="cfg.comboDrinkId=this.value; renderCfg()">
                             ${modsOf('combo_drink').map((m) => `<option value="${m.id}" ${m.id===cfg.comboDrinkId?'selected':''}>${escapeHtml(m.name_zh || m.name_en)} +$${m.price}</option>`).join('')}
                         </select></div>`);
                 }
             }
-            document.getElementById('cfg-body').innerHTML = bits.join('') || '<p class="text-neutral-500 font-bold">冇額外選項，直接加入。</p>';
+            document.getElementById('cfg-body').innerHTML = bits.join('');
             const preview = buildLineFromCfg();
             document.getElementById('cfg-price').textContent = '$' + linePrice(preview);
-            document.getElementById('cfg-add').textContent = '加入　$' + linePrice(preview);
+            document.getElementById('cfg-add').textContent = (cfgEditIndex >= 0 ? '更新　$' : '加入　$') + linePrice(preview);
         }
-
         function setCfg(key, value) { cfg[key] = value; renderCfg(); }
         function toggleCfg(key, id) {
             const arr = cfg[key].slice();
@@ -296,7 +345,6 @@
             cfg[key] = arr;
             renderCfg();
         }
-
         function buildLineFromCfg() {
             const item = cfgItem;
             const detailsZh = [];
@@ -336,7 +384,7 @@
                 nameEn: item.name_en,
                 nameZh: item.name_zh,
                 size: cfg.size,
-                qty: 1,
+                qty: Math.max(1, Number(cfg.qty) || 1),
                 addonIds: cfg.addonIds.slice(),
                 sauceIds: cfg.sauceIds.slice(),
                 comboSnackId,
@@ -346,20 +394,21 @@
                 unit: Number(item.price) || 0,
             };
         }
-
         function confirmCfg() {
             if (!cfgItem) return;
             if (sizesOf(cfgItem).length && !cfg.size) return alert('請揀份量');
-            cart.push(buildLineFromCfg());
+            const line = buildLineFromCfg();
+            if (cfgEditIndex >= 0) cart[cfgEditIndex] = line;
+            else cart.push(line);
             closeCfg();
             renderCart();
         }
-
         function changeQty(i, delta) {
             cart[i].qty += delta;
             if (cart[i].qty <= 0) cart.splice(i, 1);
             renderCart();
         }
+        function removeLine(i) { cart.splice(i, 1); renderCart(); }
         function clearCart() { cart = []; renderCart(); }
 
         function renderCart() {
@@ -368,14 +417,16 @@
             else list.innerHTML = cart.map((line, i) => `
                 <div class="rounded-xl bg-neutral-900 border border-neutral-800 p-2">
                     <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
+                        <button type="button" class="min-w-0 text-left" onclick="openCfg('${escapeHtml(line.menuId)}', ${i})">
                             <div class="font-black truncate">${escapeHtml(line.nameZh || line.nameEn)}</div>
                             <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(line.detailsZh || '')}</div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="text-[11px] font-black text-yellow-400 mt-0.5">$${linePrice(line)} · 撳改</div>
+                        </button>
+                        <div class="flex items-center gap-1 shrink-0">
                             <button type="button" class="chip-btn px-2" onclick="changeQty(${i}, -1)">−</button>
                             <span class="font-black w-5 text-center">${line.qty}</span>
                             <button type="button" class="chip-btn px-2" onclick="changeQty(${i}, 1)">+</button>
+                            <button type="button" class="chip-btn px-2 text-red-300" onclick="removeLine(${i})">刪</button>
                         </div>
                     </div>
                 </div>`).join('');
@@ -392,14 +443,19 @@
         }
         function setCat(id) { currentCat = id; renderCats(); renderMenu(); }
         function renderMenu() {
-            const rows = menuItems.filter((i) => (i.category || '') === currentCat);
+            const q = String(document.getElementById('menu-search').value || '').trim().toLowerCase();
+            const rows = menuItems.filter((i) => {
+                if ((i.category || '') !== currentCat) return false;
+                if (!q) return true;
+                return String(i.name_zh || '').toLowerCase().includes(q) || String(i.name_en || '').toLowerCase().includes(q);
+            });
             const grid = document.getElementById('menu-grid');
             if (!rows.length) {
                 grid.innerHTML = '<p class="col-span-full text-center font-bold text-neutral-500 py-10">呢類暫時冇嘢</p>';
                 return;
             }
             grid.innerHTML = rows.map((item) => {
-                const sold = !!item.is_sold_out;
+                const sold = isSold(item);
                 return `<button type="button" class="item-btn ${sold ? 'opacity-40' : ''}" ${sold ? 'disabled' : ''} onclick="openCfg('${escapeHtml(item.id)}')">
                     <div class="font-black leading-tight">${escapeHtml(item.name_zh || item.name_en || item.id)}</div>
                     <div class="text-sm font-bold text-neutral-400 mt-1">$${Number(item.price)||0}${sold ? ' · 賣晒' : ''}</div>
@@ -408,7 +464,7 @@
         }
 
         async function loadMenu() {
-            const data = await posApi({ action: 'list' });
+            const data = await posApi({ action: 'list', store_name: currentStore });
             menuItems = data.items || [];
             const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
             for (const m of data.modifiers || []) {
@@ -419,11 +475,76 @@
             renderCats(); renderMenu(); renderCart();
         }
 
+        function showTicket(data, items) {
+            lastTicket = { ...data, items: items || data.items || [] };
+            document.getElementById('ticket-no').textContent = '#' + data.orderNo;
+            document.getElementById('ticket-meta').textContent = `$${data.total} · ${data.pickup_time || (fulfill === 'dine_in' ? '堂食' : '即取')}`;
+            document.getElementById('ticket-pay').textContent = PAY_LABEL[data.pay_method] || data.pay_method;
+            document.getElementById('ticket-items').innerHTML = (lastTicket.items || []).map((it) =>
+                `<div>${it.qty || 1}× ${escapeHtml(it.nameZh || it.nameEn || '')}</div>`
+            ).join('');
+            document.getElementById('last-ticket').textContent = `#${data.orderNo} · ${PAY_LABEL[data.pay_method]} · $${data.total}`;
+            document.getElementById('ticket-sheet').classList.add('is-open');
+        }
+        function closeTicket() { document.getElementById('ticket-sheet').classList.remove('is-open'); }
+        async function cancelTicket() {
+            if (!lastTicket || !lastTicket.orderNo) return;
+            if (!confirm('作廢 #' + lastTicket.orderNo + '？廚房未開始先得。')) return;
+            try {
+                await posApi({ action: 'cancel_pos_order', orderNo: lastTicket.orderNo });
+                alert('已作廢 #' + lastTicket.orderNo);
+                closeTicket();
+            } catch (err) {
+                alert(err.message || err);
+            }
+        }
+
+        let todayRows = [];
+
+        async function openToday() {
+            document.getElementById('today-sheet').classList.add('is-open');
+            document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">載入中…</p>';
+            try {
+                const data = await posApi({ action: 'stats', store_name: currentStore });
+                todayRows = (data.orders || []).filter((o) => String(o.channel || '') === 'pos').slice(0, 40);
+                if (!todayRows.length) {
+                    document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">今日未有店內單</p>';
+                    return;
+                }
+                document.getElementById('today-list').innerHTML = todayRows.map((o, i) => {
+                    const st = String(o.status || o.payment_status || '').toUpperCase();
+                    const cancelled = st === 'CANCELLED';
+                    return `<button type="button" class="w-full text-left rounded-xl border border-neutral-800 bg-neutral-900 p-3 ${cancelled ? 'opacity-50' : ''}"
+                        onclick="showTodayTicket(${i})">
+                        <div class="font-black">#${escapeHtml(o.order_no)} · $${Number(o.total_amount)||0}</div>
+                        <div class="text-[11px] font-bold text-neutral-500">${escapeHtml(o.pickup_time || '')} · ${cancelled ? '已作廢' : (PAY_LABEL[o.pay_method] || o.pay_method || '')}</div>
+                    </button>`;
+                }).join('');
+            } catch (err) {
+                document.getElementById('today-list').innerHTML = `<p class="text-red-400 font-bold">${escapeHtml(err.message || err)}</p>`;
+            }
+        }
+        function closeToday() { document.getElementById('today-sheet').classList.remove('is-open'); }
+        function showTodayTicket(i) {
+            const o = todayRows[i];
+            if (!o) return;
+            closeToday();
+            showTicket({
+                orderNo: o.order_no,
+                total: o.total_amount,
+                pay_method: o.pay_method,
+                pickup_time: o.pickup_time,
+            }, Array.isArray(o.items_json) ? o.items_json : []);
+        }
+
         async function charge(payMethod) {
             if (charging || !cart.length) return;
+            const t = cartTotals();
+            if (!confirm(`收 ${PAY_LABEL[payMethod]} $${t.total}？`)) return;
             charging = true;
+            const snapshot = cart.slice();
             try {
-                const items = cart.map((line) => ({
+                const items = snapshot.map((line) => ({
                     menuId: line.menuId,
                     nameEn: line.nameEn,
                     nameZh: line.nameZh,
@@ -440,15 +561,15 @@
                     action: 'create_pos_order',
                     store_name: currentStore,
                     pay_method: payMethod,
+                    fulfill,
                     customer_name: document.getElementById('guest-name').value.trim(),
                     note: document.getElementById('order-note').value.trim(),
                     items,
                 });
-                document.getElementById('last-ticket').textContent = `#${data.orderNo} · ${PAY_LABEL[payMethod]} · $${data.total} 已入廚房`;
                 clearCart();
                 document.getElementById('guest-name').value = '';
                 document.getElementById('order-note').value = '';
-                alert('已入單 #' + data.orderNo + '　$' + data.total);
+                showTicket(data, items);
             } catch (err) {
                 alert('入單失敗：' + (err.message || err));
             } finally { charging = false; }
@@ -457,11 +578,12 @@
         async function bootPos() {
             document.getElementById('pos-lock').classList.add('hidden');
             document.getElementById('pos-app').classList.remove('hidden');
+            markStoreButtons();
             await loadMenu();
         }
         window.onload = async () => {
             const existing = getToken();
-            if (!existing) return;
+            if (!existing) { markStoreButtons(); return; }
             try {
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',

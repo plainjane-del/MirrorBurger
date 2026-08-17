@@ -345,7 +345,22 @@ async function createPosOrder(input) {
     }
     const customerName = clip(input && input.customer_name, 80) || '店取客人';
     const note = clip(input && input.note, 80);
-    const pickupTime = note ? `即取 · ${note}` : '即取';
+    const fulfill = clip(input && input.fulfill, 20) === 'dine_in' ? '堂食' : '即取';
+    const pickupTime = note ? `${fulfill} · ${note}` : fulfill;
+
+    const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
+    const soldIds = await listSoldOutIds(storeName);
+    const catalog = await listMenuItems({ includeInactive: false });
+    const byId = new Map((catalog || []).map((row) => [row.id, row]));
+    for (const item of items) {
+        const row = byId.get(item.menuId);
+        const name = (item && (item.nameZh || item.nameEn)) || item.menuId;
+        if (!row || row.is_sold_out || soldIds.has(item.menuId)) {
+            const err = new Error(`已沽清：${name}`);
+            err.status = 400;
+            throw err;
+        }
+    }
 
     const priced = await recalculateOrderTotal({
         store_name: storeName,
@@ -380,6 +395,8 @@ async function createPosOrder(input) {
                 subtotal: priced.subtotal,
                 discount: priced.discount,
                 pay_method: payMethod,
+                pickup_time: pickupTime,
+                items,
             };
         } catch (err) {
             lastError = err;
@@ -388,6 +405,56 @@ async function createPosOrder(input) {
         }
     }
     throw lastError || new Error('Failed to create POS order');
+}
+
+async function cancelPosOrder(orderNo) {
+    const no = clip(orderNo, 32);
+    if (!no) {
+        const err = new Error('Missing orderNo');
+        err.status = 400;
+        throw err;
+    }
+    let rows;
+    try {
+        rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,channel,status,payment_status,store_name`
+        );
+    } catch (err) {
+        if (!/channel/i.test(String(err.message || ''))) throw err;
+        rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,status,payment_status,store_name`
+        );
+    }
+    const order = Array.isArray(rows) ? rows[0] : null;
+    if (!order) {
+        const err = new Error('Order not found');
+        err.status = 404;
+        throw err;
+    }
+    if (order.channel && String(order.channel) !== 'pos') {
+        const err = new Error('Not a POS order');
+        err.status = 400;
+        throw err;
+    }
+    const st = String(order.status || order.payment_status || '').toUpperCase();
+    if (st !== 'PAID') {
+        const err = new Error('廚房已開始整，唔可以喺 POS 作廢');
+        err.status = 400;
+        throw err;
+    }
+    try {
+        await sbRest(`orders?order_no=eq.${encodeURIComponent(no)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'CANCELLED', payment_status: 'CANCELLED' }),
+        });
+    } catch (err) {
+        if (!/status/i.test(String(err.message || ''))) throw err;
+        await sbRest(`orders?order_no=eq.${encodeURIComponent(no)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ payment_status: 'CANCELLED' }),
+        });
+    }
+    return { ok: true, orderNo: no };
 }
 
 async function getPublicOrderStatus(orderNo) {
@@ -440,6 +507,7 @@ module.exports = {
     updateKitchenOrderStatus,
     createPendingOrder,
     createPosOrder,
+    cancelPosOrder,
     getPublicOrderStatus,
     listKitchenOrders,
     startOfTodayHkIso,
