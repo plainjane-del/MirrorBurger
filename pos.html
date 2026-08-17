@@ -32,8 +32,13 @@
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
         .ticket-no { font-size:clamp(42px, 12vw, 88px); line-height:1; font-weight:900; letter-spacing:-.04em; }
         @media (max-width: 767px) {
-            #pos-cart { max-height: 46vh; }
+            #pos-cart {
+                max-height: 48vh;
+                overflow: hidden;
+                padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            }
             #pos-menu { padding-bottom: 8px; }
+            #cart-list { min-height: 0; }
         }
     </style>
 </head>
@@ -42,7 +47,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17p</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17q</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -82,24 +87,26 @@
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
                 <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
             </section>
-            <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-auto">
-                <div class="grid grid-cols-2 gap-1">
+            <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-hidden md:overflow-auto">
+                <div class="grid grid-cols-3 gap-1 shrink-0">
                     <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')">即取</button>
                     <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
+                    <button type="button" class="chip-btn" onclick="clearCart()">清空</button>
                 </div>
                 <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
-                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
+                    class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
-                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
-                <div id="cart-list" class="flex-1 min-h-[140px] space-y-2 overflow-y-auto"></div>
-                <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
-                <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" class="pay-btn bg-emerald-600" onclick="charge('cash')">現金</button>
-                    <button type="button" class="pay-btn bg-sky-600" onclick="charge('fps')">轉數快</button>
-                    <button type="button" class="pay-btn bg-violet-600" onclick="charge('payme')">PayMe</button>
+                    class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
+                <div id="cart-list" class="flex-1 min-h-0 space-y-2 overflow-y-auto"></div>
+                <div class="shrink-0 space-y-2 pt-1 bg-neutral-950">
+                    <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
+                    <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="pay-btn bg-emerald-600" onclick="charge('cash')">現金</button>
+                        <button type="button" class="pay-btn bg-sky-600" onclick="charge('fps')">轉數快</button>
+                        <button type="button" class="pay-btn bg-violet-600" onclick="charge('payme')">PayMe</button>
+                    </div>
                 </div>
-                <button type="button" class="chip-btn w-full" onclick="clearCart()">清空</button>
             </aside>
         </main>
     </div>
@@ -302,6 +309,7 @@
             fulfill = next;
             document.getElementById('fulfill-takeaway').classList.toggle('is-active', next === 'takeaway');
             document.getElementById('fulfill-dine').classList.toggle('is-active', next === 'dine_in');
+            renderCart();
         }
 
         function catalogItem(id) {
@@ -333,10 +341,13 @@
         function cartTotals() {
             const sub = cart.map(linePrice).reduce((a, b) => a + b, 0);
             const hasCombo = cart.some((l) => l.comboSnackId);
+            const takeaway = fulfill !== 'dine_in';
             let discount = 0;
-            if (currentStore === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(sub * 0.15);
-            else if (sub >= 120 || hasCombo) discount = Math.floor(sub * 0.10);
-            return { sub, discount, total: sub - discount };
+            if (takeaway) {
+                if (currentStore === 'Tsuen Wan (Takeaway Only)') discount = Math.floor(sub * 0.15);
+                else if (sub >= 120 || hasCombo) discount = Math.floor(sub * 0.10);
+            }
+            return { sub, discount, total: sub - discount, takeaway };
         }
 
         function openCfg(id, editIndex, presets) {
@@ -532,8 +543,13 @@
                     </div>
                 </div>`).join('');
             const t = cartTotals();
-            document.getElementById('price-break').textContent = t.discount
-                ? `小計 $${t.sub} · 折扣 −$${t.discount}` : `小計 $${t.sub}`;
+            if (t.discount) {
+                document.getElementById('price-break').textContent = `小計 $${t.sub} · 外賣折扣 −$${t.discount}`;
+            } else if (cart.length && !t.takeaway) {
+                document.getElementById('price-break').textContent = `小計 $${t.sub} · 堂食無折扣`;
+            } else {
+                document.getElementById('price-break').textContent = `小計 $${t.sub}`;
+            }
             document.getElementById('cart-total').textContent = '$' + t.total;
             const hdr = document.getElementById('hdr-total');
             if (hdr) hdr.textContent = '$' + t.total;

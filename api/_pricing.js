@@ -163,7 +163,20 @@ function priceLine(item, catalog) {
     return line * qty;
 }
 
-function computeDiscount(storeName, subtotal, hasCombo) {
+function isTakeawayOrder(order) {
+    const fulfill = String(
+        (order && (order.fulfill || order.fulfillment || order.delivery_mode)) || ''
+    ).toLowerCase();
+    if (fulfill === 'dine_in' || fulfill === 'dine-in' || fulfill === 'dinein' || fulfill === '堂食') {
+        return false;
+    }
+    const pickup = String((order && order.pickup_time) || '');
+    if (/(^|·|\s)堂食(\s|·|$)/.test(pickup) || pickup.startsWith('堂食')) return false;
+    return true;
+}
+
+function computeDiscount(storeName, subtotal, hasCombo, order) {
+    if (!isTakeawayOrder(order || {})) return 0;
     if (storeName === 'Tsuen Wan (Takeaway Only)') {
         return Math.floor(subtotal * 0.15);
     }
@@ -194,7 +207,7 @@ async function recalculateOrderTotal(order) {
     }
 
     const subtotal = lines.reduce((a, b) => a + b, 0);
-    const discount = computeDiscount(order.store_name, subtotal, hasCombo);
+    const discount = computeDiscount(order.store_name, subtotal, hasCombo, order);
     const total = subtotal - discount;
     if (!Number.isFinite(total) || total <= 0) {
         throw new Error('Invalid recalculated total');

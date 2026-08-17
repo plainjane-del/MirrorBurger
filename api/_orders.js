@@ -365,6 +365,8 @@ async function createPosOrder(input) {
     const priced = await recalculateOrderTotal({
         store_name: storeName,
         items_json: items,
+        fulfill: clip(input && input.fulfill, 20) === 'dine_in' ? 'dine_in' : 'takeaway',
+        pickup_time: pickupTime,
     });
 
     let lastError = null;
