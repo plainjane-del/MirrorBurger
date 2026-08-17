@@ -1147,7 +1147,7 @@ function renderStores() {
         const mapSrc = `https://maps.google.com/maps?q=${s.lat},${s.lng}&z=16&hl=${mapHl}&output=embed`;
         return `<div class="store-card bg-white p-5 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col gap-4">
             <div class="store-card-info">
-                <div class="flex items-center justify-between gap-3 mb-2">
+                <div class="flex items-center justify-between gap-3">
                     <h3 class="text-lg font-black uppercase"><a href="/${s.slug}" class="hover:underline">${lang(s.name, s.nameZh)}</a></h3>
                     <span class="store-status ${open ? 'is-open' : 'is-closed'}">${open ? lang('Open', '營業中') : lang('Closed', '休息')}</span>
                 </div>

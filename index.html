@@ -365,7 +365,7 @@
         .store-status.is-closed { background: #fef3f2; color: #b42318; }
         .store-addr-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 12px;
         }
@@ -383,6 +383,8 @@
         .store-map {
             width: 100%;
             height: 140px;
+            flex: 0 0 140px;
+            margin-top: auto;
             border: 0;
             border-radius: 1.25rem;
             background: #eef1f2;
@@ -396,14 +398,57 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-height: 92px;
+            flex: 1 1 auto;
         }
         .store-card-info h3 {
-            min-height: 1.75em;
             line-height: 1.25;
         }
-        .store-card-meta {
-            min-height: 2.6em;
+        .site-footer {
+            padding: 20px 16px 28px;
+            text-align: center;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            color: #9ca3af;
+        }
+        .footer-kicker {
+            margin: 0 0 10px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+        .footer-shop-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px 12px;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+        .footer-shop-grid a {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            color: #6b7280;
+            text-decoration: none;
+            min-width: 0;
+        }
+        .footer-shop-grid a:hover { color: #1d1d1f; }
+        .footer-shop-grid a strong {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1d1d1f;
+        }
+        .footer-shop-grid a span {
+            font-size: 10px;
+            font-weight: 500;
+            line-height: 1.3;
+            color: #9ca3af;
+        }
+        .footer-legal {
+            margin: 14px 0 0;
+            font-size: 11px;
+            font-weight: 500;
+            color: #9ca3af;
         }
         .google-rating-bar {
             display: flex;
@@ -887,12 +932,10 @@
                 align-items: stretch;
                 gap: 16px;
                 height: 100%;
+                min-height: 0;
             }
             .store-card-info {
-                min-height: 118px;
-            }
-            .store-card-info h3 {
-                min-height: 2.6em;
+                flex: 1 1 auto;
             }
             #stores-container h3 {
                 font-size: 21px;
@@ -908,7 +951,12 @@
                 text-transform: none;
                 color: #6b7280;
             }
-            .store-map { height: 180px; border-radius: 18px; }
+            .store-map {
+                height: 180px;
+                flex-basis: 180px;
+                margin-top: auto;
+                border-radius: 18px;
+            }
             .store-status {
                 display: inline-flex;
                 align-items: center;
@@ -928,7 +976,7 @@
             footer.site-footer {
                 max-width: none;
                 margin: 0;
-                padding: 40px 24px 56px;
+                padding: 28px 24px 36px;
                 background: #F4F9F9;
                 border-top: 1px solid rgba(0,0,0,0.05);
                 font-size: 13px;
@@ -938,6 +986,12 @@
                 color: #6b7280;
                 text-align: center;
             }
+            .footer-shop-grid {
+                max-width: 720px;
+                gap: 12px 24px;
+            }
+            .footer-shop-grid a strong { font-size: 14px; }
+            .footer-legal { margin-top: 18px; font-size: 13px; }
 
             #cart-sheet {
                 left: auto;
@@ -1046,7 +1100,10 @@
 
         @media (min-width: 1100px) {
             #menu-container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            #stores-container { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            #stores-container {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                align-items: stretch;
+            }
             .reviews-track { grid-template-columns: 1fr 1fr 1fr; max-width: 1120px; }
         }
         @media (min-width: 1440px) {
@@ -1405,20 +1462,30 @@
             <div id="stores-container"></div>
         </section>
 
-        <footer class="site-footer p-8 text-center text-gray-400 font-bold uppercase tracking-widest text-[9px] space-y-4 border-t">
-            <p>Mirror Burger © 2026</p>
-            <p><span class="en">Halal burgers in Sai Ying Pun, Tin Hau &amp; Tsuen Wan</span><span class="zh">西營盤、天后、荃灣清真漢堡</span></p>
-            <nav class="flex flex-col gap-2 normal-case tracking-normal font-semibold text-gray-500">
-                <a href="/sai-ying-pun" class="hover:text-black">Sai Ying Pun 西營盤 · G/F, 194 Queen's Road West</a>
-                <a href="/tin-hau" class="hover:text-black">Tin Hau / Fortress Hill 天后 · 1A Merlin Street</a>
-                <a href="/tsuen-wan" class="hover:text-black">Tsuen Wan 荃灣 · Takeaway only 只限外賣自取</a>
+        <footer class="site-footer">
+            <nav class="footer-shops" aria-label="Shops">
+                <p class="footer-kicker"><span class="en">Shops</span><span class="zh">分店</span></p>
+                <div class="footer-shop-grid">
+                    <a href="/sai-ying-pun">
+                        <strong>Sai Ying Pun</strong>
+                        <span>西營盤 · Queen's Rd West</span>
+                    </a>
+                    <a href="/tin-hau">
+                        <strong>Tin Hau</strong>
+                        <span>天后 · Merlin Street</span>
+                    </a>
+                    <a href="/tsuen-wan">
+                        <strong>Tsuen Wan</strong>
+                        <span>荃灣 · <span class="en">Takeaway</span><span class="zh">外賣自取</span></span>
+                    </a>
+                </div>
             </nav>
-            <p><span class="en">Michelin Standard · Halal Certified</span><span class="zh">米芝蓮標準 · 清真認證</span></p>
+            <p class="footer-legal">Mirror Burger © 2026 · <span class="en">Halal · Michelin recipe</span><span class="zh">清真認證 · 米芝蓮配方</span></p>
         </footer>
     </div>
 
     <!-- 腳本引入 -->
-    <script src="js/menu.js?v=2.8"></script>
+    <script src="js/menu.js?v=2.9"></script>
     <script src="js/order-handler.js?v=2.1"></script>
 </body>
 </html>
