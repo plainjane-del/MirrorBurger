@@ -34,7 +34,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17e</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17f</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -110,10 +110,14 @@
                 <p id="voice-text" class="text-sm font-bold text-yellow-400 mb-3"></p>
                 <div id="voice-lines" class="space-y-2"></div>
                 <p id="voice-miss" class="text-xs font-bold text-red-300 mt-2 hidden"></p>
-                <div class="grid grid-cols-2 gap-2 mt-4">
-                    <button type="button" class="chip-btn min-h-[48px]" onclick="closeVoice()">唔要</button>
-                    <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="acceptVoice()">加入購物車</button>
+                <p class="text-xs font-bold text-neutral-500 mt-3">確認之後會即刻入廚房。未收款唔會入系統。</p>
+                <div class="grid grid-cols-3 gap-2 mt-3">
+                    <button type="button" class="pay-btn bg-emerald-600" onclick="confirmVoicePay('cash')">現金入單</button>
+                    <button type="button" class="pay-btn bg-sky-600" onclick="confirmVoicePay('fps')">轉數快</button>
+                    <button type="button" class="pay-btn bg-violet-600" onclick="confirmVoicePay('payme')">PayMe</button>
                 </div>
+                <button type="button" class="chip-btn w-full mt-2" onclick="acceptVoice()">只放入購物車</button>
+                <button type="button" class="chip-btn w-full mt-2" onclick="closeVoice()">取消</button>
             </div>
         </div>
     </div>
@@ -694,6 +698,16 @@
         }
 
         function compact(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+        function foldZh(s) {
+            return compact(s)
+                .replace(/汉堡/g, '漢堡')
+                .replace(/薯条/g, '薯條')
+                .replace(/可乐/g, '可樂')
+                .replace(/经典/g, '經典')
+                .replace(/套餐/g, '套餐')
+                .replace(/芝士漢堡/g, '經典芝士牛肉')
+                .replace(/牛肉漢堡/g, '牛肉');
+        }
         function qtyWord(n) {
             const map = { '一':1,'二':2,'兩':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
             if (map[n]) return map[n];
@@ -702,7 +716,7 @@
         }
         function aliasesFor(item) {
             const extra = {
-                b1: ['經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉'],
+                b1: ['經典芝士牛肉漢堡','經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉','經典漢堡','芝士漢堡'],
                 b3: ['墨辣芝士牛肉','墨辣牛肉','墨辣漢堡'],
                 b4: ['墨辣藍紋','藍紋芝士牛肉'],
                 b2: ['和牛','wagyu'],
@@ -779,7 +793,7 @@
         }
         function parseVoice(text) {
             const original = String(text || '').trim();
-            let remaining = compact(original);
+            let remaining = foldZh(original);
             const wantCombo = /套餐|combo/.test(remaining);
             const bun = /生菜/.test(remaining) ? 'Lettuce Wrap' : 'Nissin Bun';
             const spice = /小辣|微辣/.test(remaining) ? 'Mild' : 'Normal';
@@ -788,16 +802,18 @@
             const comboSnackId = wantCombo ? pickComboSnack(original) : null;
             const comboDrinkId = wantCombo ? pickComboDrink(original) : null;
             const ranked = menuItems.filter((i) => !isSold(i)).slice().sort((a, b) => {
-                const la = Math.max(...aliasesFor(a).map((n) => compact(n).length));
-                const lb = Math.max(...aliasesFor(b).map((n) => compact(n).length));
+                const la = Math.max(...aliasesFor(a).map((n) => foldZh(n).length));
+                const lb = Math.max(...aliasesFor(b).map((n) => foldZh(n).length));
                 return lb - la;
             });
             const lines = [];
+            const used = new Set();
             for (const item of ranked) {
-                const names = aliasesFor(item).map(compact).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
+                const names = aliasesFor(item).map(foldZh).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
                 for (const name of names) {
                     const idx = remaining.indexOf(name);
                     if (idx === -1) continue;
+                    if (used.has(item.id)) break;
                     const before = remaining.slice(Math.max(0, idx - 2), idx);
                     const qm = before.match(/([一二兩三四五六七八九十两\d])$/);
                     const qty = qm ? qtyWord(qm[1]) : 1;
@@ -806,11 +822,38 @@
                         comboSnackId, comboDrinkId,
                         addonIds: pickAddons(original),
                     }));
+                    used.add(item.id);
                     remaining = remaining.replace(name, '，');
                     break;
                 }
             }
+            if (!lines.length) {
+                const guessed = guessItemByKeywords(original);
+                if (guessed) {
+                    lines.push(lineFromItemOpts(guessed, {
+                        qty: 1, bun, spice, temp, big, combo: wantCombo && isBurger(guessed),
+                        comboSnackId, comboDrinkId,
+                        addonIds: pickAddons(original),
+                    }));
+                }
+            }
             return { original, lines, leftover: remaining };
+        }
+        function guessItemByKeywords(text) {
+            const t = foldZh(text);
+            const rules = [
+                ['b4', /墨辣.*(藍|蓝)|藍紋|蓝纹/],
+                ['b3', /墨辣|hottest/],
+                ['b1', /經典|classic|芝士牛/],
+                ['b2', /和牛|wagyu/],
+                ['c1', /雞|鸡|chicken/],
+                ['c2', /三文魚|三文鱼|salmon/],
+            ];
+            for (const [id, re] of rules) {
+                const item = menuItems.find((i) => i.id === id && !isSold(i));
+                if (item && re.test(t)) return item;
+            }
+            return menuItems.find((i) => !isSold(i) && foldZh(i.name_zh || '').length >= 2 && t.includes(foldZh(i.name_zh))) || null;
         }
         function showVoiceDraft(text) {
             const parsed = parseVoice(text);
@@ -834,16 +877,29 @@
             miss.textContent = voiceDraft.length ? '' : '未加入任何項目';
         }
         function acceptVoice() {
-            if (!voiceDraft.length) return closeVoice();
+            if (!voiceDraft.length) {
+                alert('未認到餸，未有嘢入購物車。請再講，或者用手撳。');
+                return;
+            }
             cart = cart.concat(voiceDraft);
             closeVoice();
             renderCart();
         }
+        async function confirmVoicePay(payMethod) {
+            if (!voiceDraft.length) {
+                alert('未認到餸，未有入單。請再講，或者用手撳餸之後先收款。');
+                return;
+            }
+            cart = cart.concat(voiceDraft);
+            closeVoice();
+            renderCart();
+            await charge(payMethod, true);
+        }
 
-        async function charge(payMethod) {
+        async function charge(payMethod, skipConfirm) {
             if (charging || !cart.length) return;
             const t = cartTotals();
-            if (!confirm(`收 ${PAY_LABEL[payMethod]} $${t.total}？`)) return;
+            if (!skipConfirm && !confirm(`收 ${PAY_LABEL[payMethod]} $${t.total}？`)) return;
             charging = true;
             const snapshot = cart.slice();
             try {
