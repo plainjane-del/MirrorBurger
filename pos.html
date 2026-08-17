@@ -26,7 +26,7 @@
         .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
-        #pos-cart.is-flash { outline: 3px solid #FFD131; outline-offset: -3px; }
+        #print-status.is-on { color:#0a0a0a; background:#86efac; border-color:#86efac; }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
@@ -47,7 +47,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17q</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.17r</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
             </div>
@@ -70,6 +70,7 @@
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
+                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect()">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
             <div class="mt-2 grid grid-cols-3 gap-1">
@@ -147,8 +148,9 @@
             <p id="ticket-meta" class="text-base font-black"></p>
             <p id="ticket-pay" class="text-sm font-bold text-neutral-400 mt-1"></p>
             <div id="ticket-items" class="text-left mt-4 space-y-1 text-sm font-bold"></div>
-            <div class="grid grid-cols-2 gap-2 mt-5">
-                <button type="button" class="chip-btn min-h-[48px]" onclick="cancelTicket()">作廢此單</button>
+            <div class="grid grid-cols-3 gap-2 mt-5">
+                <button type="button" class="chip-btn min-h-[48px]" onclick="cancelTicket()">作廢</button>
+                <button type="button" class="chip-btn min-h-[48px]" onclick="reprintTicket()">重印</button>
                 <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="closeTicket()">完成</button>
             </div>
         </div>
@@ -164,6 +166,8 @@
         </div>
     </div>
 
+    <script src="./js/sunmi-printer.umd.js"></script>
+    <script src="./js/pos-print.js"></script>
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
@@ -607,6 +611,20 @@
             document.getElementById('ticket-sheet').classList.add('is-open');
         }
         function closeTicket() { document.getElementById('ticket-sheet').classList.remove('is-open'); }
+        async function reprintTicket() {
+            if (!lastTicket || !lastTicket.orderNo) return;
+            try {
+                await PosPrint.printTicket({
+                    ...lastTicket,
+                    store_name: currentStore,
+                }, lastTicket.items || [], {
+                    openDrawer: lastTicket.pay_method === 'cash',
+                    forceBrowser: true,
+                });
+            } catch (err) {
+                alert('重印失敗：' + ((err && err.message) || err));
+            }
+        }
         async function cancelTicket() {
             if (!lastTicket || !lastTicket.orderNo) return;
             if (!confirm('作廢 #' + lastTicket.orderNo + '？廚房未開始先得。')) return;
@@ -1654,19 +1672,30 @@
                     detailsEn: line.detailsEn,
                     detailsZh: line.detailsZh,
                 }));
+                const guest = document.getElementById('guest-name').value.trim();
+                const note = document.getElementById('order-note').value.trim();
                 const data = await posApi({
                     action: 'create_pos_order',
                     store_name: currentStore,
                     pay_method: payMethod,
                     fulfill,
-                    customer_name: document.getElementById('guest-name').value.trim(),
-                    note: document.getElementById('order-note').value.trim(),
+                    customer_name: guest,
+                    note,
                     items,
                 });
                 clearCart();
                 document.getElementById('guest-name').value = '';
                 document.getElementById('order-note').value = '';
                 showTicket(data, items);
+                try {
+                    await PosPrint.printTicket({
+                        ...data,
+                        store_name: currentStore,
+                        customer_name: guest,
+                    }, items, { openDrawer: payMethod === 'cash' });
+                } catch (printErr) {
+                    console.warn('print failed', printErr);
+                }
             } catch (err) {
                 alert('入單失敗：' + (err.message || err));
             } finally { charging = false; }
@@ -1677,6 +1706,7 @@
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
             await loadMenu();
+            try { await PosPrint.connect(); } catch (_) {}
         }
         window.onload = async () => {
             const existing = getToken();
