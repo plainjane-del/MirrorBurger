@@ -159,7 +159,16 @@ function extractKpayOrderNo(payload) {
 
 function isKpayPaymentSuccess(payload) {
     const flat = flattenKpayPayload(payload);
-    const state = String(
+    const state = kpayStateOf(flat);
+    if (KPAY_SUCCESS_STATES.has(state)) return true;
+    if (flat.success === true || flat.success === 'true' || String(flat.success) === '1') return true;
+    if (String(flat.code) === '10000' && !kpayWaitingOrFailedState(state)) return true;
+    return false;
+}
+
+function kpayStateOf(payload) {
+    const flat = flattenKpayPayload(payload);
+    return String(
         flat.transactionState
         || flat.tradeState
         || flat.payState
@@ -167,11 +176,24 @@ function isKpayPaymentSuccess(payload) {
         || flat.orderStatus
         || flat.status
         || flat.payResult
+        || flat.transStatus
+        || flat.txnStatus
         || ''
     ).toUpperCase().trim();
-    if (KPAY_SUCCESS_STATES.has(state)) return true;
-    if (flat.success === true || flat.success === 'true' || String(flat.success) === '1') return true;
-    return false;
+}
+
+function kpayWaitingOrFailedState(state) {
+    return new Set([
+        'WAIT_PAY', 'WAITING', 'PENDING', 'NOTPAY', 'INIT', 'CREATED',
+        'PROCESSING', 'PAYING', 'USERPAYING', 'WAIT',
+        'FAIL', 'FAILED', 'FAILURE', 'CLOSED', 'CLOSE',
+        'CANCEL', 'CANCELLED', 'CANCELED', 'EXPIRED', 'EXPIRE',
+        'REFUND', 'REFUNDED',
+    ]).has(String(state || '').toUpperCase().trim());
+}
+
+function isKpayWaitingOrFailed(payload) {
+    return kpayWaitingOrFailedState(kpayStateOf(payload));
 }
 
 async function signedKpayRequest(method, uri, payload = null, { timeoutMs = 5000 } = {}) {
@@ -273,4 +295,5 @@ module.exports = {
     flattenKpayPayload,
     extractKpayOrderNo,
     isKpayPaymentSuccess,
+    isKpayWaitingOrFailed,
 };

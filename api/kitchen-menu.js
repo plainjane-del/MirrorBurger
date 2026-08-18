@@ -81,7 +81,14 @@ module.exports = async (req, res) => {
                     console.warn('board reconcile skipped:', err.message || err);
                 }
                 const orders = await listKitchenOrders(storeName, { limit: 200 });
-                return res.status(200).json({ orders: orders || [] });
+                const pendingOnline = (orders || []).filter((o) => {
+                    const pay = String(o.payment_status || '').toUpperCase();
+                    if (pay !== 'PENDING') return false;
+                    const ch = String(o.channel || '').toLowerCase();
+                    if (ch === 'table' || ch === 'pos') return false;
+                    return true;
+                }).slice(0, 12);
+                return res.status(200).json({ orders: orders || [], pending_online: pendingOnline });
             }
 
             if (action === 'completed') {

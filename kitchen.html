@@ -240,7 +240,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.17</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.18k</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -294,6 +294,7 @@
             <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')">訂單</button>
             <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')">沽清</button>
         </div>
+        <div id="pending-kpay" class="hidden mt-2 rounded-xl border border-amber-500 bg-amber-950/70 p-2"></div>
     </header>
 
     <section id="view-orders" class="p-2 md:p-4">
@@ -987,10 +988,13 @@
             return ACTIVE_STATUSES.includes(kitchen);
         }
 
+        let pendingOnline = [];
+
         async function loadOrders() {
             try {
                 const data = await kitchenOrdersApi({ action: 'board' });
                 const rows = Array.isArray(data.orders) ? data.orders : [];
+                pendingOnline = Array.isArray(data.pending_online) ? data.pending_online : [];
                 const prevKeys = new Set(ordersMap.keys());
                 const next = new Map();
                 rows.forEach(o => {
@@ -1009,6 +1013,7 @@
                     ringNewOrder();
                 }
                 kitchenBoardReady = true;
+                renderPendingOnline();
                 renderOrders();
             } catch (err) {
                 console.error(err);
@@ -1016,6 +1021,46 @@
                 document.getElementById('col-paid').innerHTML = errHtml;
                 document.getElementById('col-prep').innerHTML = '';
                 document.getElementById('col-ready').innerHTML = '';
+            }
+        }
+
+        function renderPendingOnline() {
+            const box = document.getElementById('pending-kpay');
+            if (!box) return;
+            if (!pendingOnline.length) {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+            box.classList.remove('hidden');
+            box.innerHTML = `
+                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 可能已收款但未入廚</div>
+                ${pendingOnline.map((o) => {
+                    const no = escapeHtml(o.order_no);
+                    const noJs = escapeJsString(o.order_no);
+                    return `<div class="mt-2 flex items-center gap-2 rounded-lg bg-black/40 px-2 py-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-black text-white">#${no} · ${formatAmount(o)}</div>
+                            <div class="text-xs font-bold text-amber-100 truncate">${escapeHtml(o.customer_name || '—')} · ${escapeHtml(o.pickup_time || '')}</div>
+                        </div>
+                        <button type="button" class="chip-btn bg-amber-400 text-black border-amber-300" onclick="confirmKpayPaid('${noJs}')">入廚房</button>
+                    </div>`;
+                }).join('')}
+            `;
+        }
+
+        async function confirmKpayPaid(orderNo) {
+            try {
+                const data = await kitchenOrdersApi({ action: 'mark_order_paid', orderNo });
+                if (!data || (!data.ok && !data.alreadyPaid && !data.order)) {
+                    throw new Error('確認失敗');
+                }
+                pendingOnline = pendingOnline.filter((o) => o.order_no !== orderNo);
+                renderPendingOnline();
+                await loadOrders();
+                ringNewOrder();
+            } catch (err) {
+                alert('確認收款失敗：' + (err.message || err));
             }
         }
 
