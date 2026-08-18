@@ -3,9 +3,12 @@ const { requireKitchen } = require('./_kitchenAuth.js');
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_MODELS = [
     process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    'gemini-3.7-flash',
     'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
 ].filter(Boolean);
-const GEMINI_FETCH_TIMEOUT_MS = 6500;
+const GEMINI_FETCH_TIMEOUT_MS = 4200;
+const MAX_GEMINI_ATTEMPTS = 3;
 
 const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger (Hong Kong).
 Convert spoken Cantonese (and mixed English) into structured POS order lines using ONLY the provided catalog.
@@ -246,6 +249,7 @@ async function callGemini({ speechText, items, modifiers }) {
     for (const model of GEMINI_MODELS) {
         if (tried.has(model)) continue;
         tried.add(model);
+        if (tried.size > MAX_GEMINI_ATTEMPTS) break;
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), GEMINI_FETCH_TIMEOUT_MS);
         let resp;
@@ -267,13 +271,12 @@ async function callGemini({ speechText, items, modifiers }) {
             lastErr = new Error(msg);
             lastErr.status = 502;
             const isModelRetired = resp.status === 404 || /no longer available|not found|not supported/i.test(msg);
+            const isQuotaExceeded = /quota|exceeded your current quota|free_tier_requests|please retry in/i.test(msg);
             const isRateOrDemand = /high demand|rate limit|too many requests|429|503|busy/i.test(msg);
             if (isModelRetired) continue;
-            // Rate-limit / high-demand: fail fast so we don't spam fallbacks (which makes it worse).
-            if (isRateOrDemand) {
-                lastErr.status = resp.status === 429 ? 429 : 503;
-                throw lastErr;
-            }
+            // Rate-limit / high-demand / quota: try next model (up to MAX_GEMINI_ATTEMPTS),
+            // because another model may still have capacity.
+            if (isRateOrDemand || isQuotaExceeded) continue;
             throw lastErr;
         }
         const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content

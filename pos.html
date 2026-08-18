@@ -1184,6 +1184,8 @@
                     const raw = String((err && err.message) || err || '');
                     const friendly = /high demand|rate limit|too many requests|429|503|繁忙|用量/i.test(raw)
                         ? '講單繁忙，請稍後再試，或者改用手撳餸。'
+                        : /quota|exceeded your current quota|free_tier_requests/i.test(raw)
+                            ? '講單配額用完，請稍後再試，或者改用手撳餸。'
                         : /no longer available|not found|Gemini|GEMINI|model|Server missing/i.test(raw)
                             ? '講單服務暫時用唔到，請改用手撳餸。'
                             : '講單失敗，請改用手撳餸。';
