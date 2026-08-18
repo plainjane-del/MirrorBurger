@@ -1139,11 +1139,12 @@
                     const t = cartTotals();
                     showToast('已加入 ' + added.join('、') + '。小計 $' + t.sub + '，實收 $' + t.total);
                 } catch (err) {
-                    showToast('講單失敗：' + ((err && err.message) || err) + '。可以改用手撳餸。');
-                    if (live) live.textContent = '失敗：' + ((err && err.message) || err);
-                    voiceBusy = false;
-                    setMicLabel(true, '聽緊… 再撳一次入車');
-                    scheduleResumeListen(400, '失敗咗。請再講一次，或者取消改用手撳。');
+                    closeVoice();
+                    const raw = String((err && err.message) || err || '');
+                    const friendly = /no longer available|not found|Gemini|GEMINI|model|Server missing/i.test(raw)
+                        ? '講單服務暫時用唔到，請改用手撳餸。'
+                        : '講單失敗，請改用手撳餸。';
+                    showToast(friendly);
                     return;
                 }
                 voiceBusy = false;

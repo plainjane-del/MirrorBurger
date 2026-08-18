@@ -1,7 +1,12 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 
-const GEMINI_URL =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_MODELS = [
+    process.env.GEMINI_MODEL,
+    'gemini-2.5-flash',
+    'gemini-3.5-flash',
+    'gemini-1.5-flash',
+].filter(Boolean);
 
 const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger (Hong Kong).
 Convert spoken Cantonese (and mixed English) into structured POS order lines using ONLY the provided catalog.
@@ -151,62 +156,73 @@ async function callGemini({ speechText, items, modifiers }) {
         menuItems: items,
         modifiers,
     };
-    const resp = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(key)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-            contents: [{
-                role: 'user',
-                parts: [{
-                    text: `Catalog and spoken order as JSON. Return only {"items":[...]}.\n${JSON.stringify(userPayload)}`,
-                }],
+    const body = JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        contents: [{
+            role: 'user',
+            parts: [{
+                text: `Catalog and spoken order as JSON. Return only {"items":[...]}.\n${JSON.stringify(userPayload)}`,
             }],
-            generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 2048,
-                responseMimeType: 'application/json',
-                response_mime_type: 'application/json',
-                responseSchema: {
-                    type: 'OBJECT',
-                    properties: {
+        }],
+        generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+            responseMimeType: 'application/json',
+            response_mime_type: 'application/json',
+            responseSchema: {
+                type: 'OBJECT',
+                properties: {
+                    items: {
+                        type: 'ARRAY',
                         items: {
-                            type: 'ARRAY',
-                            items: {
-                                type: 'OBJECT',
-                                properties: {
-                                    menuId: { type: 'STRING' },
-                                    qty: { type: 'INTEGER' },
-                                    size: { type: 'STRING', nullable: true },
-                                    bun: { type: 'STRING', nullable: true },
-                                    addonIds: { type: 'ARRAY', items: { type: 'STRING' } },
-                                    sauceIds: { type: 'ARRAY', items: { type: 'STRING' } },
-                                    combo: { type: 'BOOLEAN' },
-                                    comboSnackId: { type: 'STRING', nullable: true },
-                                    comboDrinkId: { type: 'STRING', nullable: true },
-                                    notesEn: { type: 'STRING' },
-                                    notesZh: { type: 'STRING' },
-                                },
-                                required: ['menuId', 'qty', 'combo'],
+                            type: 'OBJECT',
+                            properties: {
+                                menuId: { type: 'STRING' },
+                                qty: { type: 'INTEGER' },
+                                size: { type: 'STRING', nullable: true },
+                                bun: { type: 'STRING', nullable: true },
+                                addonIds: { type: 'ARRAY', items: { type: 'STRING' } },
+                                sauceIds: { type: 'ARRAY', items: { type: 'STRING' } },
+                                combo: { type: 'BOOLEAN' },
+                                comboSnackId: { type: 'STRING', nullable: true },
+                                comboDrinkId: { type: 'STRING', nullable: true },
+                                notesEn: { type: 'STRING' },
+                                notesZh: { type: 'STRING' },
                             },
+                            required: ['menuId', 'qty', 'combo'],
                         },
                     },
-                    required: ['items'],
                 },
+                required: ['items'],
             },
-        }),
+        },
     });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-        const msg = (data && data.error && data.error.message) || `Gemini HTTP ${resp.status}`;
-        const err = new Error(msg);
-        err.status = 502;
-        throw err;
+
+    let lastErr = null;
+    const tried = new Set();
+    for (const model of GEMINI_MODELS) {
+        if (tried.has(model)) continue;
+        tried.add(model);
+        const resp = await fetch(
+            `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+        );
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            const msg = (data && data.error && data.error.message) || `Gemini HTTP ${resp.status}`;
+            lastErr = new Error(msg);
+            lastErr.status = 502;
+            if (resp.status === 404 || /no longer available|not found|not supported/i.test(msg)) {
+                continue;
+            }
+            throw lastErr;
+        }
+        const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content
+            && data.candidates[0].content.parts;
+        const raw = Array.isArray(parts) ? parts.map((p) => p.text || '').join('\n') : '';
+        return extractJson(raw) || { items: [] };
     }
-    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content
-        && data.candidates[0].content.parts;
-    const raw = Array.isArray(parts) ? parts.map((p) => p.text || '').join('\n') : '';
-    return extractJson(raw) || { items: [] };
+    throw lastErr || new Error('Gemini model unavailable');
 }
 
 module.exports = async function handler(req, res) {
