@@ -950,7 +950,9 @@
             if (voiceRec) return;
             const rec = new SR();
             voiceRec = rec;
-            rec.lang = voiceLang || 'zh-HK';
+            // Many browsers map `zh-HK` to Mandarin; `yue-HK` tends to better bias toward Cantonese.
+            // If the browser doesn't support it, it'll fall back to its own best-effort.
+            rec.lang = (voiceLang === 'zh-HK' ? 'yue-HK' : voiceLang) || 'zh-HK';
             rec.continuous = true;
             rec.interimResults = true;
             rec.maxAlternatives = 5;
