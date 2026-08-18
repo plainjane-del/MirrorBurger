@@ -100,18 +100,29 @@ function sanitizeTextList(value) {
         .slice(0, 20);
 }
 
-function validateParsed(parsed, items, modifiers) {
+function speechHasExplicitMultiQty(speechText) {
+    const text = String(speechText || '').trim();
+    if (!text) return false;
+    if (/(?:^|[^\d])([2-9]|[1-9]\d)\s*(?:份|個|客|杯|包|兜|盒)/.test(text)) return true;
+    if (/(?:兩|二|兩個|兩份|兩客|兩杯|兩包|兩兜|兩盒|雙份)/.test(text)) return true;
+    return false;
+}
+
+function validateParsed(parsed, items, modifiers, speechText) {
     const itemById = new Map(items.map((i) => [String(i.id), i]));
     const modById = new Map(modifiers.map((m) => [String(m.id), m]));
     const burgerCats = new Set(['beef', 'others', 'veggie']);
     const out = [];
     const list = parsed && Array.isArray(parsed.items) ? parsed.items : [];
+    const allowMultiQty = speechHasExplicitMultiQty(speechText);
     for (const row of list.slice(0, 20)) {
         if (!row || typeof row !== 'object') continue;
         const menuId = String(row.menuId || row.menu_id || '').trim();
         const item = itemById.get(menuId);
         if (!item) continue;
-        const qty = Math.max(1, Math.min(20, Math.round(Number(row.qty) || 1)));
+        const qty = allowMultiQty
+            ? Math.max(1, Math.min(20, Math.round(Number(row.qty) || 1)))
+            : 1;
         const isBurger = burgerCats.has(item.category);
         let bun = null;
         if (isBurger) {
@@ -275,7 +286,7 @@ module.exports = async function handler(req, res) {
         }
 
         const parsed = await callGemini({ speechText, items, modifiers });
-        const safe = validateParsed(parsed, items, modifiers);
+        const safe = validateParsed(parsed, items, modifiers, speechText);
         return res.status(200).json({ ok: true, ...safe });
     } catch (err) {
         console.error('ai-parse-order error:', err);
