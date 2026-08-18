@@ -2,10 +2,8 @@ const { requireKitchen } = require('./_kitchenAuth.js');
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_MODELS = [
-    process.env.GEMINI_MODEL,
-    'gemini-3.6-flash',
+    process.env.GEMINI_MODEL || 'gemini-3.6-flash',
     'gemini-3.5-flash',
-    'gemini-2.5-flash',
 ].filter(Boolean);
 const GEMINI_FETCH_TIMEOUT_MS = 6500;
 
@@ -268,8 +266,13 @@ async function callGemini({ speechText, items, modifiers }) {
             const msg = (data && data.error && data.error.message) || `Gemini HTTP ${resp.status}`;
             lastErr = new Error(msg);
             lastErr.status = 502;
-            if (resp.status === 404 || /no longer available|not found|not supported/i.test(msg)) {
-                continue;
+            const isModelRetired = resp.status === 404 || /no longer available|not found|not supported/i.test(msg);
+            const isRateOrDemand = /high demand|rate limit|too many requests|429|503|busy/i.test(msg);
+            if (isModelRetired) continue;
+            // Rate-limit / high-demand: fail fast so we don't spam fallbacks (which makes it worse).
+            if (isRateOrDemand) {
+                lastErr.status = resp.status === 429 ? 429 : 503;
+                throw lastErr;
             }
             throw lastErr;
         }
