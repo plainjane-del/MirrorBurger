@@ -11,18 +11,32 @@ const GEMINI_MODELS = [
 const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger (Hong Kong).
 Convert spoken Cantonese (and mixed English) into structured POS order lines using ONLY the provided catalog.
 
-Rules:
-- Match burgers, snacks, drinks, sauces, add-ons, combo snacks and combo drinks to catalog ids.
-- Cantonese examples: 「要個經典芝士牛套餐，轉番薯條，凍檸茶走青少冰」→ classic beef burger (b1) combo, combo snack sweet potato fries (cs5), combo drink iced lemon tea (cd4), notes 走青／少冰.
+STRICT F&B VALIDATION RULES:
+- Separate MAIN ITEMS from MODIFIERS. Main items are menuItems. Modifiers are add-ons, sauces, combo snacks, and combo drinks.
+- A standalone modifier MUST NOT create or imply a main item. Example: if the user only says 「要一隻煎蛋」 and no burger/main item is specified, do NOT add any burger.
+- If the user says only a modifier without a target main item, return it in unattachedAddons as spoken text, e.g. {"unattachedAddons":["煎蛋"]}.
+- If the spoken text does not clearly match a catalog item with high confidence, do NOT fuzzy-force it to a similar-sounding item. Example: 「大青瓜」 must NOT become any mushroom burger or other item. Put it in unrecognizedText exactly as spoken.
+- Never hallucinate ids, names, sizes, drinks, snacks, sauces, buns, or combo choices.
+
+ORDER RULES:
+- Match burgers, snacks, drinks, sauces, add-ons, combo snacks and combo drinks only when clearly present in the catalog.
+- Cantonese example: 「要個經典芝士牛套餐，轉番薯條，凍檸茶走青少冰」→ classic beef burger combo, combo snack sweet potato fries, combo drink iced lemon tea, notes 走青／少冰.
 - 「套餐」means combo:true and you MUST pick comboSnackId + comboDrinkId from catalog.
 - 「轉」on a combo snack/drink means replace the default with that item.
 - 「走青」= no onions (put in notes, do not invent addon ids). 「少冰」= less ice (notes). 「生菜包」= Lettuce Wrap. Default bun is Nissin Bun for burgers.
 - 「小辣／微辣」= spice is not a catalog field; put in notesZh/notesEn unless it is clearly a menu item.
 - Size: M/L/3pcs/5pcs only if that item has sizes. Otherwise null.
-- qty from 一個／兩份／3個 etc. Default 1. Max 20.
+- Quantity must be explicit: 「一份」/「一個」= 1, 「兩份」/「兩個」= 2, numeric counts follow the speech. Never default to 2. Default qty is 1 only when a valid item is clearly ordered without a quantity.
 - Ignore payment, table numbers, chit-chat.
-- If nothing edible can be matched, return {"items":[]}.
-- Never invent ids. Never include markdown.`;
+
+RESPONSE FORMAT:
+- Return strict JSON only, no markdown, no prose.
+- Use exactly this shape:
+{"items":[{"menuId":"b1","qty":1,"size":"M","bun":"Nissin Bun","addonIds":[],"sauceIds":[],"combo":true,"comboSnackId":"cs5","comboDrinkId":"cd4","notesEn":"","notesZh":""}],"unattachedAddons":["煎蛋"],"unrecognizedText":["大青瓜"]}
+- items must contain only high-confidence valid menu matches.
+- unattachedAddons must contain spoken modifier text that lacks a target main item.
+- unrecognizedText must contain spoken text that does not clearly exist in the catalog.
+- If nothing valid is matched, return {"items":[],"unattachedAddons":[],"unrecognizedText":[]}.`;
 
 function slimItems(items) {
     return (Array.isArray(items) ? items : []).slice(0, 80).map((item) => ({
@@ -77,6 +91,13 @@ function extractJson(raw) {
         } catch (_) {}
     }
     return null;
+}
+
+function sanitizeTextList(value) {
+    return (Array.isArray(value) ? value : [])
+        .map((v) => String(v || '').trim())
+        .filter(Boolean)
+        .slice(0, 20);
 }
 
 function validateParsed(parsed, items, modifiers) {
@@ -141,7 +162,11 @@ function validateParsed(parsed, items, modifiers) {
             notesZh: String(row.notesZh || '').slice(0, 80),
         });
     }
-    return out;
+    return {
+        items: out,
+        unattachedAddons: sanitizeTextList(parsed && parsed.unattachedAddons),
+        unrecognizedText: sanitizeTextList(parsed && parsed.unrecognizedText),
+    };
 }
 
 async function callGemini({ speechText, items, modifiers }) {
@@ -161,7 +186,7 @@ async function callGemini({ speechText, items, modifiers }) {
         contents: [{
             role: 'user',
             parts: [{
-                text: `Catalog and spoken order as JSON. Return only {"items":[...]}.\n${JSON.stringify(userPayload)}`,
+                text: `Catalog and spoken order as JSON. Return only {"items":[...],"unattachedAddons":[...],"unrecognizedText":[...]}.\n${JSON.stringify(userPayload)}`,
             }],
         }],
         generationConfig: {
@@ -192,8 +217,16 @@ async function callGemini({ speechText, items, modifiers }) {
                             required: ['menuId', 'qty', 'combo'],
                         },
                     },
+                    unattachedAddons: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' },
+                    },
+                    unrecognizedText: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' },
+                    },
                 },
-                required: ['items'],
+                required: ['items', 'unattachedAddons', 'unrecognizedText'],
             },
         },
     });
@@ -220,7 +253,7 @@ async function callGemini({ speechText, items, modifiers }) {
         const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content
             && data.candidates[0].content.parts;
         const raw = Array.isArray(parts) ? parts.map((p) => p.text || '').join('\n') : '';
-        return extractJson(raw) || { items: [] };
+        return extractJson(raw) || { items: [], unattachedAddons: [], unrecognizedText: [] };
     }
     throw lastErr || new Error('Gemini model unavailable');
 }
@@ -233,22 +266,24 @@ module.exports = async function handler(req, res) {
         const body = req.body || {};
         const speechText = String(body.speechText || body.text || '').trim();
         if (!speechText) {
-            return res.status(400).json({ error: 'Missing speechText', items: [] });
+            return res.status(400).json({ error: 'Missing speechText', items: [], unattachedAddons: [], unrecognizedText: [] });
         }
         const items = slimItems(body.menuItems || body.items);
         const modifiers = slimModifiers(body.modifiers || body.mods);
         if (!items.length) {
-            return res.status(400).json({ error: 'Missing menuItems', items: [] });
+            return res.status(400).json({ error: 'Missing menuItems', items: [], unattachedAddons: [], unrecognizedText: [] });
         }
 
         const parsed = await callGemini({ speechText, items, modifiers });
-        const safeItems = validateParsed(parsed, items, modifiers);
-        return res.status(200).json({ ok: true, items: safeItems });
+        const safe = validateParsed(parsed, items, modifiers);
+        return res.status(200).json({ ok: true, ...safe });
     } catch (err) {
         console.error('ai-parse-order error:', err);
         return res.status(err.status || 500).json({
             error: err.message || 'Parse failed',
             items: [],
+            unattachedAddons: [],
+            unrecognizedText: [],
         });
     }
 };

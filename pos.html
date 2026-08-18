@@ -1016,6 +1016,18 @@
             if (list) try { list.scrollTop = list.scrollHeight; } catch (_) {}
             setTimeout(() => el.classList.remove('is-flash'), 1600);
         }
+        function aiWarnings(data) {
+            const unattached = Array.isArray(data && data.unattachedAddons) ? data.unattachedAddons.filter(Boolean) : [];
+            const unknown = Array.isArray(data && data.unrecognizedText) ? data.unrecognizedText.filter(Boolean) : [];
+            const bits = [];
+            if (unattached.length) {
+                bits.push('請先揀漢堡先加：' + unattached.join('、'));
+            }
+            if (unknown.length) {
+                bits.push('認唔到：' + unknown.join('、'));
+            }
+            return bits.join('。');
+        }
         function catalogForAi() {
             const menu = (menuItems || []).map((item) => ({
                 id: item.id,
@@ -1118,6 +1130,7 @@
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
                     const parsedItems = Array.isArray(data.items) ? data.items : [];
+                    const warning = aiWarnings(data);
                     const added = [];
                     for (const parsed of parsedItems) {
                         const line = cartLineFromAi(parsed);
@@ -1126,8 +1139,8 @@
                         added.push((line.qty || 1) + '× ' + (line.nameZh || line.nameEn));
                     }
                     if (!added.length) {
-                        showToast('認唔到餸。再講清楚，或者直接用手撳。');
-                        if (live) live.textContent = '聽成：「' + text + '」。認唔到餸。';
+                        showToast(warning || '認唔到餸。再講清楚，或者直接用手撳。');
+                        if (live) live.textContent = warning ? ('聽成：「' + text + '」。' + warning) : ('聽成：「' + text + '」。認唔到餸。');
                         voiceBusy = false;
                         setMicLabel(true, '聽緊… 再撳一次入車');
                         scheduleResumeListen(400, '認唔到。請再講一次，或者取消改用手撳。');
@@ -1137,7 +1150,7 @@
                     renderCart();
                     flashCart();
                     const t = cartTotals();
-                    showToast('已加入 ' + added.join('、') + '。小計 $' + t.sub + '，實收 $' + t.total);
+                    showToast('已加入 ' + added.join('、') + '。小計 $' + t.sub + '，實收 $' + t.total + (warning ? '。' + warning : ''));
                 } catch (err) {
                     closeVoice();
                     const raw = String((err && err.message) || err || '');
