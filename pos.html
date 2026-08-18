@@ -1100,7 +1100,7 @@
             const live = document.getElementById('voice-live');
             if (live) live.textContent = snap || '截緊最後一句…';
             pauseListen();
-            setMicLabel(true, 'AI 認緊單…');
+            setMicLabel(true, '等等…');
             clearTimeout(voiceFinishTimer);
             voiceFinishTimer = setTimeout(async () => {
                 voiceFinishTimer = null;
