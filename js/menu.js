@@ -1371,7 +1371,7 @@ function finishOrderSuccess(store, time, btn, originalText, details = {}) {
     }
     if (descEl) {
         descEl.innerHTML = isTable
-            ? `<span class="en">Please pay at the counter. In-store card fees are lower than paying on your phone.</span><span class="zh">請到櫃檯付款。堂食用店內卡機，手續費低少少。</span>`
+            ? `<span class="en">Please pay at the counter.</span><span class="zh">請到櫃檯付款。</span>`
             : `<span class="en">Your paid order has been sent to the kitchen. Please pick it up at the designated time!</span><span class="zh">已付款訂單已送去廚房。請準時前往分店取餐！</span>`;
     }
     if (orderNoEl) orderNoEl.textContent = orderNo ? `#${orderNo}` : '—';
