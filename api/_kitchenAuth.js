@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 function getKitchenSecret() {
-    return String(process.env.KITCHEN_PASSWORD || '').trim();
+    return process.env.KITCHEN_PASSWORD || '';
 }
 
 function slugifyStore(storeName) {
@@ -14,12 +14,11 @@ function slugifyStore(storeName) {
 
 function getStoreSecret(storeName) {
     const key = slugifyStore(storeName);
-    const specific = key ? String(process.env[`KITCHEN_PASSWORD_${key}`] || '').trim() : '';
-    return specific || getKitchenSecret();
+    return (key && process.env[`KITCHEN_PASSWORD_${key}`]) || getKitchenSecret();
 }
 
 function getMasterSecret() {
-    return String(process.env.KITCHEN_MASTER_PASSWORD || process.env.MASTER_PASSWORD || '').trim();
+    return process.env.KITCHEN_MASTER_PASSWORD || process.env.MASTER_PASSWORD || '';
 }
 
 const KITCHEN_TOKEN_MS = 30 * 24 * 60 * 60 * 1000; // kitchen iPads stay signed in
@@ -41,7 +40,7 @@ function parseKitchenToken(token, secret) {
         const expected = signPayload(payloadToSign, secret);
         try {
             return crypto.timingSafeEqual(Buffer.from(String(sig)), Buffer.from(expected));
-        } catch (_) {
+        } catch {
             return false;
         }
     }
@@ -68,7 +67,7 @@ function parseKitchenToken(token, secret) {
             scope: parsed.scope === 'all_stores' ? 'all_stores' : 'single_store',
             store_name: parsed.store_name ? String(parsed.store_name) : '',
         };
-    } catch (_) {
+    } catch {
         return null;
     }
 }
@@ -90,23 +89,17 @@ function verifyKitchenToken(token, secret) {
 }
 
 function verifyKitchenTokenAny(token) {
-    const secrets = [];
-    function addSecret(secret) {
-        if (secret && secrets.indexOf(secret) === -1) secrets.push(secret);
-    }
     const masterSecret = getMasterSecret();
-    addSecret(masterSecret);
-    addSecret(getKitchenSecret());
-    try {
-        require('./_storeSettings').KNOWN_STORES.forEach((store) => addSecret(getStoreSecret(store)));
-    } catch (_) {}
-
-    for (let i = 0; i < secrets.length; i++) {
-        const secret = secrets[i];
-        const parsed = parseKitchenToken(token, secret);
-        if (!parsed) continue;
-        if (secret === masterSecret && parsed.scope !== 'all_stores') continue;
-        return Object.assign({}, parsed, { secret: secret });
+    if (masterSecret) {
+        const parsed = parseKitchenToken(token, masterSecret);
+        if (parsed && parsed.scope === 'all_stores') {
+            return { ...parsed, secret: masterSecret };
+        }
+    }
+    const shared = getKitchenSecret();
+    if (shared) {
+        const parsed = parseKitchenToken(token, shared);
+        if (parsed) return { ...parsed, secret: shared };
     }
     return null;
 }

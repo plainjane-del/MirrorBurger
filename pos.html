@@ -15,45 +15,7 @@
     <link href="./output.css?v=2.0" rel="stylesheet">
     <style>
         * { -webkit-tap-highlight-color: transparent; }
-        html, body {
-            background: #0a0a0a !important;
-            color: #f5f5f5 !important;
-            font-family: "Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif;
-            min-height: 100%;
-            height: 100%;
-            margin: 0;
-        }
-        #pos-lock {
-            position: fixed;
-            top: 0; right: 0; bottom: 0; left: 0;
-            z-index: 100;
-            display: -webkit-flex;
-            display: flex;
-            -webkit-align-items: center;
-            align-items: center;
-            -webkit-justify-content: center;
-            justify-content: center;
-            background: #000 !important;
-            padding: 24px;
-            overflow: auto;
-        }
-        #pos-lock.is-off { display: none !important; }
-        #pos-app {
-            display: none;
-            background: #0a0a0a !important;
-            color: #f5f5f5 !important;
-        }
-        #pos-app.is-on {
-            display: block !important;
-            min-height: 100%;
-            overflow: auto;
-        }
-        #pos-app header {
-            background: #111 !important;
-            color: #f5f5f5;
-        }
-        #pos-menu { min-height: 220px; background: #0a0a0a; }
-        #pos-cart { background: #111 !important; }
+        body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
         .chip-btn { min-height:44px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
         .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
         .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:10px 12px; cursor:pointer; min-height:64px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -68,9 +30,9 @@
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
         #print-status.is-on { color:#0a0a0a; background:#86efac; border-color:#86efac; }
-        .sheet { position:fixed; top:0; right:0; bottom:0; left:0; z-index:80; display:none; background:#00000088; }
+        .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
-        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90%; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; }
+        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
         .ticket-no { font-size:clamp(42px, 12vw, 88px); line-height:1; font-weight:900; letter-spacing:-.04em; }
         @media (max-width: 767px) {
             #pos-cart {
@@ -86,30 +48,28 @@
 <body class="antialiased">
     <div id="pos-toast" role="status"></div>
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
-        <form id="pos-login-form" class="w-full max-w-sm space-y-5" method="get" action="/pos.html"
-            onsubmit="if(event.preventDefault)event.preventDefault();submitPosLogin(event);return false;">
+        <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18z</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18w</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
             <select id="pos-login-store"
-                style="width:100%;background:#171717;color:#fff;border:2px solid #444;border-radius:16px;padding:16px;font-size:18px;font-weight:700;">
+                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
                 <option value="Sai Ying Pun">西營盤</option>
                 <option value="Fortress Hill">天后</option>
                 <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
                 <option value="__master__">Master 全部分店</option>
             </select>
             <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
-                style="width:100%;box-sizing:border-box;background:#171717;color:#fff;border:2px solid #444;border-radius:16px;padding:16px;font-size:18px;font-weight:700;">
+                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
             <p id="pos-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
-            <button type="submit" id="pos-login-btn"
-                style="width:100%;background:#FFD131;color:#000;border:0;border-radius:16px;padding:16px;font-size:18px;font-weight:900;">進入 POS</button>
+            <button type="submit" id="pos-login-btn" class="w-full rounded-2xl bg-yellow-400 text-black py-4 text-base font-black">進入 POS</button>
         </form>
     </div>
 
-    <div id="pos-app">
-        <header class="sticky top-0 z-40 border-b border-neutral-800 px-3 py-2">
+    <div id="pos-app" class="hidden h-dvh flex flex-col overflow-hidden">
+        <header class="sticky top-0 z-40 bg-black/95 border-b border-neutral-800 px-3 py-2">
             <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
                     <div class="text-sm font-black text-yellow-400">測試 POS</div>
@@ -150,7 +110,7 @@
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
                 <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
             </section>
-            <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 md:static overflow-hidden md:overflow-auto">
+            <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-hidden md:overflow-auto">
                 <div class="grid grid-cols-3 gap-1 shrink-0">
                     <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')">即取</button>
                     <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
@@ -161,7 +121,7 @@
                 <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
                     class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cart-list" class="flex-1 min-h-0 space-y-2 overflow-y-auto"></div>
-                <div class="shrink-0 space-y-2 pt-1">
+                <div class="shrink-0 space-y-2 pt-1 bg-neutral-950">
                     <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
                     <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
                     <div class="grid grid-cols-3 gap-2">
@@ -292,8 +252,7 @@
 
         function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
         function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
-        function applySessionAuth(data) {
-            data = data || {};
+        function applySessionAuth(data = {}) {
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
             if (sessionScope !== 'all_stores' && sessionStore) {
@@ -376,14 +335,10 @@
         }
 
         async function submitPosLogin(event) {
-            if (event) {
-                if (event.preventDefault) event.preventDefault();
-                if (event.stopPropagation) event.stopPropagation();
-            }
-            var btn = document.getElementById('pos-login-btn');
-            var err = document.getElementById('pos-login-error');
-            if (btn) btn.disabled = true;
-            if (err) err.classList.add('hidden');
+            if (event && event.preventDefault) event.preventDefault();
+            const btn = document.getElementById('pos-login-btn');
+            const err = document.getElementById('pos-login-error');
+            btn.disabled = true; err.classList.add('hidden');
             try {
                 const storeEl = document.getElementById('pos-login-store');
                 const passEl = document.getElementById('pos-password');
@@ -403,13 +358,9 @@
                 applySessionAuth(data);
                 await bootPos();
             } catch (e) {
-                if (err) {
-                    err.textContent = e.message || '登入失敗';
-                    err.classList.remove('hidden');
-                } else {
-                    alert(e.message || '登入失敗');
-                }
-            } finally { if (btn) btn.disabled = false; }
+                err.textContent = e.message || '登入失敗';
+                err.classList.remove('hidden');
+            } finally { btn.disabled = false; }
             return false;
         }
         function logoutPos() { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
@@ -1336,42 +1287,15 @@
         }
 
         async function bootPos() {
-            var lock = document.getElementById('pos-lock');
-            var app = document.getElementById('pos-app');
-            if (lock) {
-                lock.className = lock.className + ' is-off hidden';
-                lock.style.display = 'none';
-            }
-            if (app) {
-                app.className = (app.className || '').replace(/\bhidden\b/g, '') + ' is-on';
-                app.style.display = 'block';
-                app.style.background = '#0a0a0a';
-                app.style.color = '#f5f5f5';
-                app.style.minHeight = '100%';
-                app.style.overflow = 'auto';
-            }
-            document.body.style.background = '#0a0a0a';
-            document.body.style.color = '#f5f5f5';
+            document.getElementById('pos-lock').classList.add('hidden');
+            document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
-            try {
-                await loadMenu();
-            } catch (err) {
-                var grid = document.getElementById('menu-grid');
-                if (grid) grid.innerHTML = '<p class="col-span-full text-center font-bold text-red-400 py-10">菜單載入失敗：' + escapeHtml(err.message || err) + '</p>';
-            }
-            try { startTableUnpaidPoll(); } catch (_) {}
+            await loadMenu();
+            startTableUnpaidPoll();
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
         window.onload = async () => {
             try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}
-            var form = document.getElementById('pos-login-form');
-            if (form) {
-                form.onsubmit = function (e) {
-                    if (e && e.preventDefault) e.preventDefault();
-                    submitPosLogin(e);
-                    return false;
-                };
-            }
             const existing = getToken();
             if (!existing) { markStoreButtons(); return; }
             try {
@@ -1380,10 +1304,7 @@
                     headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({ token: existing }),
                 });
-                if (!res.ok) {
-                    try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch (_) {}
-                    return;
-                }
+                if (!res.ok) return;
                 const data = await res.json().catch(() => ({}));
                 if (data.token) saveToken(data.token);
                 applySessionAuth(data);

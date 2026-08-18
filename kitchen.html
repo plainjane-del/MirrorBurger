@@ -235,13 +235,12 @@
 <body class="antialiased">
 
     <div id="kitchen-lock" class="fixed inset-0 z-[100] bg-kds-bg flex items-center justify-center px-6">
-        <form id="kitchen-login-form" class="w-full max-w-sm space-y-5" method="get" action="/kitchen.html"
-            onsubmit="if(event.preventDefault)event.preventDefault();submitKitchenLogin(event);return false;">
+        <form id="kitchen-login-form" class="w-full max-w-sm space-y-5" onsubmit="return submitKitchenLogin(event)">
             <div class="text-center space-y-2">
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.18m</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.18k</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -400,7 +399,7 @@
         let hasStatusColumn = true;
 
         function isMissingStatusColumnError(error) {
-            const msg = String((error && (error.message || error.details)) || error || '').toLowerCase();
+            const msg = String(error?.message || error?.details || error || '').toLowerCase();
             return msg.includes('orders.status') || (msg.includes('column') && msg.includes('status') && msg.includes('does not exist'));
         }
 
@@ -426,7 +425,7 @@
                 const raw = localStorage.getItem(WA_NOTIFIED_KEY);
                 const arr = raw ? JSON.parse(raw) : [];
                 return new Set(Array.isArray(arr) ? arr : []);
-            } catch (_) {
+            } catch {
                 return new Set();
             }
         }
@@ -443,7 +442,7 @@
         }
 
         function formatAmount(order) {
-            const n = Number(order && order.total_amount);
+            const n = Number(order?.total_amount);
             if (!Number.isFinite(n)) return '—';
             return `HK$${Math.round(n)}`;
         }
@@ -453,9 +452,9 @@
                 timeZone: 'Asia/Hong_Kong',
                 year: 'numeric', month: '2-digit', day: '2-digit'
             }).formatToParts(new Date());
-            const y = (parts.find(function (p) { return p.type === 'year'; }) || {}).value;
-            const m = (parts.find(function (p) { return p.type === 'month'; }) || {}).value;
-            const d = (parts.find(function (p) { return p.type === 'day'; }) || {}).value;
+            const y = parts.find(p => p.type === 'year')?.value;
+            const m = parts.find(p => p.type === 'month')?.value;
+            const d = parts.find(p => p.type === 'day')?.value;
             // HK midnight as UTC+8
             return new Date(`${y}-${m}-${d}T00:00:00+08:00`).toISOString();
         }
@@ -469,7 +468,7 @@
         const highlightedOrders = new Set();
 
         function escapeHtml(str) {
-            return String(str == null ? '' : str)
+            return String(str ?? '')
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
@@ -479,7 +478,7 @@
 
         /** Escape for single-quoted JS string literals inside HTML onclick="...('...')" */
         function escapeJsString(str) {
-            return String(str == null ? '' : str)
+            return String(str ?? '')
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "\\'")
                 .replace(/\r/g, '\\r')
@@ -488,8 +487,7 @@
                 .replace(/\u2029/g, '\\u2029');
         }
 
-        function applyKitchenAuth(data) {
-            data = data || {};
+        function applyKitchenAuth(data = {}) {
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
             if (sessionScope !== 'all_stores' && sessionStore) {
@@ -503,8 +501,7 @@
         }
 
         function selectedKitchenLoginStore() {
-            const el = document.getElementById('kitchen-login-store');
-            const value = (el && el.value) || '';
+            const value = document.getElementById('kitchen-login-store')?.value || '';
             return value === '__master__' ? '' : value;
         }
 
@@ -582,7 +579,7 @@
 
         /** 整理電話：去 +／空格／符號；純 8 位香港號補 852；已有區號則照用 */
         function normalizeWhatsAppPhone(raw) {
-            let formattedPhone = String(raw == null ? '' : raw).replace(/[^0-9]/g, '');
+            let formattedPhone = String(raw ?? '').replace(/[^0-9]/g, '');
             if (!formattedPhone) return '';
             // 客人冇揀區號、只填 8 位香港號碼 → 自動補 852
             if (formattedPhone.length === 8) {
@@ -1432,8 +1429,7 @@
             if (ordersPollTimer) clearInterval(ordersPollTimer);
             ordersPollTimer = setInterval(() => {
                 loadOrders();
-                var statsPanel = document.getElementById('stats-panel');
-                if (statsPanel && statsPanel.classList.contains('is-open')) {
+                if (document.getElementById('stats-panel')?.classList.contains('is-open')) {
                     loadTodayStats();
                 }
             }, 8000);
@@ -1662,8 +1658,7 @@
                 }
                 updatePushNudge();
             });
-            var kitchenAppEl = document.getElementById('kitchen-app');
-            if (kitchenAppEl) kitchenAppEl.addEventListener('pointerdown', () => {
+            document.getElementById('kitchen-app')?.addEventListener('pointerdown', () => {
                 if (!audioUnlocked) unlockKitchenAudio({ quiet: true }).catch(() => {});
             }, { once: false });
             enableKitchenPush({ silent: true }).catch(() => {});
@@ -1753,8 +1748,7 @@
             }
             showKitchenLock();
             updatePushNudge();
-            var passEl = document.getElementById('kitchen-password');
-            if (passEl) passEl.focus();
+            document.getElementById('kitchen-password')?.focus();
         };
     </script>
 </body>
