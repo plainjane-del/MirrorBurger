@@ -15,7 +15,19 @@
     <link href="./output.css?v=2.0" rel="stylesheet">
     <style>
         * { -webkit-tap-highlight-color: transparent; }
-        body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
+        body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100vh; }
+        #pos-lock.is-off { display: none !important; }
+        #pos-app { display: none; }
+        #pos-app.is-on {
+            display: -webkit-flex;
+            display: flex;
+            -webkit-flex-direction: column;
+            flex-direction: column;
+            min-height: 100vh;
+            height: 100vh;
+            overflow: auto;
+        }
+        #pos-menu { min-height: 220px; }
         .chip-btn { min-height:44px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
         .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
         .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:10px 12px; cursor:pointer; min-height:64px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -50,7 +62,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18w</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18x</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -68,7 +80,7 @@
         </form>
     </div>
 
-    <div id="pos-app" class="hidden h-dvh flex flex-col overflow-hidden">
+    <div id="pos-app" class="flex flex-col">
         <header class="sticky top-0 z-40 bg-black/95 border-b border-neutral-800 px-3 py-2">
             <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
@@ -1287,11 +1299,24 @@
         }
 
         async function bootPos() {
-            document.getElementById('pos-lock').classList.add('hidden');
-            document.getElementById('pos-app').classList.remove('hidden');
+            var lock = document.getElementById('pos-lock');
+            var app = document.getElementById('pos-app');
+            if (lock) {
+                lock.classList.add('hidden');
+                lock.classList.add('is-off');
+            }
+            if (app) {
+                app.classList.remove('hidden');
+                app.classList.add('is-on');
+            }
             markStoreButtons();
-            await loadMenu();
-            startTableUnpaidPoll();
+            try {
+                await loadMenu();
+            } catch (err) {
+                var grid = document.getElementById('menu-grid');
+                if (grid) grid.innerHTML = '<p class="col-span-full text-center font-bold text-red-400 py-10">菜單載入失敗：' + escapeHtml(err.message || err) + '</p>';
+            }
+            try { startTableUnpaidPoll(); } catch (_) {}
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
         window.onload = async () => {
