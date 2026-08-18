@@ -86,6 +86,12 @@
             <div id="voice-live-bar" class="mt-2 rounded-xl border border-red-800 bg-neutral-900 p-3">
                 <p id="voice-live" class="text-base font-bold text-yellow-300">聽緊…一次過講晒要咩。</p>
                 <p class="mt-1 text-xs font-bold text-neutral-500">停講大約兩秒會自動入購物車。唔想用就撳取消，改用手撳餸。</p>
+                <div class="mt-2 grid grid-cols-3 gap-1">
+                    <button type="button" id="voice-lang-yue" class="chip-btn" onclick="setVoiceLang('zh-HK')">廣東話</button>
+                    <button type="button" id="voice-lang-cn" class="chip-btn" onclick="setVoiceLang('zh-CN')">普通話</button>
+                    <button type="button" id="voice-lang-en" class="chip-btn" onclick="setVoiceLang('en-US')">英文</button>
+                </div>
+                <p class="mt-2 text-[11px] font-bold text-neutral-500">語音識別語言：<span id="voice-lang-label">廣東話</span></p>
                 <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消錄音</button>
             </div>
         </header>
@@ -846,6 +852,26 @@
         let voiceResumeToken = 0;
         let toastTimer = null;
         const VOICE_SILENCE_MS = 2200;
+        let voiceLang = 'zh-HK';
+
+        function setVoiceLang(lang) {
+            voiceLang = lang;
+            const label = document.getElementById('voice-lang-label');
+            if (label) label.textContent = lang === 'zh-HK' ? '廣東話' : (lang === 'zh-CN' ? '普通話' : '英文');
+            const ids = [
+                ['voice-lang-yue', 'zh-HK'],
+                ['voice-lang-cn', 'zh-CN'],
+                ['voice-lang-en', 'en-US'],
+            ];
+            for (const [id, l] of ids) {
+                const btn = document.getElementById(id);
+                if (!btn) continue;
+                btn.classList.toggle('is-active', l === voiceLang);
+            }
+        }
+
+        // Default highlight for the language selector.
+        setTimeout(() => setVoiceLang(voiceLang), 0);
 
         function speechEngine() {
             return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -924,7 +950,7 @@
             if (voiceRec) return;
             const rec = new SR();
             voiceRec = rec;
-            rec.lang = 'zh-HK';
+            rec.lang = voiceLang || 'zh-HK';
             rec.continuous = true;
             rec.interimResults = true;
             rec.maxAlternatives = 5;
