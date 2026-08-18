@@ -1,5 +1,5 @@
-const CACHE = 'mirror-burger-v9';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json'];
+const CACHE = 'mirror-burger-v10';
+const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -67,7 +67,10 @@ self.addEventListener('fetch', (event) => {
 
   if (req.mode === 'navigate') {
     const isKitchen = url.pathname.includes('kitchen');
-    const cacheKey = isKitchen ? '/kitchen.html' : (url.pathname === '/' || url.pathname === '/index.html' ? '/index.html' : null);
+    const isTable = /^\/t\/\d+\/?$/.test(url.pathname) || url.pathname === '/table.html';
+    const cacheKey = isKitchen
+      ? '/kitchen.html'
+      : (isTable ? '/table.html' : (url.pathname === '/' || url.pathname === '/index.html' ? '/index.html' : null));
     event.respondWith(
       fetch(req)
         .then((res) => {
@@ -77,7 +80,7 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(isKitchen ? '/kitchen.html' : '/index.html'))
+        .catch(() => caches.match(isKitchen ? '/kitchen.html' : (isTable ? '/table.html' : '/index.html')))
     );
     return;
   }

@@ -23,7 +23,7 @@
     { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
     { "source": "/tin-hau", "destination": "/tin-hau.html" },
     { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },
-    { "source": "/t/:n", "destination": "/index.html" },
+    { "source": "/t/:n", "destination": "/table.html" },
     { "source": "/tables", "destination": "/table-qr.html" }
   ],
   "headers": [
@@ -61,6 +61,10 @@
     },
     {
       "source": "/table-qr.html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/table.html",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     }
   ]

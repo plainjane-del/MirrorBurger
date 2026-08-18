@@ -1,6 +1,8 @@
 const kpay = require('./_kpay.js');
 const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
+const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
+const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -19,6 +21,51 @@ module.exports = async (req, res) => {
                 fulfill: body.fulfill || body.delivery_mode,
             });
             return res.status(200).json({ ok: true, ...result });
+        }
+
+        if (action === 'public_menu') {
+            const storeName = String(body.store_name || 'Sai Ying Pun').trim() || 'Sai Ying Pun';
+            const items = await listMenuItems({ includeInactive: false });
+            let modifiers = [];
+            let combo_base = 19;
+            try {
+                modifiers = await listModifiers({ includeInactive: false }) || [];
+            } catch (err) {
+                console.warn('public_menu modifiers skipped:', err.message);
+            }
+            try {
+                const raw = await getSetting('combo_base');
+                const n = Number(raw);
+                if (Number.isFinite(n)) combo_base = n;
+            } catch (err) {
+                console.warn('public_menu combo_base skipped:', err.message);
+            }
+            let soldIds = new Set();
+            try {
+                soldIds = await listSoldOutIds(storeName);
+            } catch (err) {
+                console.warn('public_menu sold out skipped:', err.message);
+            }
+            let is_open = true;
+            try {
+                const settings = await getStoreRow(storeName);
+                is_open = storeIsAcceptingOrders(storeName, settings || {});
+            } catch (err) {
+                console.warn('public_menu hours skipped:', err.message);
+                is_open = storeIsAcceptingOrders(storeName, {});
+            }
+            const merged = (items || []).map((item) => ({
+                ...item,
+                is_sold_out: !!(item.is_sold_out || soldIds.has(item.id)),
+            }));
+            return res.status(200).json({
+                ok: true,
+                items: merged,
+                modifiers,
+                combo_base,
+                is_open,
+                store_name: storeName,
+            });
         }
 
         if (action === 'create_table') {

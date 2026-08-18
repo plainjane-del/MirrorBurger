@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>堂食點餐 · Mirror Burger</title>
+    <base href="/">
+    <link href="/output.css?v=2.1" rel="stylesheet">
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body { background:#0a0a0a; color:#f5f5f5; font-family:"Avenir Next","Helvetica Neue","PingFang HK","Noto Sans TC",sans-serif; min-height:100dvh; }
+        .chip-btn { min-height:44px; font-weight:800; font-size:13px; padding:0 12px; border-radius:10px; border:1px solid #333; background:#1a1a1a; color:#e5e5e5; }
+        .chip-btn.is-active { background:#FFD131; color:#0a0a0a; border-color:#FFD131; }
+        .item-btn { text-align:left; border:1px solid #333; background:#171717; border-radius:14px; padding:8px; cursor:pointer; }
+        .pos-thumb { aspect-ratio: 1 / 1; width: 100%; background:#111; overflow:hidden; border-radius:10px; margin-bottom:8px; }
+        .pos-thumb img { width:100%; height:100%; object-fit:contain; object-position:center; display:block; }
+        .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:16px; }
+        .pay-btn:disabled, #cfg-add:disabled { opacity:.45; }
+        .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
+        .sheet.is-open { display:block; }
+        .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
+        .ticket-no { font-size:clamp(42px, 12vw, 88px); line-height:1; font-weight:900; letter-spacing:-.04em; }
+        #cart-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="bad-table" class="hidden fixed inset-0 z-50 bg-black flex items-center justify-center px-6 text-center">
+        <div>
+            <p class="text-yellow-400 text-4xl font-black">呢張枱未開通</p>
+            <p class="text-neutral-400 font-bold mt-3">西營盤堂食 QR 係 1 至 5 號枱。</p>
+        </div>
+    </div>
+    <div id="closed-lock" class="hidden fixed inset-0 z-40 bg-black/95 flex items-center justify-center px-6 text-center">
+        <div>
+            <p class="text-yellow-400 text-3xl font-black">已收舖</p>
+            <p class="text-neutral-400 font-bold mt-3">西營盤而家唔接受枱單。請到櫃檯問下。</p>
+        </div>
+    </div>
+
+    <div class="min-h-dvh flex flex-col">
+        <header class="sticky top-0 z-30 bg-black/95 border-b border-neutral-800 px-3 py-2 pt-[calc(10px+env(safe-area-inset-top))]">
+            <div class="flex items-center justify-between gap-2">
+                <div>
+                    <div id="table-title" class="text-2xl font-black text-yellow-400 leading-none">—號枱</div>
+                    <p class="text-[11px] font-bold text-neutral-400 mt-1">西營盤堂食 · 送到廚房後請到櫃檯付款</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="flex-1 p-3 pb-28">
+            <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
+            <div id="menu-grid" class="grid grid-cols-2 gap-2"></div>
+        </section>
+
+        <div id="cart-bar" class="fixed bottom-0 left-0 right-0 z-20 bg-neutral-950 border-t border-neutral-800 px-3 pt-2">
+            <button type="button" id="cart-bar-btn" class="w-full pay-btn bg-yellow-400 text-black" onclick="openCart()">
+                購物車 $0
+            </button>
+        </div>
+    </div>
+
+    <div id="cfg-sheet" class="sheet" onclick="if(event.target===this) closeCfg()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="min-w-0">
+                    <h3 id="cfg-title" class="text-lg font-black"></h3>
+                    <p id="cfg-price" class="text-sm font-bold text-yellow-400"></p>
+                </div>
+                <button type="button" class="chip-btn" onclick="closeCfg()">關閉</button>
+            </div>
+            <div id="cfg-img-wrap" class="hidden pos-thumb max-h-44 mb-3"></div>
+            <div id="cfg-body" class="space-y-4"></div>
+            <button type="button" id="cfg-add" class="mt-4 w-full rounded-2xl bg-yellow-400 text-black py-4 font-black" onclick="confirmCfg()">加入</button>
+        </div>
+    </div>
+
+    <div id="cart-sheet" class="sheet" onclick="if(event.target===this) closeCart()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">購物車</h3>
+                <button type="button" class="chip-btn" onclick="closeCart()">關閉</button>
+            </div>
+            <div id="cart-list" class="space-y-2"></div>
+            <input id="guest-name" type="text" maxlength="40" placeholder="你的名字 *"
+                class="mt-4 w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-3 text-sm font-bold outline-none">
+            <p class="text-[11px] font-bold text-neutral-500 mt-2">送到廚房後，請行去櫃檯用卡機／現金付款。</p>
+            <div class="mt-3 text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
+            <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
+            <button type="button" id="send-btn" class="mt-3 w-full pay-btn bg-yellow-400 text-black" onclick="sendOrder()">送到廚房</button>
+        </div>
+    </div>
+
+    <div id="done-sheet" class="sheet" onclick="if(event.target===this) closeDone()">
+        <div class="sheet-panel text-center" onclick="event.stopPropagation()">
+            <p class="text-[11px] font-black tracking-widest text-neutral-500 uppercase">已送到廚房</p>
+            <div id="ticket-no" class="ticket-no text-yellow-400 my-3"></div>
+            <p id="ticket-meta" class="text-base font-black"></p>
+            <p class="text-sm font-bold text-neutral-300 mt-3">請到櫃檯付款。堂食用店內卡機，手續費低少少。</p>
+            <button type="button" class="pay-btn bg-yellow-400 text-black w-full mt-5" onclick="closeDone()">OK</button>
+        </div>
+    </div>
+
+    <script src="/js/store-hours.js"></script>
+    <script src="/js/table-order.js"></script>
+</body>
+</html>
