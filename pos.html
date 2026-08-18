@@ -27,7 +27,15 @@
             position: fixed;
             top: 0; right: 0; bottom: 0; left: 0;
             z-index: 100;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-align-items: center;
+            align-items: center;
+            -webkit-justify-content: center;
+            justify-content: center;
             background: #000 !important;
+            padding: 24px;
+            overflow: auto;
         }
         #pos-lock.is-off { display: none !important; }
         #pos-app {
@@ -78,25 +86,26 @@
 <body class="antialiased">
     <div id="pos-toast" role="status"></div>
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
-        <div class="w-full max-w-sm space-y-5">
+        <form id="pos-login-form" class="w-full max-w-sm space-y-5" method="get" action="/pos.html"
+            onsubmit="if(event.preventDefault)event.preventDefault();submitPosLogin(event);return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18y</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18z</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
             <select id="pos-login-store"
-                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
+                style="width:100%;background:#171717;color:#fff;border:2px solid #444;border-radius:16px;padding:16px;font-size:18px;font-weight:700;">
                 <option value="Sai Ying Pun">西營盤</option>
                 <option value="Fortress Hill">天后</option>
                 <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
                 <option value="__master__">Master 全部分店</option>
             </select>
-            <input id="pos-password" type="password" autocomplete="current-password" placeholder="廚房密碼"
-                onkeydown="if(event.keyCode===13){submitPosLogin();return false;}"
-                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
+            <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
+                style="width:100%;box-sizing:border-box;background:#171717;color:#fff;border:2px solid #444;border-radius:16px;padding:16px;font-size:18px;font-weight:700;">
             <p id="pos-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
-            <button type="button" id="pos-login-btn" class="w-full rounded-2xl bg-yellow-400 text-black py-4 text-base font-black" onclick="submitPosLogin()">進入 POS</button>
-        </div>
+            <button type="submit" id="pos-login-btn"
+                style="width:100%;background:#FFD131;color:#000;border:0;border-radius:16px;padding:16px;font-size:18px;font-weight:900;">進入 POS</button>
+        </form>
     </div>
 
     <div id="pos-app">
@@ -1355,6 +1364,14 @@
         }
         window.onload = async () => {
             try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}
+            var form = document.getElementById('pos-login-form');
+            if (form) {
+                form.onsubmit = function (e) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    submitPosLogin(e);
+                    return false;
+                };
+            }
             const existing = getToken();
             if (!existing) { markStoreButtons(); return; }
             try {
@@ -1363,7 +1380,10 @@
                     headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({ token: existing }),
                 });
-                if (!res.ok) return;
+                if (!res.ok) {
+                    try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch (_) {}
+                    return;
+                }
                 const data = await res.json().catch(() => ({}));
                 if (data.token) saveToken(data.token);
                 applySessionAuth(data);
