@@ -378,7 +378,7 @@ async function createPosOrder(input) {
     }
     const payMethod = clip(input && input.pay_method, 20).toLowerCase();
     if (!POS_PAY_METHODS.has(payMethod)) {
-        const err = new Error('Invalid pay_method (cash / fps / payme)');
+        const err = new Error('Invalid pay_method (cash / fps / payme / card)');
         err.status = 400;
         throw err;
     }
@@ -391,7 +391,11 @@ async function createPosOrder(input) {
     const customerName = clip(input && input.customer_name, 80) || '店取客人';
     const note = clip(input && input.note, 80);
     const fulfill = clip(input && input.fulfill, 20) === 'dine_in' ? '堂食' : '即取';
-    const pickupTime = note ? `${fulfill} · ${note}` : fulfill;
+    const tableRaw = String(input && input.table_no || '').replace(/[^\d]/g, '').slice(0, 4);
+    const pickupBits = [fulfill];
+    if (tableRaw) pickupBits.push(tableRaw + '號枱');
+    if (note) pickupBits.push(note);
+    const pickupTime = pickupBits.join(' · ');
 
     const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
     const soldIds = await listSoldOutIds(storeName);

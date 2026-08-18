@@ -131,6 +131,7 @@ module.exports = async (req, res) => {
                 customer_name: body.customer_name,
                 note: body.note,
                 fulfill: body.fulfill,
+                table_no: body.table_no,
                 items: body.items,
             });
             return res.status(200).json({ ok: true, ...result });

@@ -50,7 +50,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.19a</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.19b</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -80,6 +80,7 @@
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
+                <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()">掛單</button>
                 <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
                 <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
@@ -116,6 +117,10 @@
                     <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
                     <button type="button" class="chip-btn" onclick="clearCart()">清空</button>
                 </div>
+                <div id="table-no-wrap" class="hidden">
+                    <input id="table-no" type="tel" inputmode="numeric" maxlength="4" placeholder="枱號（堂食必填）"
+                        class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
+                </div>
                 <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
                     class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
@@ -124,10 +129,11 @@
                 <div class="shrink-0 space-y-2 pt-1 bg-neutral-950">
                     <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
                     <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button type="button" class="pay-btn bg-emerald-600" onclick="charge('cash')">現金</button>
-                        <button type="button" class="pay-btn bg-sky-600" onclick="charge('fps')">轉數快</button>
-                        <button type="button" class="pay-btn bg-violet-600" onclick="charge('payme')">PayMe</button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="pay-btn bg-emerald-600" onclick="beginCharge('cash')">現金</button>
+                        <button type="button" class="pay-btn bg-neutral-200 text-black" onclick="beginCharge('card')">卡機</button>
+                        <button type="button" class="pay-btn bg-sky-600" onclick="beginCharge('fps')">轉數快</button>
+                        <button type="button" class="pay-btn bg-pink-500 text-white" onclick="beginCharge('payme')">PayMe</button>
                     </div>
                 </div>
             </aside>
@@ -169,6 +175,7 @@
                 <h3 class="text-lg font-black">今日店內單</h3>
                 <button type="button" class="chip-btn" onclick="closeToday()">關閉</button>
             </div>
+            <div id="today-cashup" class="rounded-xl border border-neutral-800 bg-neutral-900 p-3 mb-3 text-sm font-bold space-y-1"></div>
             <div id="today-list" class="space-y-2"></div>
         </div>
     </div>
@@ -184,11 +191,41 @@
         </div>
     </div>
 
+    <div id="cash-sheet" class="sheet" onclick="if(event.target===this) closeCashSheet()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">現金找續</h3>
+                <button type="button" class="chip-btn" onclick="closeCashSheet()">關閉</button>
+            </div>
+            <p class="text-sm font-bold text-neutral-400">應付 <span id="cash-due">$0</span></p>
+            <div id="cash-presets" class="flex flex-wrap gap-1 mt-3"></div>
+            <input id="cash-received" type="tel" inputmode="numeric" placeholder="實收金額"
+                oninput="updateCashChange()"
+                class="w-full mt-3 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-3 text-lg font-black outline-none">
+            <p class="mt-3 text-sm font-bold text-neutral-500">找續</p>
+            <p id="cash-change" class="text-4xl font-black text-yellow-400 leading-none">$0</p>
+            <p id="cash-error" class="hidden mt-2 text-sm font-bold text-red-400"></p>
+            <button type="button" id="cash-confirm" class="mt-4 w-full rounded-2xl bg-yellow-400 text-black py-4 font-black" onclick="confirmCash()">確認入單</button>
+        </div>
+    </div>
+
+    <div id="hold-sheet" class="sheet" onclick="if(event.target===this) closeHolds()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">掛單</h3>
+                <button type="button" class="chip-btn" onclick="closeHolds()">關閉</button>
+            </div>
+            <button type="button" id="hold-save-btn" class="w-full chip-btn min-h-[48px] mb-3" onclick="holdCurrentCart()">掛起而家呢單</button>
+            <div id="hold-list" class="space-y-2"></div>
+        </div>
+    </div>
+
     <script src="./js/sunmi-printer.umd.js"></script>
     <script src="./js/pos-print.js"></script>
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
+        const HOLD_KEY = 'mb_pos_holds';
         const CATS = [
             { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
             { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
@@ -392,6 +429,7 @@
             currentStore = btn.dataset.branch;
             localStorage.setItem(STORE_KEY, currentStore);
             markStoreButtons();
+            renderHoldBadge();
             await loadMenu();
             refreshTableUnpaidBadge();
         }
@@ -399,7 +437,16 @@
             fulfill = next;
             document.getElementById('fulfill-takeaway').classList.toggle('is-active', next === 'takeaway');
             document.getElementById('fulfill-dine').classList.toggle('is-active', next === 'dine_in');
+            var wrap = document.getElementById('table-no-wrap');
+            if (wrap) {
+                if (next === 'dine_in') wrap.classList.remove('hidden');
+                else wrap.classList.add('hidden');
+            }
             renderCart();
+        }
+        function tableNoValue() {
+            var el = document.getElementById('table-no');
+            return String((el && el.value) || '').replace(/[^\d]/g, '').slice(0, 4);
         }
 
         function catalogItem(id) {
@@ -692,7 +739,11 @@
             lastTicket = { ...data, items: items || data.items || [] };
             document.getElementById('ticket-no').textContent = '#' + data.orderNo;
             document.getElementById('ticket-meta').textContent = `$${data.total} · ${data.pickup_time || (fulfill === 'dine_in' ? '堂食' : '即取')}`;
-            document.getElementById('ticket-pay').textContent = PAY_LABEL[data.pay_method] || data.pay_method;
+            var payText = PAY_LABEL[data.pay_method] || data.pay_method || '';
+            if (data.pay_method === 'cash' && Number(data.cash_received) > 0) {
+                payText = '現金收 $' + data.cash_received + ' · 找 $' + (Number(data.cash_change) || 0);
+            }
+            document.getElementById('ticket-pay').textContent = payText;
             document.getElementById('ticket-items').innerHTML = (lastTicket.items || []).map((it) =>
                 `<div>${it.qty || 1}× ${escapeHtml(it.nameZh || it.nameEn || '')}</div>`
             ).join('');
@@ -731,12 +782,16 @@
         async function openToday() {
             document.getElementById('today-sheet').classList.add('is-open');
             document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">載入中…</p>';
+            var cashupEl = document.getElementById('today-cashup');
+            if (cashupEl) cashupEl.textContent = '計緊今日收款…';
             try {
                 const data = await posApi({ action: 'stats', store_name: currentStore });
-                todayRows = (data.orders || []).filter((o) => {
+                var all = (data.orders || []).filter((o) => {
                     const ch = String(o.channel || '');
                     return ch === 'pos' || ch === 'table' || /(\d+)\s*號枱/.test(String(o.pickup_time || ''));
-                }).slice(0, 40);
+                });
+                renderTodayCashup(all);
+                todayRows = all.slice(0, 40);
                 if (!todayRows.length) {
                     document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">今日未有店內／枱單</p>';
                     return;
@@ -753,8 +808,38 @@
                     </button>`;
                 }).join('');
             } catch (err) {
+                if (cashupEl) cashupEl.textContent = '';
                 document.getElementById('today-list').innerHTML = `<p class="text-red-400 font-bold">${escapeHtml(err.message || err)}</p>`;
             }
+        }
+        function renderTodayCashup(orders) {
+            var el = document.getElementById('today-cashup');
+            if (!el) return;
+            var cash = 0, fps = 0, payme = 0, card = 0, other = 0, paidCount = 0, unpaidCount = 0, unpaidSum = 0, voidCount = 0;
+            (orders || []).forEach(function (o) {
+                var st = String(o.status || '').toUpperCase();
+                var pay = String(o.payment_status || '').toUpperCase();
+                var amt = Number(o.total_amount) || 0;
+                if (st === 'CANCELLED') { voidCount += 1; return; }
+                if (pay === 'UNPAID' || pay === 'PENDING') {
+                    unpaidCount += 1;
+                    unpaidSum += amt;
+                    return;
+                }
+                var method = String(o.pay_method || '').toLowerCase();
+                if (method === 'cash') cash += amt;
+                else if (method === 'fps') fps += amt;
+                else if (method === 'payme') payme += amt;
+                else if (method === 'card') card += amt;
+                else other += amt;
+                paidCount += 1;
+            });
+            var allPaid = cash + fps + payme + card + other;
+            el.innerHTML = '<div class="text-yellow-400 text-lg font-black">今日已收 $' + allPaid + ' · ' + paidCount + ' 單</div>'
+                + '<div>現金 $' + cash + ' · 卡機 $' + card + '</div>'
+                + '<div>轉數快 $' + fps + ' · PayMe $' + payme + (other ? (' · 其他 $' + other) : '') + '</div>'
+                + (unpaidCount ? ('<div class="text-red-400">未收款 ' + unpaidCount + ' 單 · $' + unpaidSum + '</div>') : '')
+                + (voidCount ? ('<div class="text-neutral-500">已作廢 ' + voidCount + ' 單</div>') : '');
         }
         function closeToday() { document.getElementById('today-sheet').classList.remove('is-open'); }
 
@@ -1249,13 +1334,19 @@
             }, 480);
         }
 
-        async function charge(payMethod) {
+        async function charge(payMethod, extra) {
+            extra = extra || {};
             if (charging || !cart.length) return;
+            if (fulfill === 'dine_in' && !tableNoValue()) {
+                alert('堂食請填枱號');
+                return;
+            }
             charging = true;
             document.querySelectorAll('#pos-cart .pay-btn').forEach((b) => { b.disabled = true; });
             const snapshot = cart.slice();
             const guest = document.getElementById('guest-name').value.trim();
             const note = document.getElementById('order-note').value.trim();
+            const tableNo = tableNoValue();
             try {
                 const items = snapshot.map((line) => ({
                     menuId: line.menuId,
@@ -1275,13 +1366,19 @@
                     store_name: currentStore,
                     pay_method: payMethod,
                     fulfill,
+                    table_no: tableNo,
                     customer_name: guest,
                     note,
                     items,
                 });
+                if (payMethod === 'cash') {
+                    data.cash_received = extra.received;
+                    data.cash_change = extra.change;
+                }
                 clearCart();
                 document.getElementById('guest-name').value = '';
                 document.getElementById('order-note').value = '';
+                closeCashSheet();
                 showTicket(data, items);
                 try {
                     await PosPrint.printTicket({
@@ -1300,10 +1397,200 @@
             }
         }
 
+        function beginCharge(payMethod) {
+            if (charging || !cart.length) return;
+            if (fulfill === 'dine_in' && !tableNoValue()) {
+                alert('堂食請填枱號');
+                return;
+            }
+            if (payMethod === 'cash') {
+                openCashSheet();
+                return;
+            }
+            charge(payMethod);
+        }
+
+        function cashPresetAmounts(total) {
+            var set = {};
+            var add = function (n) {
+                n = Math.round(n);
+                if (n >= total) set[n] = true;
+            };
+            add(total);
+            add(Math.ceil(total / 10) * 10);
+            add(Math.ceil(total / 50) * 50);
+            add(Math.ceil(total / 100) * 100);
+            add(500);
+            return Object.keys(set).map(Number).sort(function (a, b) { return a - b; }).slice(0, 6);
+        }
+        function openCashSheet() {
+            var total = cartTotals().total;
+            document.getElementById('cash-due').textContent = '$' + total;
+            document.getElementById('cash-received').value = '';
+            document.getElementById('cash-error').classList.add('hidden');
+            document.getElementById('cash-presets').innerHTML = cashPresetAmounts(total).map(function (n) {
+                var label = n === total ? ('剛好 $' + n) : ('$' + n);
+                return '<button type="button" class="chip-btn" onclick="setCashReceived(' + n + ')">' + label + '</button>';
+            }).join('');
+            updateCashChange();
+            document.getElementById('cash-sheet').classList.add('is-open');
+            var input = document.getElementById('cash-received');
+            if (input) setTimeout(function () { input.focus(); }, 50);
+        }
+        function closeCashSheet() {
+            var sheet = document.getElementById('cash-sheet');
+            if (sheet) sheet.classList.remove('is-open');
+        }
+        function setCashReceived(n) {
+            document.getElementById('cash-received').value = String(n);
+            updateCashChange();
+        }
+        function updateCashChange() {
+            var total = cartTotals().total;
+            var received = Number(document.getElementById('cash-received').value);
+            var err = document.getElementById('cash-error');
+            var changeEl = document.getElementById('cash-change');
+            if (!Number.isFinite(received) || received <= 0) {
+                changeEl.textContent = '$0';
+                err.classList.add('hidden');
+                return 0;
+            }
+            var change = Math.round(received - total);
+            if (change < 0) {
+                changeEl.textContent = '不足 $' + Math.abs(change);
+                err.textContent = '實收少過應付';
+                err.classList.remove('hidden');
+                return change;
+            }
+            changeEl.textContent = '$' + change;
+            err.classList.add('hidden');
+            return change;
+        }
+        function confirmCash() {
+            var total = cartTotals().total;
+            var received = Number(document.getElementById('cash-received').value);
+            var err = document.getElementById('cash-error');
+            if (!Number.isFinite(received) || received < total) {
+                err.textContent = '實收唔夠，請再入金額';
+                err.classList.remove('hidden');
+                return;
+            }
+            charge('cash', { received: received, change: Math.round(received - total) });
+        }
+
+        function readHolds() {
+            try {
+                var raw = JSON.parse(localStorage.getItem(HOLD_KEY) || '[]');
+                return Array.isArray(raw) ? raw : [];
+            } catch (e) {
+                return [];
+            }
+        }
+        function writeHolds(rows) {
+            localStorage.setItem(HOLD_KEY, JSON.stringify((rows || []).slice(0, 8)));
+            renderHoldBadge();
+        }
+        function storeHolds() {
+            return readHolds().filter(function (row) { return row && row.store === currentStore; });
+        }
+        function renderHoldBadge() {
+            var btn = document.getElementById('hold-btn');
+            if (!btn) return;
+            var n = storeHolds().length;
+            btn.textContent = n ? ('掛單 ' + n) : '掛單';
+            btn.classList.toggle('is-active', n > 0);
+        }
+        function cartSnapshot() {
+            return {
+                store: currentStore,
+                cart: cart.slice(),
+                fulfill: fulfill,
+                tableNo: tableNoValue(),
+                guest: document.getElementById('guest-name').value.trim(),
+                note: document.getElementById('order-note').value.trim(),
+                savedAt: Date.now(),
+            };
+        }
+        function applyCartSnapshot(row) {
+            cart = Array.isArray(row.cart) ? row.cart.slice() : [];
+            setFulfill(row.fulfill === 'dine_in' ? 'dine_in' : 'takeaway');
+            var tableEl = document.getElementById('table-no');
+            if (tableEl) tableEl.value = row.tableNo || '';
+            document.getElementById('guest-name').value = row.guest || '';
+            document.getElementById('order-note').value = row.note || '';
+            renderCart();
+        }
+        function holdCurrentCart() {
+            if (!cart.length) {
+                alert('購物車係空嘅');
+                return;
+            }
+            var rows = readHolds();
+            var snap = cartSnapshot();
+            snap.id = String(Date.now());
+            rows.unshift(snap);
+            writeHolds(rows);
+            clearCart();
+            document.getElementById('guest-name').value = '';
+            document.getElementById('order-note').value = '';
+            renderHoldList();
+            showToast('已掛單，可以接下一位');
+        }
+        function openHolds() {
+            renderHoldList();
+            document.getElementById('hold-sheet').classList.add('is-open');
+        }
+        function closeHolds() {
+            var sheet = document.getElementById('hold-sheet');
+            if (sheet) sheet.classList.remove('is-open');
+        }
+        function renderHoldList() {
+            var list = document.getElementById('hold-list');
+            var saveBtn = document.getElementById('hold-save-btn');
+            if (saveBtn) saveBtn.disabled = !cart.length;
+            var rows = storeHolds();
+            if (!list) return;
+            if (!rows.length) {
+                list.innerHTML = '<p class="font-bold text-neutral-500">未有掛單</p>';
+                return;
+            }
+            list.innerHTML = rows.map(function (row) {
+                var t = 0;
+                (row.cart || []).forEach(function (line) { t += linePrice(line); });
+                var when = new Date(row.savedAt || Date.now());
+                var hh = when.getHours();
+                var mm = when.getMinutes();
+                hh = (hh < 10 ? '0' : '') + hh;
+                mm = (mm < 10 ? '0' : '') + mm;
+                var label = (row.fulfill === 'dine_in' ? ('堂食' + (row.tableNo ? (' ' + row.tableNo + '號枱') : '')) : '即取');
+                if (row.guest) label += ' · ' + row.guest;
+                return '<div class="rounded-xl border border-neutral-800 bg-neutral-900 p-3 space-y-2">'
+                    + '<div class="font-black">' + escapeHtml(label) + ' · $' + t + '</div>'
+                    + '<div class="text-[11px] font-bold text-neutral-500">' + hh + ':' + mm + ' · ' + (row.cart || []).length + ' 項</div>'
+                    + '<div class="grid grid-cols-2 gap-2">'
+                    + '<button type="button" class="chip-btn" onclick="restoreHold(\'' + row.id + '\')">取回</button>'
+                    + '<button type="button" class="chip-btn text-red-300" onclick="dropHold(\'' + row.id + '\')">刪除</button>'
+                    + '</div></div>';
+            }).join('');
+        }
+        function restoreHold(id) {
+            var row = storeHolds().filter(function (h) { return h.id === id; })[0];
+            if (!row) return;
+            if (cart.length && !confirm('而家購物車有嘢，取回掛單會覆蓋。繼續？')) return;
+            applyCartSnapshot(row);
+            writeHolds(readHolds().filter(function (h) { return h.id !== id; }));
+            closeHolds();
+        }
+        function dropHold(id) {
+            writeHolds(readHolds().filter(function (h) { return h.id !== id; }));
+            renderHoldList();
+        }
+
         async function bootPos() {
             document.getElementById('pos-lock').classList.add('hidden');
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
+            renderHoldBadge();
             await loadMenu();
             startTableUnpaidPoll();
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
