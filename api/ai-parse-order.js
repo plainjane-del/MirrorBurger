@@ -3,10 +3,11 @@ const { requireKitchen } = require('./_kitchenAuth.js');
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_MODELS = [
     process.env.GEMINI_MODEL,
-    'gemini-2.5-flash',
+    'gemini-3.6-flash',
     'gemini-3.5-flash',
-    'gemini-1.5-flash',
+    'gemini-2.5-flash',
 ].filter(Boolean);
+const GEMINI_FETCH_TIMEOUT_MS = 6500;
 
 const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger (Hong Kong).
 Convert spoken Cantonese (and mixed English) into structured POS order lines using ONLY the provided catalog.
@@ -247,10 +248,21 @@ async function callGemini({ speechText, items, modifiers }) {
     for (const model of GEMINI_MODELS) {
         if (tried.has(model)) continue;
         tried.add(model);
-        const resp = await fetch(
-            `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
-        );
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), GEMINI_FETCH_TIMEOUT_MS);
+        let resp;
+        try {
+            resp = await fetch(
+                `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctrl.signal }
+            );
+        } catch (err) {
+            clearTimeout(timer);
+            lastErr = err;
+            if (err && err.name === 'AbortError') continue;
+            throw err;
+        }
+        clearTimeout(timer);
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
             const msg = (data && data.error && data.error.message) || `Gemini HTTP ${resp.status}`;
