@@ -4,31 +4,110 @@ function getKitchenSecret() {
     return process.env.KITCHEN_PASSWORD || '';
 }
 
+function slugifyStore(storeName) {
+    return String(storeName || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function getStoreSecret(storeName) {
+    const key = slugifyStore(storeName);
+    return (key && process.env[`KITCHEN_PASSWORD_${key}`]) || getKitchenSecret();
+}
+
+function getMasterSecret() {
+    return process.env.KITCHEN_MASTER_PASSWORD || process.env.MASTER_PASSWORD || '';
+}
+
 const KITCHEN_TOKEN_MS = 30 * 24 * 60 * 60 * 1000; // kitchen iPads stay signed in
 
-function makeKitchenToken(secret) {
+function signPayload(payload, secret) {
+    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+}
+
+function base64url(input) {
+    return Buffer.from(String(input)).toString('base64url');
+}
+
+function parseKitchenToken(token, secret) {
+    if (!token || typeof token !== 'string' || !token.includes('.')) return null;
+    const [payloadPart, sig] = token.split('.');
+    if (!payloadPart || !sig) return null;
+
+    function signatureMatches(payloadToSign) {
+        const expected = signPayload(payloadToSign, secret);
+        try {
+            return crypto.timingSafeEqual(Buffer.from(String(sig)), Buffer.from(expected));
+        } catch {
+            return false;
+        }
+    }
+
+    // Legacy iPad tokens: "<expMs>.<hmac>"
+    const legacyExp = Number(payloadPart);
+    if (Number.isFinite(legacyExp) && Date.now() <= legacyExp && signatureMatches(payloadPart)) {
+        return {
+            exp: legacyExp,
+            scope: 'all_stores',
+            store_name: '',
+            legacy: true,
+        };
+    }
+
+    const payload = Buffer.from(payloadPart, 'base64url').toString('utf8');
+    if (!signatureMatches(payload)) return null;
+    try {
+        const parsed = JSON.parse(payload);
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (!Number.isFinite(Number(parsed.exp)) || Date.now() > Number(parsed.exp)) return null;
+        return {
+            exp: Number(parsed.exp),
+            scope: parsed.scope === 'all_stores' ? 'all_stores' : 'single_store',
+            store_name: parsed.store_name ? String(parsed.store_name) : '',
+        };
+    } catch {
+        return null;
+    }
+}
+
+function makeKitchenToken(secret, auth = {}) {
     const exp = Date.now() + KITCHEN_TOKEN_MS;
-    const payload = String(exp);
-    const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-    return `${payload}.${sig}`;
+    const payload = JSON.stringify({
+        exp,
+        scope: auth.scope === 'all_stores' ? 'all_stores' : 'single_store',
+        store_name: auth.store_name ? String(auth.store_name) : '',
+    });
+    const payloadB64 = base64url(payload);
+    const sig = signPayload(payload, secret);
+    return `${payloadB64}.${sig}`;
 }
 
 function verifyKitchenToken(token, secret) {
-    if (!token || typeof token !== 'string' || !token.includes('.')) return false;
-    const [payload, sig] = token.split('.');
-    const exp = Number(payload);
-    if (!Number.isFinite(exp) || Date.now() > exp) return false;
-    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-    try {
-        return crypto.timingSafeEqual(Buffer.from(String(sig)), Buffer.from(expected));
-    } catch {
-        return false;
+    return !!parseKitchenToken(token, secret);
+}
+
+function verifyKitchenTokenAny(token) {
+    const masterSecret = getMasterSecret();
+    if (masterSecret) {
+        const parsed = parseKitchenToken(token, masterSecret);
+        if (parsed && parsed.scope === 'all_stores') {
+            return { ...parsed, secret: masterSecret };
+        }
     }
+    const shared = getKitchenSecret();
+    if (shared) {
+        const parsed = parseKitchenToken(token, shared);
+        if (parsed) return { ...parsed, secret: shared };
+    }
+    return null;
 }
 
 function requireKitchen(req) {
     const secret = getKitchenSecret();
-    if (!secret) {
+    const master = getMasterSecret();
+    if (!secret && !master) {
         const err = new Error('Server missing KITCHEN_PASSWORD');
         err.status = 500;
         throw err;
@@ -37,17 +116,21 @@ function requireKitchen(req) {
     const header = req.headers.authorization || '';
     const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
     const token = body.token || bearer || '';
-    if (!verifyKitchenToken(token, secret)) {
+    const auth = verifyKitchenTokenAny(token);
+    if (!auth) {
         const err = new Error('Unauthorized');
         err.status = 401;
         throw err;
     }
-    return secret;
+    return auth;
 }
 
 module.exports = {
     getKitchenSecret,
+    getStoreSecret,
+    getMasterSecret,
     makeKitchenToken,
     verifyKitchenToken,
+    verifyKitchenTokenAny,
     requireKitchen,
 };

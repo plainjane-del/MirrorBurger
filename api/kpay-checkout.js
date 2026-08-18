@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, reconcilePendingIfPaid } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
@@ -82,8 +82,16 @@ module.exports = async (req, res) => {
         if (action === 'status') {
             const orderNo = String(body.orderNo || '').trim();
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
-            const order = await getPublicOrderStatus(orderNo);
+            let order = await getPublicOrderStatus(orderNo);
             if (!order) return res.status(404).json({ error: 'Order not found' });
+            if (String(order.payment_status || '').toUpperCase() === 'PENDING') {
+                try {
+                    order = (await reconcilePendingIfPaid(orderNo)) || order;
+                    order = (await getPublicOrderStatus(orderNo)) || order;
+                } catch (err) {
+                    console.warn('status reconcile skipped:', err.message || err);
+                }
+            }
             return res.status(200).json({ order });
         }
 

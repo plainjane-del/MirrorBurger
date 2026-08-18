@@ -1,37 +1,67 @@
 const crypto = require('crypto');
 const {
-    getKitchenSecret,
+    getStoreSecret,
+    getMasterSecret,
     makeKitchenToken,
-    verifyKitchenToken,
+    verifyKitchenTokenAny,
 } = require('./_kitchenAuth.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const secret = getKitchenSecret();
-    if (!secret) {
-        return res.status(500).json({ error: 'Server missing KITCHEN_PASSWORD env' });
+    const sharedSecret = getStoreSecret('');
+    const masterSecret = getMasterSecret();
+    if (!sharedSecret && !masterSecret) {
+        return res.status(500).json({ error: 'Server missing kitchen password env' });
     }
 
     try {
         const body = req.body || {};
+        const requestedStore = String(body.store_name || '').trim();
 
         if (body.token) {
-            if (verifyKitchenToken(body.token, secret)) {
-                return res.status(200).json({ ok: true, token: makeKitchenToken(secret) });
+            const auth = verifyKitchenTokenAny(body.token);
+            if (auth) {
+                return res.status(200).json({
+                    ok: true,
+                    token: makeKitchenToken(auth.secret, auth),
+                    scope: auth.scope,
+                    store_name: auth.store_name || '',
+                });
             }
             return res.status(401).json({ error: 'Session expired' });
         }
 
         const password = String(body.password || '');
-        const a = Buffer.from(password);
-        const b = Buffer.from(secret);
-        const match = a.length === b.length && crypto.timingSafeEqual(a, b);
-        if (!match) {
+        const compare = (input, target) => {
+            const a = Buffer.from(String(input));
+            const b = Buffer.from(String(target || ''));
+            return a.length === b.length && crypto.timingSafeEqual(a, b);
+        };
+
+        let auth = null;
+        if (masterSecret && compare(password, masterSecret)) {
+            auth = { scope: 'all_stores', store_name: '', secret: masterSecret };
+        } else if (requestedStore) {
+            const storeSecret = getStoreSecret(requestedStore);
+            if (storeSecret && compare(password, storeSecret)) {
+                auth = { scope: 'single_store', store_name: requestedStore, secret: storeSecret };
+            }
+        } else if (sharedSecret && compare(password, sharedSecret)) {
+            // Old kitchen/POS clients only sent password.
+            auth = { scope: 'all_stores', store_name: '', secret: sharedSecret };
+        }
+
+        if (!auth) {
             return res.status(401).json({ error: 'Wrong password' });
         }
 
-        return res.status(200).json({ ok: true, token: makeKitchenToken(secret) });
+        return res.status(200).json({
+            ok: true,
+            token: makeKitchenToken(auth.secret, auth),
+            scope: auth.scope,
+            store_name: auth.store_name || '',
+        });
     } catch (err) {
         console.error('kitchen-login error:', err);
         return res.status(500).json({ error: 'Login failed' });

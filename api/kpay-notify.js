@@ -33,46 +33,19 @@ async function readNotifyBody(req) {
 
 function notifyUriCandidates(req) {
     const rawUrl = String(req.url || '/api/kpay-notify');
-    const candidates = new Set(['/api/kpay-notify', rawUrl]);
+    const candidates = new Set([
+        '/api/kpay-notify',
+        '/api/kpay-notify/',
+        rawUrl,
+    ]);
     try {
         const u = new URL(rawUrl, 'https://mirrorburger.com');
         candidates.add(u.pathname);
+        candidates.add(u.pathname.replace(/\/$/, '') || '/');
         candidates.add(`${u.pathname}${u.search}`);
+        if (!u.pathname.endsWith('/')) candidates.add(`${u.pathname}/`);
     } catch (_) { /* ignore */ }
     return [...candidates];
-}
-
-function extractOrderNo(payload) {
-    const candidates = [
-        payload.managedOutTradeNo,
-        payload.outTradeNo,
-        payload.managed_out_trade_no,
-        payload.out_trade_no,
-        payload.merchantOrderNo,
-        payload.orderNo,
-    ]
-        .filter((v) => v != null && String(v).trim() !== '')
-        .map((v) => String(v).trim());
-
-    // Prefer our merchant order numbers (MB… / UAT…)
-    const ours = candidates.find((c) => /^(MB|UAT)\d+/i.test(c));
-    return ours || candidates[0] || null;
-}
-
-function isPaymentSuccess(payload) {
-    const state = String(
-        payload.transactionState
-        || payload.tradeState
-        || payload.payState
-        || payload.status
-        || payload.payResult
-        || ''
-    ).toUpperCase();
-    if (['SUCCESS', 'SUCCESSFUL', 'PAID', 'COMPLETED', 'COMPLETE', '01'].includes(state)) {
-        return true;
-    }
-    if (payload.success === true || payload.success === 'true') return true;
-    return false;
 }
 
 function verifyNotifySignature({ signatureB64, timestamp, nonceStr, merchantCode, bodyText, req }) {
@@ -95,8 +68,9 @@ module.exports = async function handler(req, res) {
         const nonceStr = req.headers['k-nonce-str'] || '';
         const timestamp = req.headers['k-timestamp'] || '';
 
-        const { bodyText, payload, raw } = await readNotifyBody(req);
-        const merchantCode = payload.merchantCode || '';
+        const { bodyText, payload: rawPayload, raw } = await readNotifyBody(req);
+        const payload = kpay.flattenKpayPayload(rawPayload);
+        const merchantCode = payload.merchantCode || rawPayload.merchantCode || '';
         const expectedMid = process.env.KPAY_MID || '';
 
         let verified = verifyNotifySignature({
@@ -123,22 +97,28 @@ module.exports = async function handler(req, res) {
                 hasSignature: Boolean(signatureB64),
                 merchantCode,
                 url: req.url,
+                keys: Object.keys(payload || {}),
             });
             return res.status(401).send('Unauthorized');
         }
 
-        if (!isPaymentSuccess(payload)) {
+        if (!kpay.isKpayPaymentSuccess(payload)) {
             console.log('KPay notify ignored (not success):', {
                 transactionState: payload.transactionState,
                 tradeState: payload.tradeState,
+                payStatus: payload.payStatus,
                 status: payload.status,
+                keys: Object.keys(payload || {}),
             });
             return res.status(200).send('OK');
         }
 
-        const orderNo = extractOrderNo(payload);
+        const orderNo = kpay.extractKpayOrderNo(payload);
         if (!orderNo) {
-            console.error('KPay SUCCESS but missing orderNo', payload);
+            console.error('KPay SUCCESS but missing orderNo', {
+                keys: Object.keys(payload || {}),
+                payload,
+            });
             return res.status(400).send('Missing orderNo');
         }
 

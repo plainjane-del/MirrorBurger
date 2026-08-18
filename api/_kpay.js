@@ -111,36 +111,132 @@ function verifyKpaySignature(signatureB64, signatureText, rawPubKeyPem) {
     }
 }
 
-async function createManagedOrder(payload) {
+const KPAY_SUCCESS_STATES = new Set([
+    'SUCCESS',
+    'SUCCESSFUL',
+    'SUCCEEDED',
+    'PAID',
+    'COMPLETED',
+    'COMPLETE',
+    'TRADE_SUCCESS',
+    'PAY_SUCCESS',
+    'PAY_OK',
+    'FINISH',
+    'FINISHED',
+    'SETTLED',
+    'CAPTURED',
+    '01',
+    '00',
+    '0000',
+    '1',
+    'S',
+]);
+
+function flattenKpayPayload(payload) {
+    if (!payload || typeof payload !== 'object') return {};
+    const nested = [payload.data, payload.bizContent, payload.result, payload.order]
+        .find((row) => row && typeof row === 'object' && !Array.isArray(row));
+    return nested ? { ...payload, ...nested } : { ...payload };
+}
+
+function extractKpayOrderNo(payload) {
+    const flat = flattenKpayPayload(payload);
+    const candidates = [
+        flat.managedOutTradeNo,
+        flat.outTradeNo,
+        flat.managed_out_trade_no,
+        flat.out_trade_no,
+        flat.merchantOrderNo,
+        flat.merchant_order_no,
+        flat.orderNo,
+        flat.order_no,
+    ]
+        .filter((v) => v != null && String(v).trim() !== '')
+        .map((v) => String(v).trim());
+    const ours = candidates.find((c) => /^(MB|UAT)[A-Z0-9]+/i.test(c));
+    return ours || candidates[0] || null;
+}
+
+function isKpayPaymentSuccess(payload) {
+    const flat = flattenKpayPayload(payload);
+    const state = String(
+        flat.transactionState
+        || flat.tradeState
+        || flat.payState
+        || flat.payStatus
+        || flat.orderStatus
+        || flat.status
+        || flat.payResult
+        || ''
+    ).toUpperCase().trim();
+    if (KPAY_SUCCESS_STATES.has(state)) return true;
+    if (flat.success === true || flat.success === 'true' || String(flat.success) === '1') return true;
+    return false;
+}
+
+async function signedKpayRequest(method, uri, payload = null, { timeoutMs = 5000 } = {}) {
     const merchantCode = process.env.KPAY_MID;
     const privateKey = getKeyContent('KPAY_PRIVATE_KEY');
     const baseUrl = 'https://payment.kpay-group.com';
-    const uri = '/v1/managed/order/add';
     const timestamp = String(Date.now());
     const nonceStr = crypto.randomBytes(16).toString('hex');
-    const bodyStr = JSON.stringify(payload);
-
-    const signatureText = `POST\n${uri}\n${timestamp}\n${nonceStr}\n${merchantCode}\n${bodyStr}\n`;
+    const bodyStr = payload == null ? '' : JSON.stringify(payload);
+    const signatureText = `${method}\n${uri}\n${timestamp}\n${nonceStr}\n${merchantCode}\n${bodyStr}\n`;
     const signature = signWithRsaSha256(signatureText, privateKey);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(`${baseUrl}${uri}`, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'K-Merchant-Code': merchantCode,
+                'K-Nonce-Str': nonceStr,
+                'K-Timestamp': timestamp,
+                'K-Signature': signature,
+                'K-Language': 'zh_HK',
+            },
+            body: method === 'GET' ? undefined : bodyStr,
+            signal: controller.signal,
+        });
+        const text = await response.text();
+        let json = {};
+        try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+        return { ok: response.ok, status: response.status, json };
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
-    const response = await fetch(`${baseUrl}${uri}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'K-Merchant-Code': merchantCode,
-            'K-Nonce-Str': nonceStr,
-            'K-Timestamp': timestamp,
-            'K-Signature': signature,
-            'K-Language': 'zh_HK'
-        },
-        body: bodyStr
-    });
-
-    const kpayResponse = await response.json();
+async function createManagedOrder(payload) {
+    const kpayResponse = (await signedKpayRequest('POST', '/v1/managed/order/add', payload, { timeoutMs: 12000 })).json;
     if (String(kpayResponse.code) !== '10000') {
         throw new Error(`KPay API Error [${kpayResponse.code}]: ${kpayResponse.message || kpayResponse.msg || JSON.stringify(kpayResponse)}`);
     }
     return kpayResponse;
+}
+
+async function queryManagedOrder(managedOutTradeNo) {
+    const orderNo = String(managedOutTradeNo || '').trim();
+    if (!orderNo) return null;
+    const attempts = [
+        ['POST', '/v1/managed/order/query', { managedOutTradeNo: orderNo }],
+        ['POST', '/v1/managed/order/detail', { managedOutTradeNo: orderNo }],
+        ['POST', '/v1/managed/order/get', { managedOutTradeNo: orderNo }],
+    ];
+    let lastErr = '';
+    for (const [method, uri, body] of attempts) {
+        try {
+            const result = await signedKpayRequest(method, uri, body, { timeoutMs: 4000 });
+            const json = result.json || {};
+            if (String(json.code) === '10000') return flattenKpayPayload(json);
+            lastErr = `${uri} ${result.status} ${json.code || ''} ${json.message || json.msg || ''}`.trim();
+        } catch (err) {
+            lastErr = String(err.message || err);
+        }
+    }
+    if (lastErr) console.warn('KPay query failed:', orderNo, lastErr);
+    return null;
 }
 
 function buildCheckoutUrl(managedOrderNo, type = 'web') {
@@ -168,4 +264,13 @@ function buildCheckoutUrl(managedOrderNo, type = 'web') {
     return `${baseUrl}${endpointPath}?${queryParams.toString()}`;
 }
 
-module.exports = { createManagedOrder, buildCheckoutUrl, verifyKpaySignature, getKeyContent };
+module.exports = {
+    createManagedOrder,
+    queryManagedOrder,
+    buildCheckoutUrl,
+    verifyKpaySignature,
+    getKeyContent,
+    flattenKpayPayload,
+    extractKpayOrderNo,
+    isKpayPaymentSuccess,
+};

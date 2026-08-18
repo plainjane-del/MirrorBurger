@@ -87,7 +87,8 @@ async function markOrderPaid(orderNo) {
     const updated = Array.isArray(rows) && rows.length > 0;
     if (!updated) {
         // 可能已係 PAID（重試 webhook）→ 唔重複發通知
-        return { updated: false };
+        const existing = await getOrderByNo(orderNo);
+        return { updated: false, order: existing || null };
     }
 
     // 再拉齊欄位（items 等）再通知
@@ -691,6 +692,42 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
     }
 }
 
+async function reconcilePendingIfPaid(orderNo) {
+    const no = clip(orderNo, 32);
+    if (!no) return null;
+    const existing = await getOrderByNo(no);
+    if (!existing) return null;
+    const pay = String(existing.payment_status || '').toUpperCase();
+    if (pay !== 'PENDING') return existing;
+
+    const { queryManagedOrder, isKpayPaymentSuccess } = require('./_kpay.js');
+    const queried = await queryManagedOrder(no);
+    if (!queried || !isKpayPaymentSuccess(queried)) return existing;
+
+    const result = await markOrderPaid(no);
+    return (result && result.order) || (await getOrderByNo(no)) || existing;
+}
+
+async function reconcileRecentPending(storeName) {
+    const store = clip(storeName, 80);
+    if (!store) return { checked: 0, updated: 0 };
+    const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const rows = await listKitchenOrders(store, { since, limit: 40 });
+    const pending = (rows || [])
+        .filter((o) => String(o.payment_status || '').toUpperCase() === 'PENDING')
+        .slice(0, 3);
+    let updated = 0;
+    for (const row of pending) {
+        try {
+            const next = await reconcilePendingIfPaid(row.order_no);
+            if (next && String(next.payment_status || '').toUpperCase() === 'PAID') updated += 1;
+        } catch (err) {
+            console.warn('reconcile pending failed:', row.order_no, err.message || err);
+        }
+    }
+    return { checked: pending.length, updated };
+}
+
 module.exports = {
     getOrderByNo,
     markOrderPaid,
@@ -703,6 +740,8 @@ module.exports = {
     markTableOrderPaid,
     getPublicOrderStatus,
     listKitchenOrders,
+    reconcilePendingIfPaid,
+    reconcileRecentPending,
     startOfTodayHkIso,
     KNOWN_STORES,
 };

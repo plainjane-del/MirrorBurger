@@ -52,8 +52,15 @@
             <div class="text-center space-y-2">
                 <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18v</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
-                <p class="text-sm font-bold text-neutral-400">廚房密碼登入。撳餸、收款、出示大單號。</p>
+                <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
+            <select id="pos-login-store"
+                class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
+                <option value="Sai Ying Pun">西營盤</option>
+                <option value="Fortress Hill">天后</option>
+                <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                <option value="__master__">Master 全部分店</option>
+            </select>
             <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
             <p id="pos-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
@@ -229,6 +236,8 @@
 
         let token = '';
         let currentStore = localStorage.getItem(STORE_KEY) || 'Sai Ying Pun';
+        let sessionScope = 'single_store';
+        let sessionStore = '';
         let currentCat = 'beef';
         let fulfill = 'takeaway';
         let menuItems = [];
@@ -243,6 +252,21 @@
 
         function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
         function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
+        function applySessionAuth(data = {}) {
+            sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
+            sessionStore = data.store_name || '';
+            if (sessionScope !== 'all_stores' && sessionStore) {
+                currentStore = sessionStore;
+                localStorage.setItem(STORE_KEY, currentStore);
+            }
+        }
+        function canSwitchStores() {
+            return sessionScope === 'all_stores';
+        }
+        function selectedLoginStore() {
+            const value = document.getElementById('pos-login-store')?.value || '';
+            return value === '__master__' ? '' : value;
+        }
         function itemImg(item) {
             return (item && (item.img || item.image_url)) || '';
         }
@@ -315,14 +339,19 @@
             const err = document.getElementById('pos-login-error');
             btn.disabled = true; err.classList.add('hidden');
             try {
+                const store_name = selectedLoginStore();
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
                     headers: { 'Content-Type':'application/json' },
-                    body: JSON.stringify({ password: document.getElementById('pos-password').value }),
+                    body: JSON.stringify({
+                        password: document.getElementById('pos-password').value,
+                        store_name,
+                    }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || '密碼錯誤');
                 saveToken(data.token);
+                applySessionAuth(data);
                 await bootPos();
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
@@ -335,9 +364,13 @@
         function markStoreButtons() {
             document.querySelectorAll('[data-branch]').forEach((el) => {
                 el.classList.toggle('is-active', el.dataset.branch === currentStore);
+                const locked = !canSwitchStores() && el.dataset.branch !== currentStore;
+                el.disabled = locked;
+                el.classList.toggle('opacity-50', locked);
             });
         }
         async function selectStore(btn) {
+            if (!canSwitchStores() && btn.dataset.branch !== currentStore) return;
             currentStore = btn.dataset.branch;
             localStorage.setItem(STORE_KEY, currentStore);
             markStoreButtons();
@@ -1270,6 +1303,7 @@
                 if (!res.ok) return;
                 const data = await res.json().catch(() => ({}));
                 if (data.token) saveToken(data.token);
+                applySessionAuth(data);
                 await bootPos();
             } catch (_) {}
         };

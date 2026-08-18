@@ -3,11 +3,16 @@ module.exports = async (req, res) => {
 
     try {
         const { upsertPushSubscription } = require('./_pushStore');
+        const { requireKitchen } = require('./_kitchenAuth');
+        const authz = requireKitchen(req);
         const { subscription, store_name: storeName } = req.body || {};
         const endpoint = subscription?.endpoint;
         const p256dh = subscription?.keys?.p256dh;
         const auth = subscription?.keys?.auth;
-        const store = String(storeName || 'all').trim() || 'all';
+        const requestedStore = String(storeName || '').trim();
+        const store = authz.scope === 'all_stores'
+            ? (requestedStore || 'all')
+            : (authz.store_name || requestedStore || 'all');
 
         if (!endpoint || !p256dh || !auth) {
             return res.status(400).json({ error: 'Invalid subscription' });

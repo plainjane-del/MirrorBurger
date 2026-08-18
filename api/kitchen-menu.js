@@ -1,9 +1,20 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid } = require('./_orders.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
+
+function resolveStoreAccess(auth, inputStoreName) {
+    const requested = String(inputStoreName || '').trim();
+    if (auth.scope === 'all_stores') return requested;
+    if (requested && auth.store_name && requested !== auth.store_name) {
+        const err = new Error('Forbidden store');
+        err.status = 403;
+        throw err;
+    }
+    return auth.store_name || requested;
+}
 
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
@@ -14,7 +25,7 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     try {
-        requireKitchen(req);
+        const auth = requireKitchen(req);
         const body = req.body || {};
         const action = body.action || 'list';
 
@@ -34,7 +45,7 @@ module.exports = async (req, res) => {
             } catch (err) {
                 console.warn('combo_base skipped:', err.message);
             }
-            const storeName = String(body.store_name || '').trim();
+            const storeName = resolveStoreAccess(auth, body.store_name);
             let soldIds = new Set();
             if (storeName) {
                 soldIds = await listSoldOutIds(storeName);
@@ -60,10 +71,15 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'board' || action === 'completed' || action === 'stats') {
-            const storeName = String(body.store_name || '').trim();
+            const storeName = resolveStoreAccess(auth, body.store_name);
             if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
 
             if (action === 'board') {
+                try {
+                    await reconcileRecentPending(storeName);
+                } catch (err) {
+                    console.warn('board reconcile skipped:', err.message || err);
+                }
                 const orders = await listKitchenOrders(storeName, { limit: 200 });
                 return res.status(200).json({ orders: orders || [] });
             }
@@ -100,8 +116,10 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'create_pos_order') {
+            const storeName = resolveStoreAccess(auth, body.store_name);
+            if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
             const result = await createPosOrder({
-                store_name: body.store_name,
+                store_name: storeName,
                 pay_method: body.pay_method,
                 customer_name: body.customer_name,
                 note: body.note,
@@ -114,6 +132,8 @@ module.exports = async (req, res) => {
         if (action === 'cancel_pos_order') {
             const orderNo = String(body.orderNo || '').trim();
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const existing = await getOrderByNo(orderNo);
+            if (existing) resolveStoreAccess(auth, existing.store_name);
             const result = await cancelPosOrder(orderNo);
             return res.status(200).json(result);
         }
@@ -121,6 +141,8 @@ module.exports = async (req, res) => {
         if (action === 'mark_table_paid') {
             const orderNo = String(body.orderNo || '').trim();
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const existing = await getOrderByNo(orderNo);
+            if (existing) resolveStoreAccess(auth, existing.store_name);
             const result = await markTableOrderPaid(orderNo, body.pay_method);
             return res.status(200).json(result);
         }
@@ -130,6 +152,7 @@ module.exports = async (req, res) => {
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
             const existing = await getOrderByNo(orderNo);
             if (!existing) return res.status(404).json({ error: 'Order not found' });
+            resolveStoreAccess(auth, existing.store_name);
             const pay = String(existing.payment_status || '').toUpperCase();
             if (pay === 'PAID' || pay === 'COMPLETED' || pay === 'PREPARING' || pay === 'READY') {
                 return res.status(200).json({ ok: true, alreadyPaid: true, order: existing });
@@ -146,7 +169,7 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'set_store_open') {
-            const storeName = String(body.store_name || '').trim();
+            const storeName = resolveStoreAccess(auth, body.store_name);
             if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
             if (typeof body.is_open !== 'boolean') {
                 return res.status(400).json({ error: 'Missing is_open (boolean)' });
@@ -161,7 +184,7 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'sync_store_hours') {
-            const storeName = String(body.store_name || '').trim();
+            const storeName = resolveStoreAccess(auth, body.store_name);
             if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
             const row = await syncStoreToSchedule(storeName);
             return res.status(200).json({

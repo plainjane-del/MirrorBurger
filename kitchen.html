@@ -239,12 +239,19 @@
             <div class="text-center space-y-2">
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
-                <p class="text-sm font-bold text-neutral-400">輸入廚房密碼先進入 KDS</p>
+                <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
                 <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.17</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
             </div>
+            <select id="kitchen-login-store"
+                class="w-full rounded-2xl bg-kds-card border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-kds-yellow">
+                <option value="Sai Ying Pun">西營盤</option>
+                <option value="Fortress Hill">天后</option>
+                <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                <option value="__master__">Master 全部分店</option>
+            </select>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
                 placeholder="Password"
                 class="w-full rounded-2xl bg-kds-card border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-kds-yellow">
@@ -405,6 +412,8 @@
         };
 
         let currentBranch = 'Sai Ying Pun';
+        let sessionScope = 'single_store';
+        let sessionStore = '';
         let audioUnlocked = false;
         let audioCtx = null;
         const WA_NOTIFIED_KEY = 'mb_kds_wa_notified';
@@ -475,6 +484,34 @@
                 .replace(/\n/g, '\\n')
                 .replace(/\u2028/g, '\\u2028')
                 .replace(/\u2029/g, '\\u2029');
+        }
+
+        function applyKitchenAuth(data = {}) {
+            sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
+            sessionStore = data.store_name || '';
+            if (sessionScope !== 'all_stores' && sessionStore) {
+                currentBranch = sessionStore;
+            }
+            syncBranchTabs();
+        }
+
+        function canSwitchBranches() {
+            return sessionScope === 'all_stores';
+        }
+
+        function selectedKitchenLoginStore() {
+            const value = document.getElementById('kitchen-login-store')?.value || '';
+            return value === '__master__' ? '' : value;
+        }
+
+        function syncBranchTabs() {
+            document.querySelectorAll('.branch-tab').forEach((el) => {
+                const active = el.dataset.branch === currentBranch;
+                const locked = !canSwitchBranches() && !active;
+                el.classList.toggle('is-active', active);
+                el.disabled = locked;
+                el.classList.toggle('opacity-50', locked);
+            });
         }
 
         function getKitchenStatus(order) {
@@ -767,10 +804,11 @@
         }
 
         function selectBranch(btn) {
+            if (!canSwitchBranches() && btn.dataset.branch !== currentBranch) return;
             currentBranch = btn.dataset.branch;
             kitchenBoardReady = false;
             ordersMap = new Map();
-            document.querySelectorAll('.branch-tab').forEach(el => el.classList.toggle('is-active', el === btn));
+            syncBranchTabs();
             loadOrders();
             loadStoreStatus();
             syncScheduledHours();
@@ -936,7 +974,7 @@
             const st = (order.status || '').toUpperCase();
 
             // 未付款 / 取消 / 已完成 → 唔上牆
-            if (pay === 'PENDING' || st === 'PENDING') return false;
+            if (pay === 'PENDING') return false;
             if (pay === 'CANCELLED' || st === 'CANCELLED') return false;
             if (st === 'COMPLETED' || pay === 'COMPLETED') return false;
 
@@ -945,7 +983,7 @@
             if (!paidOk) return false;
 
             // 廚房狀態優先用 status；冇就 fallback payment_status（兼容舊單）
-            const kitchen = st || (pay === 'UNPAID' ? 'PAID' : pay);
+            const kitchen = ACTIVE_STATUSES.includes(st) ? st : (pay === 'UNPAID' ? 'PAID' : pay);
             return ACTIVE_STATUSES.includes(kitchen);
         }
 
@@ -1521,7 +1559,10 @@
 
                 const saveRes = await fetch('/api/push-subscribe', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + (sessionStorage.getItem(KITCHEN_TOKEN_KEY) || localStorage.getItem(KITCHEN_TOKEN_KEY) || '')
+                    },
                     body: JSON.stringify({
                         subscription: sub.toJSON(),
                         store_name: currentBranch || 'all'
@@ -1544,6 +1585,7 @@
         function bootKitchen() {
             if (kitchenBooted) return;
             kitchenBooted = true;
+            syncBranchTabs();
             showKitchenApp();
             loadOrders();
             loadStoreStatus();
@@ -1584,7 +1626,13 @@
                 body: JSON.stringify({ token })
             });
             const data = await res.json().catch(() => ({}));
-            return { ok: res.ok, status: res.status, token: data.token || '' };
+            return {
+                ok: res.ok,
+                status: res.status,
+                token: data.token || '',
+                scope: data.scope || 'single_store',
+                store_name: data.store_name || '',
+            };
         }
 
         async function submitKitchenLogin(event) {
@@ -1593,6 +1641,7 @@
             const btn = document.getElementById('kitchen-login-btn');
             const err = document.getElementById('kitchen-login-error');
             const password = document.getElementById('kitchen-password').value;
+            const store_name = selectedKitchenLoginStore();
             btn.disabled = true;
             btn.textContent = '驗證中…';
             err.classList.add('hidden');
@@ -1600,13 +1649,14 @@
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ password, store_name })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
                     throw new Error(data.error || '密碼錯誤');
                 }
                 saveKitchenToken(data.token);
+                applyKitchenAuth(data);
                 bootKitchen();
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
@@ -1634,6 +1684,7 @@
                     const checked = await verifyKitchenSession(token);
                     if (checked.ok) {
                         if (checked.token) saveKitchenToken(checked.token);
+                        applyKitchenAuth(checked);
                         bootKitchen();
                         return;
                     }
