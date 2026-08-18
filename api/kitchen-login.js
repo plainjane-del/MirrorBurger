@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
             return res.status(401).json({ error: 'Session expired' });
         }
 
-        const password = String(body.password || '');
+        const password = String(body.password || '').trim();
         const compare = (input, target) => {
             const a = Buffer.from(String(input));
             const b = Buffer.from(String(target || ''));

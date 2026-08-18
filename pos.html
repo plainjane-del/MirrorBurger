@@ -48,9 +48,9 @@
 <body class="antialiased">
     <div id="pos-toast" role="status"></div>
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
-        <form class="w-full max-w-sm space-y-5" onsubmit="return submitPosLogin(event)">
+        <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18v</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.18w</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -226,7 +226,7 @@
         };
 
         function escapeHtml(str) {
-            return String(str ?? '')
+            return String(str == null ? '' : str)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
@@ -264,7 +264,8 @@
             return sessionScope === 'all_stores';
         }
         function selectedLoginStore() {
-            const value = document.getElementById('pos-login-store')?.value || '';
+            const el = document.getElementById('pos-login-store');
+            const value = (el && el.value) ? el.value : '';
             return value === '__master__' ? '' : value;
         }
         function itemImg(item) {
@@ -334,21 +335,24 @@
         }
 
         async function submitPosLogin(event) {
-            event.preventDefault();
+            if (event && event.preventDefault) event.preventDefault();
             const btn = document.getElementById('pos-login-btn');
             const err = document.getElementById('pos-login-error');
             btn.disabled = true; err.classList.add('hidden');
             try {
+                const storeEl = document.getElementById('pos-login-store');
+                const passEl = document.getElementById('pos-password');
                 const store_name = selectedLoginStore();
+                const password = String((passEl && passEl.value) || '').replace(/^\s+|\s+$/g, '');
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
                     headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({
-                        password: document.getElementById('pos-password').value,
-                        store_name,
+                        password: password,
+                        store_name: store_name,
                     }),
                 });
-                const data = await res.json().catch(() => ({}));
+                const data = await res.json().catch(function () { return {}; });
                 if (!res.ok) throw new Error(data.error || '密碼錯誤');
                 saveToken(data.token);
                 applySessionAuth(data);
