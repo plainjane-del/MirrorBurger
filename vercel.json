@@ -3,9 +3,6 @@
   "trailingSlash": false,
   "functions": {
     "api/*.js": {
-      "maxDuration": 10
-    },
-    "api/ai-parse-order.js": {
       "maxDuration": 20
     }
   },
