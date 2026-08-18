@@ -7,38 +7,21 @@ const GEMINI_MODELS = [
     'gemini-3.5-flash',
     'gemini-3.5-flash-lite',
 ].filter(Boolean);
-const GEMINI_FETCH_TIMEOUT_MS = 4200;
-const MAX_GEMINI_ATTEMPTS = 3;
+const GEMINI_FETCH_TIMEOUT_MS = 3500;
+const MAX_GEMINI_ATTEMPTS = 2;
 
-const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger (Hong Kong).
-Convert spoken Cantonese (and mixed English) into structured POS order lines using ONLY the provided catalog.
+const SYSTEM_INSTRUCTION = `You are an expert Cantonese restaurant cashier for Mirror Burger.
+Convert spoken Cantonese into POS JSON using ONLY the provided catalog.
 
-STRICT F&B VALIDATION RULES:
-- Separate MAIN ITEMS from MODIFIERS. Main items are menuItems. Modifiers are add-ons, sauces, combo snacks, and combo drinks.
-- A standalone modifier MUST NOT create or imply a main item. Example: if the user only says 「要一隻煎蛋」 and no burger/main item is specified, do NOT add any burger.
-- If the user says only a modifier without a target main item, return it in unattachedAddons as spoken text, e.g. {"unattachedAddons":["煎蛋"]}.
-- If the spoken text does not clearly match a catalog item with high confidence, do NOT fuzzy-force it to a similar-sounding item. Example: 「大青瓜」 must NOT become any mushroom burger or other item. Put it in unrecognizedText exactly as spoken.
-- Never hallucinate ids, names, sizes, drinks, snacks, sauces, buns, or combo choices.
+Hard rules:
+1) Modifiers never create main items. If user speaks modifiers without a main item, put them in unattachedAddons (verbatim).
+2) If an utterance doesn't clearly match the catalog, put it in unrecognizedText (verbatim). Never fuzzy-map.
+3) qty: only use qty when explicitly said (1/2/etc). Otherwise qty=1.
+4) Never invent ids/sizes/combo/snacks/drinks; only use catalog ids.
 
-ORDER RULES:
-- Match burgers, snacks, drinks, sauces, add-ons, combo snacks and combo drinks only when clearly present in the catalog.
-- Cantonese example: 「要個經典芝士牛套餐，轉番薯條，凍檸茶走青少冰」→ classic beef burger combo, combo snack sweet potato fries, combo drink iced lemon tea, notes 走青／少冰.
-- 「套餐」means combo:true and you MUST pick comboSnackId + comboDrinkId from catalog.
-- 「轉」on a combo snack/drink means replace the default with that item.
-- 「走青」= no onions (put in notes, do not invent addon ids). 「少冰」= less ice (notes). 「生菜包」= Lettuce Wrap. Default bun is Nissin Bun for burgers.
-- 「小辣／微辣」= spice is not a catalog field; put in notesZh/notesEn unless it is clearly a menu item.
-- Size: M/L/3pcs/5pcs only if that item has sizes. Otherwise null.
-- Quantity must be explicit: 「一份」/「一個」= 1, 「兩份」/「兩個」= 2, numeric counts follow the speech. Never default to 2. Default qty is 1 only when a valid item is clearly ordered without a quantity.
-- Ignore payment, table numbers, chit-chat.
-
-RESPONSE FORMAT:
-- Return strict JSON only, no markdown, no prose.
-- Use exactly this shape:
-{"items":[{"menuId":"b1","qty":1,"size":"M","bun":"Nissin Bun","addonIds":[],"sauceIds":[],"combo":true,"comboSnackId":"cs5","comboDrinkId":"cd4","notesEn":"","notesZh":""}],"unattachedAddons":["煎蛋"],"unrecognizedText":["大青瓜"]}
-- items must contain only high-confidence valid menu matches.
-- unattachedAddons must contain spoken modifier text that lacks a target main item.
-- unrecognizedText must contain spoken text that does not clearly exist in the catalog.
-- If nothing valid is matched, return {"items":[],"unattachedAddons":[],"unrecognizedText":[]}.`;
+Output STRICT JSON only:
+{"items":[{"menuId":"b1","qty":1,"size":null,"bun":null,"addonIds":["a4"],"sauceIds":[],"combo":false,"comboSnackId":null,"comboDrinkId":null,"notesEn":"","notesZh":""}],"unattachedAddons":["煎蛋"],"unrecognizedText":["大青瓜"]}
+Return empty arrays when nothing matches.`;
 
 function slimItems(items) {
     return (Array.isArray(items) ? items : []).slice(0, 80).map((item) => ({
@@ -46,10 +29,7 @@ function slimItems(items) {
         category: item.category || '',
         name_zh: item.name_zh || item.nameZh || '',
         name_en: item.name_en || item.nameEn || '',
-        price: Number(item.price) || 0,
         sizes: Array.isArray(item.sizes) ? item.sizes : null,
-        dietary: Array.isArray(item.dietary) ? item.dietary : [],
-        has_temp: !!(item.has_temp || item.hasTemp),
     })).filter((item) => item.id);
 }
 
@@ -69,7 +49,6 @@ function slimModifiers(modifiers) {
         kind: m.kind || '',
         name_zh: m.name_zh || m.nameZh || '',
         name_en: m.name_en || m.nameEn || '',
-        price: Number(m.price) || 0,
     })).filter((m) => m.id);
 }
 
@@ -204,43 +183,8 @@ async function callGemini({ speechText, items, modifiers }) {
         }],
         generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 512,
             responseMimeType: 'application/json',
-            response_mime_type: 'application/json',
-            responseSchema: {
-                type: 'OBJECT',
-                properties: {
-                    items: {
-                        type: 'ARRAY',
-                        items: {
-                            type: 'OBJECT',
-                            properties: {
-                                menuId: { type: 'STRING' },
-                                qty: { type: 'INTEGER' },
-                                size: { type: 'STRING', nullable: true },
-                                bun: { type: 'STRING', nullable: true },
-                                addonIds: { type: 'ARRAY', items: { type: 'STRING' } },
-                                sauceIds: { type: 'ARRAY', items: { type: 'STRING' } },
-                                combo: { type: 'BOOLEAN' },
-                                comboSnackId: { type: 'STRING', nullable: true },
-                                comboDrinkId: { type: 'STRING', nullable: true },
-                                notesEn: { type: 'STRING' },
-                                notesZh: { type: 'STRING' },
-                            },
-                            required: ['menuId', 'qty', 'combo'],
-                        },
-                    },
-                    unattachedAddons: {
-                        type: 'ARRAY',
-                        items: { type: 'STRING' },
-                    },
-                    unrecognizedText: {
-                        type: 'ARRAY',
-                        items: { type: 'STRING' },
-                    },
-                },
-                required: ['items', 'unattachedAddons', 'unrecognizedText'],
-            },
         },
     });
 
