@@ -50,7 +50,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.19b</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.19c</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -90,6 +90,8 @@
                 <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
                 <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
             </div>
+            <!-- Voice ordering kept in code; hidden until VOICE_ORDERING_ENABLED is true. -->
+            <div id="pos-voice-ui" class="hidden">
             <button type="button" id="mic-btn" class="mt-2 w-full min-h-[56px] rounded-xl bg-red-700 font-black text-lg mic-btn" onclick="toggleVoice()">講單</button>
             <div id="voice-live-bar" class="mt-2 rounded-xl border border-red-800 bg-neutral-900 p-3">
                 <p id="voice-live" class="text-base font-bold text-yellow-300">聽緊…一次過講晒要咩。</p>
@@ -101,6 +103,7 @@
                 </div>
                 <p class="mt-2 text-[11px] font-bold text-neutral-500">語音識別語言：<span id="voice-lang-label">廣東話</span></p>
                 <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消錄音</button>
+            </div>
             </div>
         </header>
 
@@ -226,6 +229,7 @@
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
         const HOLD_KEY = 'mb_pos_holds';
+        const VOICE_ORDERING_ENABLED = false;
         const CATS = [
             { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
             { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
@@ -1134,6 +1138,7 @@
             }
         }
         function toggleVoice() {
+            if (!VOICE_ORDERING_ENABLED) return;
             if (voiceBusy) return;
             if (isVoiceOpen() || voiceWanted) {
                 finishVoice();
@@ -1142,6 +1147,7 @@
             startVoiceSession();
         }
         function startVoiceSession() {
+            if (!VOICE_ORDERING_ENABLED) return;
             const SR = speechEngine();
             if (!SR) {
                 showToast('呢部機唔支援語音。用手撳左邊餸就得。');
