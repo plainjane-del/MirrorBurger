@@ -1,6 +1,6 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid } = require('./_orders.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -8,7 +8,7 @@ const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order, mark_table_paid
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order, mark_table_paid, mark_order_paid
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -123,6 +123,26 @@ module.exports = async (req, res) => {
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
             const result = await markTableOrderPaid(orderNo, body.pay_method);
             return res.status(200).json(result);
+        }
+
+        if (action === 'mark_order_paid') {
+            const orderNo = String(body.orderNo || '').trim();
+            if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
+            const existing = await getOrderByNo(orderNo);
+            if (!existing) return res.status(404).json({ error: 'Order not found' });
+            const pay = String(existing.payment_status || '').toUpperCase();
+            if (pay === 'PAID' || pay === 'COMPLETED' || pay === 'PREPARING' || pay === 'READY') {
+                return res.status(200).json({ ok: true, alreadyPaid: true, order: existing });
+            }
+            if (pay !== 'PENDING') {
+                return res.status(400).json({ error: `Cannot mark ${pay} as paid` });
+            }
+            const result = await markOrderPaid(orderNo);
+            return res.status(200).json({
+                ok: true,
+                updated: Boolean(result && result.updated),
+                order: (result && result.order) || existing,
+            });
         }
 
         if (action === 'set_store_open') {

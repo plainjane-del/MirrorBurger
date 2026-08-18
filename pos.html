@@ -25,6 +25,7 @@
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
         .pay-btn:disabled, #cfg-add:disabled { opacity:.45; }
         .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+        #pos-cart.is-flash { box-shadow: inset 0 0 0 2px #FFD131; }
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
         #print-status.is-on { color:#0a0a0a; background:#86efac; border-color:#86efac; }
@@ -117,13 +118,11 @@
     <div id="voice-sheet" class="sheet" onclick="if(event.target===this && !voiceWanted) closeVoice()">
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div id="voice-phase-listen">
-                <h3 id="voice-ask" class="text-lg font-black mb-1">第一步：漢堡要邊款？</h3>
-                <p id="voice-howto" class="text-sm font-bold text-neutral-400 mb-3">唔使估。下面已經幫你列咗答案，<span class="text-yellow-400">撳黃色掣</span>就得；鍾意講都可以，講完再撳大紅掣。</p>
-                <div id="voice-summary" class="hidden rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-sm font-bold text-neutral-300 mb-3"></div>
-                <div id="voice-choices" class="grid grid-cols-2 gap-2 mb-3"></div>
-                <p id="voice-live" class="min-h-[64px] rounded-xl bg-neutral-900 border border-red-800 p-3 text-base font-bold text-yellow-300">聽緊咪高峰…</p>
-                <p id="voice-hint" class="text-xs font-bold text-neutral-500 mt-2">唔知講咩就唔使講，直接撳上面黃色建議。</p>
-                <button type="button" id="voice-done-btn" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">我講完，跟住問</button>
+                <h3 id="voice-ask" class="text-lg font-black mb-1">講單</h3>
+                <p id="voice-howto" class="text-sm font-bold text-neutral-400 mb-3">一次過講晒要咩。例如：「經典芝士牛套餐，轉番薯條，凍檸茶走青少冰」。</p>
+                <p id="voice-live" class="min-h-[64px] rounded-xl bg-neutral-900 border border-red-800 p-3 text-base font-bold text-yellow-300">聽緊咪高峰…你可以慢慢講。</p>
+                <p id="voice-hint" class="text-xs font-bold text-neutral-500 mt-2">講完撳大紅掣，AI 會入購物車。</p>
+                <button type="button" id="voice-done-btn" class="mt-4 w-full min-h-[56px] rounded-xl bg-red-600 font-black text-lg" onclick="finishVoice()">我講完，入購物車</button>
                 <button type="button" class="mt-2 chip-btn w-full" onclick="closeVoice()">取消</button>
             </div>
         </div>
@@ -291,6 +290,11 @@
         }
         function isBurger(item) { return ['beef','others','veggie'].includes(item.category); }
         function isSpicy(item) { return Array.isArray(item.dietary) && item.dietary.some((d) => String(d).includes('🌶')); }
+        function itemNeedsTemp(item) {
+            if (!item) return false;
+            if (item.has_temp || item.hasTemp) return true;
+            return ['d5', 'd6', 'd7', 'd8'].includes(item.id);
+        }
         function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
         function findMod(kind, id) { return modsOf(kind).find((m) => m.id === id); }
         function isSold(item) { return !!(item && item.is_sold_out); }
@@ -843,32 +847,10 @@
         let voiceFinal = '';
         let voiceInterim = '';
         let voiceAlts = [];
-        let voiceDraft = [];
         let voiceFinishTimer = null;
         let voiceBusy = false;
-        let voiceJob = null;
         let voiceResumeToken = 0;
         let toastTimer = null;
-
-        const SNACK_KIND = {
-            fries: { zh: '脆炸薯條', m: 'cs1', l: 'cs3' },
-            lotus: { zh: '蓮藕脆片', m: 'cs2', l: 'cs4' },
-            sweet: { zh: '炸番薯條', m: 'cs5', l: 'cs6' },
-            wings: { zh: '煙燻雞翼', id: 'cs7' },
-        };
-        const DRINK_KIND = {
-            coke: { zh: '可口可樂', id: 'cd1' },
-            zero: { zh: '零系可口可樂', id: 'cd1a' },
-            cream: { zh: '忌廉哥冰', id: 'cd2' },
-            soda: { zh: '梳打水', id: 'cd3' },
-            lemon: { zh: '肉桂凍檸茶', id: 'cd4' },
-            americano: { zh: '美式咖啡', hot: 'cd5h', iced: 'cd5c' },
-            latte: { zh: '鮮奶咖啡', hot: 'cd6h', iced: 'cd6c' },
-            mocha: { zh: '朱古力咖啡', hot: 'cd7h', iced: 'cd7c' },
-            choco: { zh: '朱古力', hot: 'cd8h', iced: 'cd8c' },
-            avo: { zh: '燕麥牛油果沙冰', id: 'cd9' },
-            ovaltine: { zh: '雙重阿華田沙冰', id: 'cd10' },
-        };
 
         function speechEngine() {
             return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -899,12 +881,12 @@
             if (!document.getElementById('voice-sheet').classList.contains('is-open')) return;
             clearVoiceBuffer();
             const live = document.getElementById('voice-live');
-            if (live) live.textContent = msg || '而家輪到你講。講完撳大紅掣。';
+            if (live) live.textContent = msg || '聽緊。講完撳「我講完，入購物車」。';
             voiceWanted = true;
             const btn = document.getElementById('mic-btn');
             if (btn) {
                 btn.classList.add('is-on');
-                btn.textContent = '聽緊… 講完入去撳「講完呢句」';
+                btn.textContent = '聽緊… 講完撳大紅掣';
             }
             beginRec();
         }
@@ -922,34 +904,6 @@
             if (btn) {
                 btn.classList.remove('is-on');
                 btn.textContent = '講單';
-            }
-            try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
-        }
-        function speakAskThenListen(text) {
-            pauseListen();
-            const live = document.getElementById('voice-live');
-            if (live) live.textContent = '問緊你，請等我講完再答。';
-            let settled = false;
-            const done = () => {
-                if (settled) return;
-                settled = true;
-                scheduleResumeListen(500, '而家輪到你講。講完撳大紅掣。');
-            };
-            try {
-                if (!window.speechSynthesis) {
-                    done();
-                    return;
-                }
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(text);
-                u.lang = 'zh-HK';
-                u.rate = 1.02;
-                u.onend = done;
-                u.onerror = done;
-                window.speechSynthesis.speak(u);
-                setTimeout(done, 9000);
-            } catch (_) {
-                done();
             }
         }
         function beginRec() {
@@ -985,7 +939,7 @@
                 if (ev.error === 'no-speech' || ev.error === 'aborted' || ev.error === 'network') return;
                 if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
                     stopVoiceEngine();
-                    alert('請允許咪高峰。iPhone 要用 Safari 打開本頁；商米用 Chrome。');
+                    showToast('請允許咪高峰。商米請用 Chrome 打開本頁。');
                 }
             };
             rec.onend = () => {
@@ -999,62 +953,31 @@
                 if (voiceWanted) setTimeout(beginRec, 280);
             }
         }
-        function resetVoiceAskUi() {
-            document.getElementById('voice-ask').textContent = '第一步：要咩？';
-            document.getElementById('voice-summary').classList.add('hidden');
-            document.getElementById('voice-summary').innerHTML = '';
-            document.getElementById('voice-done-btn').textContent = '我講完，跟住問';
-            document.getElementById('voice-hint').textContent = '唔知講咩就唔使講，直接撳上面黃色建議。';
-            renderVoiceChoices(nextAsk(null).choices);
-        }
         function startVoiceSession() {
             const SR = speechEngine();
             if (!SR) {
-                alert('呢部機嘅瀏覽器唔支援語音。商米／Android 請用 Chrome 打開本頁。');
+                showToast('呢部機唔支援語音。商米／Android 請用 Chrome。');
                 return;
             }
             clearTimeout(voiceFinishTimer);
             voiceFinishTimer = null;
             voiceBusy = false;
-            voiceJob = null;
             voiceResumeToken += 1;
             clearVoiceBuffer();
-            resetVoiceAskUi();
+            const doneBtn = document.getElementById('voice-done-btn');
+            if (doneBtn) {
+                doneBtn.disabled = false;
+                doneBtn.textContent = '我講完，入購物車';
+            }
             document.getElementById('voice-sheet').classList.add('is-open');
-            resumeListen('聽緊。講完成句就撳「講完呢句」。');
-        }
-        function finishVoice() {
-            if (voiceBusy) return;
-            if (!document.getElementById('voice-sheet').classList.contains('is-open')) return;
-            voiceBusy = true;
-            const snap = voiceHeardText();
-            const live = document.getElementById('voice-live');
-            if (live) live.textContent = snap || '截緊最後一句…';
-            pauseListen();
-            clearTimeout(voiceFinishTimer);
-            voiceFinishTimer = setTimeout(() => {
-                voiceFinishTimer = null;
-                let text = (snap + ' ' + voiceHeardText()).trim();
-                if (looksLikePromptEcho(text)) text = '';
-                clearVoiceBuffer();
-                try {
-                    handleVoiceTurn(text);
-                } catch (err) {
-                    document.getElementById('voice-live').textContent = '處理失敗：' + ((err && err.message) || err);
-                    scheduleResumeListen(400);
-                } finally {
-                    voiceBusy = false;
-                }
-            }, 480);
+            resumeListen('聽緊。一次過講晒，之後撳大紅掣。');
         }
         function closeVoice() {
             clearTimeout(voiceFinishTimer);
             voiceFinishTimer = null;
             voiceBusy = false;
-            voiceJob = null;
             stopVoiceEngine();
             document.getElementById('voice-sheet').classList.remove('is-open');
-            resetVoiceAskUi();
         }
         function showToast(msg) {
             const el = document.getElementById('pos-toast');
@@ -1073,744 +996,150 @@
             if (list) try { list.scrollTop = list.scrollHeight; } catch (_) {}
             setTimeout(() => el.classList.remove('is-flash'), 1600);
         }
-
-        function compact(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
-        function foldZh(s) {
-            return compact(String(s || '').normalize('NFKC'))
-                .replace(/[\u200B-\u200D\uFEFF]/g, '')
-                .replace(/[^\u4e00-\u9fff0-9a-z]/g, '')
-                .replace(/我要|我想要|要一個|要杯|要個|一杯|一個|嘅|的|啦|呀|喎|咁|同埋|跟住|然後|然后/g, '')
-                .replace(/汉堡|漢飽|漢保|漢寶|漢堡包/g, '漢堡')
-                .replace(/薯条/g, '薯條')
-                .replace(/可乐|可樂/g, '可樂')
-                .replace(/经典|金典|經點/g, '經典')
-                .replace(/三點二一|三二一|threetwoone/g, '321')
-                .replace(/套餐|setmeal|combo/g, '套餐')
-                .replace(/cheeseburger|芝士漢堡/g, '經典芝士牛肉')
-                .replace(/classicbeef|經典牛/g, '經典芝士牛肉');
-        }
-        function qtyWord(n) {
-            const map = { '一':1,'二':2,'兩':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
-            if (map[n]) return map[n];
-            const x = Number(n);
-            return Number.isFinite(x) && x > 0 ? x : 1;
-        }
-        function parseQty(text) {
-            const t = String(text || '');
-            const m = t.match(/([一二兩三四五六七八九十两]|[1-9]|10)\s*(份|個|个|隻|只|客)/);
-            return m ? qtyWord(m[1]) : 1;
-        }
-        function aliasesFor(item) {
-            const extra = {
-                b1: ['經典芝士牛肉漢堡','經典芝士牛肉','經典芝士','經典牛肉','芝士牛肉','經典漢堡','芝士漢堡','cheeseburger','classicbeef'],
-                b3: ['墨辣芝士牛肉','墨辣牛肉','墨辣漢堡','hottestbeef'],
-                b4: ['墨辣藍紋芝士牛肉','墨辣藍紋','藍紋芝士牛肉'],
-                b2: ['和牛','wagyu','321','三二一','3.2.1'],
-                c1: ['水牛城脆雞','水牛城','脆雞'],
-                v2: ['煙三文魚','三文魚'],
-                v1: ['素食','素漢堡','啡菇'],
-                s1: ['脆炸薯條','薯條','fries'],
-                s2: ['蓮藕脆片','蓮藕'],
-                s5: ['炸番薯條','番薯'],
-                s3: ['煙燻雞翼','雞翼'],
-                s7: ['水牛城雞翼'],
-                d5: ['美式咖啡','美式','americano'],
-                d6: ['鮮奶咖啡','牛奶咖啡','奶咖啡','拿鐵','latte'],
-                d7: ['朱古力咖啡','mocha'],
-                d8: ['朱古力'],
-                d1: ['可口可樂','可樂','coke'],
-                d1a: ['零系可口可樂','零糖可樂','零糖'],
-                d2: ['忌廉哥冰','忌廉'],
-                d3: ['梳打水','梳打'],
-                d4: ['肉桂凍檸茶','檸茶'],
-                d9: ['燕麥牛油果沙冰','牛油果沙冰'],
-                d10: ['雙重阿華田沙冰','阿華田'],
-            };
-            return [item.name_zh, item.name_en, item.id].concat(extra[item.id] || []).filter(Boolean);
-        }
-        function scoreItem(item, t) {
-            let best = 0;
-            for (const raw of aliasesFor(item)) {
-                const name = foldZh(raw);
-                if (!name || name.length < 2) continue;
-                if (t.includes(name)) {
-                    best = Math.max(best, 100 + name.length);
-                    continue;
-                }
-                let hit = 0;
-                for (const ch of name) if (t.includes(ch)) hit += 1;
-                if (name.length && hit / name.length >= 0.7) best = Math.max(best, Math.round((hit / name.length) * 50) + name.length);
-            }
-            return best;
-        }
-        function pickAddons(text) {
-            const t = compact(text);
-            const hits = [];
-            const rules = [
-                ['a4', /煎蛋|加蛋|荷包蛋/],
-                ['a5', /煙肉|烟肉|bacon/],
-                ['a6', /牛油果/],
-                ['a7', /藍芝士|蓝芝士|藍紋加/],
-                ['a3', /加芝士|美國芝士|加片芝士/],
-                ['a1', /酸瓜/],
-                ['a2', /jalapeno|辣椒圈|墨西哥辣椒/],
-                ['a8', /素雞|炸素/],
-                ['a9', /加扒|多塊肉|加牛肉扒/],
-            ];
-            for (const [id, re] of rules) {
-                if (re.test(t)) hits.push(id);
-            }
-            return hits;
-        }
-        function snackNeedsSize(kind) { return kind && kind !== 'wings'; }
-        function drinkNeedsTemp(kind) { return ['americano', 'latte', 'mocha', 'choco'].includes(kind); }
-        function parseSnackKind(text) {
-            const t = foldZh(text);
-            if (/番薯/.test(t)) return 'sweet';
-            if (/蓮藕/.test(t)) return 'lotus';
-            if (/雞翼|鸡翼|煙燻翼/.test(t)) return 'wings';
-            if (/薯條|薯条|fries/.test(t)) return 'fries';
-            return null;
-        }
-        function parseSnackSize(text, kind) {
-            const raw = compact(String(text || '').normalize('NFKC'));
-            const t = foldZh(text);
-            if (/大薯條|薯條大|大蓮藕|蓮藕大|大番薯|番薯大|大份|大號|要大|large/.test(t)) return 'L';
-            if (/^(l|el)$/.test(raw) || (/(^|[^a-z])l([^a-z]|$)/.test(raw) && !/mild|latte/.test(raw))) return 'L';
-            if (/^(m|em)$/.test(raw) || /中份|中號|medium/.test(t) || /(^|[^a-z])m([^a-z]|$)/.test(raw)) return 'M';
-            if (kind && /中/.test(t)) return 'M';
-            if (kind && /大/.test(t) && !/小辣|微辣/.test(t)) return 'L';
-            if (kind && /(細|小份|細份)/.test(t) && !/小辣|微辣/.test(t)) return 'M';
-            return null;
-        }
-        function parseDrinkKind(text) {
-            const t = foldZh(text);
-            if (/零糖|無糖|无糖|zero/.test(t)) return 'zero';
-            if (/忌廉/.test(t)) return 'cream';
-            if (/檸茶|柠茶/.test(t)) return 'lemon';
-            if (/梳打/.test(t)) return 'soda';
-            if (/拿鐵|牛奶咖啡|奶咖啡|鮮奶咖啡|鲜奶咖啡|latte/.test(t)) return 'latte';
-            if (/朱古力咖啡|mocha/.test(t)) return 'mocha';
-            if (/美式|americano/.test(t)) return 'americano';
-            if (/咖啡|coffee/.test(t)) return 'coffee';
-            if (/燕麥|牛油果沙冰/.test(t)) return 'avo';
-            if (/阿華田/.test(t)) return 'ovaltine';
-            if (/朱古力/.test(t)) return 'choco';
-            if (/可樂|可乐|coke/.test(t)) return 'coke';
-            return null;
-        }
-        function parseDrinkTemp(text) {
-            const t = foldZh(text);
-            if (/凍|冻|冰|iced|cold/.test(t)) return 'Iced';
-            if (/熱|热|hot/.test(t)) return 'Hot';
-            return null;
-        }
-        function snackIdOf(kind, size) {
-            const spec = SNACK_KIND[kind];
-            if (!spec) return null;
-            if (spec.id) return spec.id;
-            if (!size) return null;
-            return size === 'L' ? spec.l : spec.m;
-        }
-        function drinkIdOf(kind, temp) {
-            const spec = DRINK_KIND[kind];
-            if (!spec) return null;
-            if (spec.id) return spec.id;
-            if (!temp) return null;
-            return temp === 'Iced' ? spec.iced : spec.hot;
-        }
-        function findLiveItem(id) {
-            return menuItems.find((i) => i.id === id && !isSold(i)) || null;
-        }
-        function guessBurger(text) {
-            const t = foldZh(text);
-            const rules = [
-                ['b4', /墨辣.*(藍|蓝)|藍紋|蓝纹/],
-                ['b3', /墨辣|hottest/],
-                ['b2', /和牛|wagyu|321|三二一/],
-                ['b1', /經典|classic|芝士牛|芝士漢堡|cheeseburger/],
-                ['c1', /脆雞漢堡|chicken|水牛城(?!雞翼)/],
-                ['v2', /三文魚|三文鱼|salmon/],
-                ['v1', /素漢堡|啡菇/],
-            ];
-            for (const [id, re] of rules) {
-                const item = findLiveItem(id);
-                if (item && re.test(t)) return item;
-            }
-            if (/漢堡|burger/.test(t) && !/墨辣|和牛|雞|鸡|素/.test(t)) return findLiveItem('b1');
-            return null;
-        }
-        function guessALaCarte(text) {
-            const t = foldZh(text);
-            const rules = [
-                ['s5', /番薯/],
-                ['s2', /蓮藕/],
-                ['s7', /水牛城.*翼/],
-                ['s3', /雞翼|鸡翼/],
-                ['s1', /薯條|薯条|fries/],
-                ['d6', /拿鐵|牛奶咖啡|奶咖啡|鮮奶咖啡|latte/],
-                ['d7', /朱古力咖啡|mocha/],
-                ['d8', /朱古力/],
-                ['d5', /美式|americano/],
-                ['d4', /檸茶/],
-                ['d1a', /零糖|無糖|zero/],
-                ['d1', /可樂|coke/],
-                ['d2', /忌廉/],
-                ['d3', /梳打/],
-                ['d9', /牛油果|燕麥沙冰/],
-                ['d10', /阿華田/],
-            ];
-            for (const [id, re] of rules) {
-                const item = findLiveItem(id);
-                if (item && re.test(t)) return item;
-            }
-            return null;
-        }
-        function itemNeedsSize(item) {
-            return sizesOf(item).length > 0;
-        }
-        function itemNeedsTemp(item) {
-            if (!item) return false;
-            if (item.has_temp || item.hasTemp) return true;
-            return ['d5', 'd6', 'd7', 'd8'].includes(item.id);
-        }
-        function pickSizeLabel(item, ml) {
-            const sz = sizesOf(item);
-            if (ml === 'L') {
-                if (sz.length) {
-                    const hit = sz.find((s) => /L|大|5/.test(s.label || s.value));
-                    return (hit && (hit.label || hit.value)) || (sz[sz.length - 1].label || sz[sz.length - 1].value);
-                }
-                return 'L';
-            }
-            if (sz.length) return sz[0].label || sz[0].value;
-            return 'M';
-        }
-        function parseCoffeeKind(text) {
-            const t = foldZh(text);
-            if (/拿鐵|牛奶咖啡|奶咖啡|鮮奶咖啡|鲜奶咖啡|latte/.test(t)) return 'latte';
-            if (/朱古力咖啡|mocha/.test(t)) return 'mocha';
-            const rejected = /唔係|不是|唔要|不要/.test(t);
-            if (/美式|americano/.test(t)) return rejected ? 'clear' : 'americano';
-            if (/咖啡|coffee/.test(t)) return rejected ? 'clear' : 'unspecified';
-            return null;
-        }
-        function idxOf(t, re) {
-            const m = String(t || '').match(re);
-            return m ? m.index : -1;
-        }
-        function makeVoiceLine(partial) {
-            return Object.assign({
-                item: null,
-                qty: 1,
-                bun: 'Nissin Bun',
-                spice: 'Normal',
-                addonIds: [],
-                combo: false,
-                snackKind: null,
-                snackSize: null,
-                drinkKind: null,
-                drinkTemp: null,
-                coffeeKind: null,
-                itemSize: null,
-                itemTemp: null,
-            }, partial || {});
-        }
-        function isCoffeeLine(line) {
-            return !!(line && !line.combo && (line.coffeeKind || (line.item && ['d5', 'd6', 'd7'].includes(line.item.id))));
-        }
-        function lineSlot(line) {
-            if (!line) return '';
-            if (line.combo && line.item) return 'combo:' + line.item.id;
-            if (isCoffeeLine(line)) return 'coffee';
-            if (line.item) return 'item:' + line.item.id;
-            return '';
-        }
-        function jobHasItems(job) {
-            return !!(job && Array.isArray(job.lines) && job.lines.length);
-        }
-        function applyCoffeeKind(line, kind) {
-            if (!line || !kind) return;
-            if (kind === 'clear' || kind === 'unspecified') {
-                if (line.combo) {
-                    line.drinkKind = null;
-                    line.coffeeKind = 'unspecified';
-                    return;
-                }
-                line.coffeeKind = 'unspecified';
-                line.item = null;
-                return;
-            }
-            if (line.combo) {
-                line.drinkKind = kind;
-                line.coffeeKind = null;
-                return;
-            }
-            line.coffeeKind = kind;
-            line.item = findLiveItem({ americano: 'd5', latte: 'd6', mocha: 'd7' }[kind]);
-        }
-        function extractVoiceLines(text) {
-            const original = String(text || '').trim();
-            const t = foldZh(original);
-            if (!t) return [];
-            const wantCombo = /套餐/.test(t);
-            const burger = guessBurger(original);
-            const qty = parseQty(original) || 1;
-            const bun = /生菜/.test(t) ? 'Lettuce Wrap' : 'Nissin Bun';
-            const spice = /小辣|微辣/.test(t) ? 'Mild' : 'Normal';
-            const addons = pickAddons(original);
-            const temp = parseDrinkTemp(original);
-            const coffeeKind = parseCoffeeKind(original);
-
-            if (wantCombo && burger) {
-                const snackKind = parseSnackKind(original);
-                let drinkKind = parseDrinkKind(original);
-                let lineCoffee = null;
-                if (drinkKind === 'coffee' || coffeeKind === 'unspecified' || coffeeKind === 'clear') {
-                    drinkKind = null;
-                    lineCoffee = 'unspecified';
-                } else if (coffeeKind && coffeeKind !== 'clear') {
-                    drinkKind = coffeeKind;
-                }
-                return [makeVoiceLine({
-                    item: burger,
-                    qty,
-                    bun,
-                    spice,
-                    addonIds: addons,
-                    combo: true,
-                    snackKind,
-                    snackSize: snackKind ? parseSnackSize(original, snackKind) : null,
-                    drinkKind,
-                    drinkTemp: drinkKind && drinkNeedsTemp(drinkKind) ? temp : null,
-                    coffeeKind: lineCoffee,
-                })];
-            }
-
-            const hits = [];
-            if (burger) {
-                hits.push({
-                    index: Math.max(0, idxOf(t, /墨辣|經典|321|和牛|漢堡|脆雞|三文魚|素漢堡/)),
-                    line: makeVoiceLine({ item: burger, qty, bun, spice, addonIds: addons }),
-                });
-            }
-            const snackSpecs = [
-                ['s5', /番薯/, 'sweet'],
-                ['s2', /蓮藕/, 'lotus'],
-                ['s7', /水牛城.*翼/, null],
-                ['s3', /雞翼|鸡翼/, 'wings'],
-                ['s1', /薯條|薯条|fries/, 'fries'],
-            ];
-            for (const [id, re, kind] of snackSpecs) {
-                const index = idxOf(t, re);
-                if (index < 0) continue;
-                const item = findLiveItem(id);
-                if (!item) continue;
-                hits.push({
-                    index,
-                    line: makeVoiceLine({
-                        item,
-                        qty,
-                        itemSize: itemNeedsSize(item) ? parseSnackSize(original, kind || 'fries') : null,
-                    }),
-                });
-            }
-            const drinkSpecs = [
-                ['d6', /拿鐵|牛奶咖啡|奶咖啡|鮮奶咖啡|latte/, 'latte'],
-                ['d7', /朱古力咖啡|mocha/, 'mocha'],
-                ['d5', /美式|americano/, 'americano'],
-                ['d8', /朱古力/, null],
-                ['d4', /檸茶/, null],
-                ['d1a', /零糖|無糖|zero/, null],
-                ['d1', /可樂|coke/, null],
-                ['d2', /忌廉/, null],
-                ['d3', /梳打/, null],
-                ['d9', /牛油果|燕麥沙冰/, null],
-                ['d10', /阿華田/, null],
-            ];
-            let hasSpecificCoffee = false;
-            for (const [id, re, kind] of drinkSpecs) {
-                const index = idxOf(t, re);
-                if (index < 0) continue;
-                if (id === 'd8' && idxOf(t, /朱古力咖啡/) >= 0) continue;
-                if (id === 'd5' && coffeeKind && coffeeKind !== 'americano') continue;
-                if (id === 'd5' && /唔係|不是|唔要|不要/.test(t)) continue;
-                const item = findLiveItem(id);
-                if (!item) continue;
-                if (kind) hasSpecificCoffee = true;
-                hits.push({
-                    index,
-                    line: makeVoiceLine({
-                        item,
-                        qty,
-                        coffeeKind: kind || null,
-                        itemTemp: itemNeedsTemp(item) ? temp : null,
-                    }),
-                });
-            }
-            if (!hasSpecificCoffee && coffeeKind === 'unspecified') {
-                const index = idxOf(t, /咖啡|coffee/);
-                if (index >= 0) {
-                    hits.push({
-                        index,
-                        line: makeVoiceLine({ coffeeKind: 'unspecified', itemTemp: temp }),
+        function catalogForAi() {
+            const menu = (menuItems || []).map((item) => ({
+                id: item.id,
+                category: item.category,
+                name_zh: item.name_zh,
+                name_en: item.name_en,
+                price: item.price,
+                sizes: item.sizes || null,
+                dietary: item.dietary || [],
+                has_temp: !!(item.has_temp || item.hasTemp),
+            }));
+            const modifiers = [];
+            for (const kind of ['addon', 'sauce', 'combo_snack', 'combo_drink']) {
+                for (const m of modsOf(kind)) {
+                    modifiers.push({
+                        id: m.id,
+                        kind,
+                        name_zh: m.name_zh || m.nameZh,
+                        name_en: m.name_en || m.nameEn,
+                        price: m.price,
                     });
                 }
             }
-            hits.sort((a, b) => a.index - b.index);
-            const lines = [];
-            const seen = new Set();
-            for (const hit of hits) {
-                const slot = lineSlot(hit.line) || ('n' + lines.length);
-                if (seen.has(slot)) continue;
-                seen.add(slot);
-                lines.push(hit.line);
-            }
-            return lines;
+            return { menuItems: menu, modifiers };
         }
-        function mergeVoiceAnswer(job, text) {
-            if (!job || !text) return;
-            if (!Array.isArray(job.lines)) job.lines = [];
-            const coffeeKind = parseCoffeeKind(text);
-            const incoming = extractVoiceLines(text);
-            for (const line of incoming) {
-                const slot = lineSlot(line);
-                const existing = slot && job.lines.find((l) => lineSlot(l) === slot);
-                if (existing) {
-                    if (line.item) existing.item = line.item;
-                    if (line.coffeeKind) existing.coffeeKind = line.coffeeKind;
-                    if (line.itemSize) existing.itemSize = line.itemSize;
-                    if (line.itemTemp) existing.itemTemp = line.itemTemp;
-                    if (line.snackKind) existing.snackKind = line.snackKind;
-                    if (line.snackSize) existing.snackSize = line.snackSize;
-                    if (line.drinkKind) existing.drinkKind = line.drinkKind;
-                    if (line.drinkTemp) existing.drinkTemp = line.drinkTemp;
-                    if (line.bun === 'Lettuce Wrap') existing.bun = line.bun;
-                    if (line.addonIds && line.addonIds.length) {
-                        const set = new Set(existing.addonIds || []);
-                        line.addonIds.forEach((id) => set.add(id));
-                        existing.addonIds = Array.from(set);
-                    }
-                } else {
-                    job.lines.push(line);
-                }
-            }
-            const coffee = job.lines.find(isCoffeeLine) || job.lines.find((l) => l.combo);
-            if (coffeeKind === 'clear') {
-                if (coffee) applyCoffeeKind(coffee, 'clear');
-            } else if (coffeeKind && coffeeKind !== 'unspecified') {
-                if (coffee) applyCoffeeKind(coffee, coffeeKind);
-                else {
-                    job.lines.push(makeVoiceLine({
-                        coffeeKind,
-                        item: findLiveItem({ americano: 'd5', latte: 'd6', mocha: 'd7' }[coffeeKind]),
-                    }));
-                }
-            } else if (coffeeKind === 'unspecified' && !coffee) {
-                job.lines.push(makeVoiceLine({ coffeeKind: 'unspecified' }));
-            }
-            const size = parseSnackSize(text, parseSnackKind(text) || 'fries');
-            const temp = parseDrinkTemp(text);
-            const snack = parseSnackKind(text);
-            let drink = parseDrinkKind(text);
-            if (drink === 'coffee') drink = null;
-            for (const line of job.lines) {
-                if (line.combo) {
-                    if (snack) line.snackKind = snack;
-                    const sz = parseSnackSize(text, line.snackKind);
-                    if (sz && snackNeedsSize(line.snackKind)) line.snackSize = sz;
-                    if (drink) {
-                        line.drinkKind = drink;
-                        line.coffeeKind = null;
-                    }
-                    if (temp && drinkNeedsTemp(line.drinkKind)) line.drinkTemp = temp;
-                } else {
-                    if (itemNeedsSize(line.item) && size) line.itemSize = size;
-                    if (itemNeedsTemp(line.item) && temp) line.itemTemp = temp;
-                    if (line.coffeeKind === 'unspecified' && temp) line.itemTemp = temp;
-                }
-                if (line.item && isBurger(line.item) && /生菜/.test(foldZh(text))) line.bun = 'Lettuce Wrap';
-                const addons = pickAddons(text);
-                if (addons.length && line.item && isBurger(line.item)) {
-                    const set = new Set(line.addonIds || []);
-                    addons.forEach((id) => set.add(id));
-                    line.addonIds = Array.from(set);
-                }
-            }
-        }
-        function snackChoices() {
-            return [
-                { label: '薯條', say: '薯條', group: '小食' },
-                { label: '蓮藕', say: '蓮藕', group: '小食' },
-                { label: '番薯', say: '番薯', group: '小食' },
-                { label: '雞翼', say: '雞翼', group: '小食' },
-            ];
-        }
-        function drinkChoices() {
-            return [
-                { label: '可樂', say: '可樂', group: '嘢飲' },
-                { label: '零糖', say: '零糖可樂', group: '嘢飲' },
-                { label: '忌廉', say: '忌廉', group: '嘢飲' },
-                { label: '凍檸茶', say: '檸茶', group: '嘢飲' },
-                { label: '梳打', say: '梳打', group: '嘢飲' },
-                { label: '美式', say: '美式', group: '嘢飲' },
-                { label: '拿鐵', say: '牛奶咖啡', group: '嘢飲' },
-                { label: '朱古力', say: '朱古力', group: '嘢飲' },
-            ];
-        }
-        function coffeeChoices() {
-            return [
-                { label: '美式', say: '美式咖啡' },
-                { label: '拿鐵', say: '牛奶咖啡' },
-                { label: '朱古力咖啡', say: '朱古力咖啡' },
-            ];
-        }
-        function sizeChoices() {
-            return [
-                { label: '中', say: '中' },
-                { label: '大', say: '大' },
-            ];
-        }
-        function tempChoices() {
-            return [
-                { label: '熱', say: '熱' },
-                { label: '凍', say: '凍' },
-            ];
-        }
-        function lineAsk(line) {
-            if (!line) return null;
-            if (line.combo) {
-                const needSnack = !line.snackKind;
-                const needSize = !needSnack && snackNeedsSize(line.snackKind) && !line.snackSize;
-                const needCoffeeType = line.coffeeKind === 'unspecified' || (!line.drinkKind && line.coffeeKind === 'unspecified');
-                const needDrink = !line.drinkKind && !needCoffeeType;
-                const needTemp = !needDrink && !needCoffeeType && drinkNeedsTemp(line.drinkKind) && !line.drinkTemp;
-                if (needSnack && needDrink && !needCoffeeType) {
-                    return { step: 'sides', prompt: '小食同嘢飲呢？', choices: snackChoices().concat(drinkChoices()) };
-                }
-                if (needSnack) return { step: 'snack_kind', prompt: '小食呢？', choices: snackChoices() };
-                if (needSize) return { step: 'snack_size', prompt: '要中定大？', choices: sizeChoices() };
-                if (needCoffeeType) return { step: 'coffee_kind', prompt: '咖啡要美式定拿鐵？', choices: coffeeChoices() };
-                if (needDrink) return { step: 'drink_kind', prompt: '嘢飲呢？', choices: drinkChoices() };
-                if (needTemp) return { step: 'drink_temp', prompt: '熱定凍？', choices: tempChoices() };
-                return null;
-            }
-            if (line.coffeeKind === 'unspecified' || (isCoffeeLine(line) && !line.item)) {
-                return { step: 'coffee_kind', prompt: '咖啡要美式定拿鐵？', choices: coffeeChoices() };
-            }
-            if (itemNeedsSize(line.item) && !line.itemSize) {
-                return { step: 'item_size', prompt: '要中定大？', choices: sizeChoices() };
-            }
-            if (itemNeedsTemp(line.item) && !line.itemTemp) {
-                return { step: 'item_temp', prompt: '熱定凍？', choices: tempChoices() };
-            }
-            return null;
-        }
-        function nextAsk(job) {
-            if (!jobHasItems(job)) {
-                return {
-                    step: 'item',
-                    prompt: '要咩？',
-                    choices: [
-                        { label: '經典芝士套餐', say: '經典芝士牛肉套餐' },
-                        { label: '三二一套餐', say: '321套餐' },
-                        { label: '墨辣套餐', say: '墨辣芝士牛肉套餐' },
-                        { label: '經典芝士（單點）', say: '經典芝士牛肉' },
-                        { label: '薯條', say: '薯條' },
-                        { label: '美式', say: '美式咖啡' },
-                        { label: '拿鐵', say: '牛奶咖啡' },
-                    ],
-                };
-            }
-            for (const line of job.lines) {
-                const ask = lineAsk(line);
-                if (ask) return ask;
-            }
-            return { step: 'done', prompt: '', choices: [] };
-        }
-        function renderVoiceChoices(choices) {
-            const box = document.getElementById('voice-choices');
-            if (!box) return;
-            const list = Array.isArray(choices) ? choices : [];
-            const groups = [];
-            for (const c of list) {
-                const name = c.group || '';
-                if (!groups.length || groups[groups.length - 1].name !== name) groups.push({ name, items: [] });
-                groups[groups.length - 1].items.push(c);
-            }
-            box.innerHTML = groups.map((g) => {
-                const head = g.name
-                    ? `<div style="grid-column:1/-1" class="text-[11px] font-black text-neutral-500 mt-1">${escapeHtml(g.name)}</div>`
-                    : '';
-                const btns = g.items.map((c) =>
-                    `<button type="button" class="voice-choice" data-say="${escapeHtml(c.say)}" onclick="pickVoiceChoice(this.dataset.say)">${escapeHtml(c.label)}</button>`
-                ).join('');
-                return head + btns;
-            }).join('');
-        }
-        function pickVoiceChoice(say) {
-            voiceResumeToken += 1;
-            voiceBusy = false;
-            try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
-            pauseListen();
-            clearVoiceBuffer();
-            const live = document.getElementById('voice-live');
-            if (live) live.textContent = '揀咗：' + say;
-            handleVoiceTurn(say);
-        }
-        function voiceSummaryHtml(job) {
-            if (!jobHasItems(job)) return '';
-            return job.lines.map((line) => {
-                const bits = [];
-                if (line.combo && line.item) {
-                    bits.push(`${line.qty}× ${line.item.name_zh || line.item.name_en} 套餐`);
-                    bits.push(line.snackKind
-                        ? (SNACK_KIND[line.snackKind].zh + (line.snackSize ? ' ' + (line.snackSize === 'L' ? '大' : '中') : (snackNeedsSize(line.snackKind) ? '（未揀中／大）' : '')))
-                        : '小食未揀');
-                    bits.push(line.drinkKind
-                        ? (DRINK_KIND[line.drinkKind].zh + (line.drinkTemp ? (line.drinkTemp === 'Iced' ? ' 凍' : ' 熱') : (drinkNeedsTemp(line.drinkKind) ? '（未揀熱凍）' : '')))
-                        : (line.coffeeKind === 'unspecified' ? '咖啡（未揀美式／拿鐵）' : '飲品未揀'));
-                    if (line.bun === 'Lettuce Wrap') bits.push('生菜包');
-                    return bits.map((b) => `<div>${escapeHtml(b)}</div>`).join('');
-                }
-                if (line.coffeeKind === 'unspecified' || (isCoffeeLine(line) && !line.item)) {
-                    bits.push('咖啡（未揀美式／拿鐵）');
-                    if (line.itemTemp) bits.push(line.itemTemp === 'Iced' ? '凍' : '熱');
-                    return bits.map((b) => `<div>${escapeHtml(b)}</div>`).join('');
-                }
-                bits.push(`${line.qty || 1}× ${(line.item && (line.item.name_zh || line.item.name_en)) || '未知名'}`);
-                if (line.itemSize) bits.push(line.itemSize === 'L' ? '大' : '中');
-                else if (itemNeedsSize(line.item)) bits.push('未揀中／大');
-                if (line.itemTemp) bits.push(line.itemTemp === 'Iced' ? '凍' : '熱');
-                else if (itemNeedsTemp(line.item)) bits.push('未揀熱凍');
-                if (line.bun === 'Lettuce Wrap') bits.push('生菜包');
-                return bits.map((b) => `<div>${escapeHtml(b)}</div>`).join('');
-            }).join('<div class="h-2"></div>');
-        }
-        function renderVoiceAsk(ask) {
-            document.getElementById('voice-ask').textContent = ask.prompt || '而家可以講';
-            const box = document.getElementById('voice-summary');
-            if (jobHasItems(voiceJob)) {
-                box.classList.remove('hidden');
-                box.innerHTML = voiceSummaryHtml(voiceJob);
-            }
-            renderVoiceChoices(ask.choices);
-            document.getElementById('voice-hint').textContent = '最穩係撳黃色建議。要講就講完再撳大紅掣。';
-            document.getElementById('voice-done-btn').textContent = '我講完，跟住問';
-        }
-        function looksLikePromptEcho(text) {
-            const t = foldZh(text);
-            if (!t) return false;
-            if (/唔係|不是|唔要|不要|我要/.test(t)) return false;
-            if (t.includes('套餐小食') || t.includes('飲品要') || t.includes('小食同嘢飲') || t.includes('咖啡要美式')) return true;
-            const snackHits = [/薯條/, /蓮藕/, /番薯/, /雞翼/].filter((re) => re.test(t)).length;
-            const drinkHits = [/可樂/, /忌廉/, /美式/, /拿鐵/, /朱古力/, /檸茶/, /梳打/].filter((re) => re.test(t)).length;
-            return snackHits >= 3 || drinkHits >= 3;
-        }
-        function jobFingerprint(job) {
-            if (!jobHasItems(job)) return '';
-            return job.lines.map((l) => [
-                l.item && l.item.id,
-                l.combo,
-                l.coffeeKind,
-                l.snackKind,
-                l.snackSize,
-                l.drinkKind,
-                l.drinkTemp,
-                l.itemSize,
-                l.itemTemp,
-                l.qty,
-            ].join(':')).join('|');
-        }
-        function handleVoiceTurn(text) {
-            if (!text || looksLikePromptEcho(text)) {
-                document.getElementById('voice-live').textContent = text && looksLikePromptEcho(text)
-                    ? '聽到嘅係問題本身。唔使講，直接撳黃色建議。'
-                    : '冇聽到內容。唔使估，直接撳上面黃色建議。';
-                scheduleResumeListen(300);
-                return;
-            }
-            if (!jobHasItems(voiceJob)) {
-                voiceJob = { lines: extractVoiceLines(text) };
-                if (!jobHasItems(voiceJob)) {
-                    renderVoiceAsk(nextAsk(null));
-                    document.getElementById('voice-live').textContent = '聽到「' + text + '」，認唔到。撳黃色建議就得。';
-                    scheduleResumeListen(300);
-                    return;
-                }
-            } else {
-                const before = jobFingerprint(voiceJob);
-                mergeVoiceAnswer(voiceJob, text);
-                if (jobFingerprint(voiceJob) === before) {
-                    const ask = nextAsk(voiceJob);
-                    document.getElementById('voice-live').textContent = '聽到「' + text + '」，認唔到。撳黃色建議就得。';
-                    renderVoiceAsk(ask);
-                    scheduleResumeListen(400);
-                    return;
-                }
-            }
-            const ask = nextAsk(voiceJob);
-            if (ask.step === 'done') {
-                commitVoiceJob();
-                return;
-            }
-            renderVoiceAsk(ask);
-            speakAskThenListen(ask.prompt);
-        }
-        function commitVoiceLine(line) {
-            if (!line || !line.item) return null;
-            if (line.combo) {
-                line.comboSnackId = snackIdOf(line.snackKind, line.snackSize);
-                line.comboDrinkId = drinkIdOf(line.drinkKind, line.drinkTemp);
-                if (!line.comboSnackId || !line.comboDrinkId) return null;
-            }
+        function cartLineFromAi(parsed) {
+            const item = menuItems.find((i) => i && i.id === parsed.menuId);
+            if (!item || isSold(item)) return null;
             const prevItem = cfgItem;
             const prevCfg = cfg;
-            cfgItem = line.item;
-            const sz = sizesOf(line.item);
+            cfgItem = item;
+            const sz = sizesOf(item);
+            let size = parsed.size || null;
+            if (!size && sz.length) size = sz[0].label || sz[0].value;
             cfg = {
-                size: itemNeedsSize(line.item)
-                    ? pickSizeLabel(line.item, line.itemSize)
-                    : (sz.length ? (sz[0].label || sz[0].value) : null),
-                bun: isBurger(line.item) ? (line.bun || 'Nissin Bun') : null,
-                spice: isSpicy(line.item) ? (line.spice || 'Normal') : null,
-                temp: itemNeedsTemp(line.item) ? line.itemTemp : null,
-                addonIds: Array.isArray(line.addonIds) ? line.addonIds.slice() : [],
-                sauceIds: [],
-                combo: !!line.combo,
-                comboSnackId: line.comboSnackId || null,
-                comboDrinkId: line.comboDrinkId || null,
-                qty: line.qty || 1,
+                size,
+                bun: isBurger(item) ? (parsed.bun || 'Nissin Bun') : null,
+                spice: isSpicy(item) ? 'Normal' : null,
+                temp: null,
+                addonIds: Array.isArray(parsed.addonIds) ? parsed.addonIds.slice() : [],
+                sauceIds: Array.isArray(parsed.sauceIds) ? parsed.sauceIds.slice() : [],
+                combo: isBurger(item) && !!parsed.combo,
+                comboSnackId: parsed.comboSnackId || null,
+                comboDrinkId: parsed.comboDrinkId || null,
+                qty: Math.max(1, Number(parsed.qty) || 1),
             };
-            const cartLine = buildLineFromCfg();
-            cartLine.unit = unitOf({ menuId: line.item.id, unit: Number(line.item.price) || 0 });
+            if (itemNeedsTemp(item)) {
+                const note = String(parsed.notesZh || parsed.notesEn || '');
+                cfg.temp = /凍|冰|iced/i.test(note) ? 'Iced' : 'Hot';
+            }
+            if (isBurger(item) && cfg.combo && (!cfg.comboSnackId || !cfg.comboDrinkId)) {
+                cfgItem = prevItem;
+                cfg = prevCfg;
+                return null;
+            }
+            const line = buildLineFromCfg();
+            line.unit = unitOf({ menuId: item.id, unit: Number(item.price) || 0 });
+            if (parsed.notesZh) line.detailsZh = (line.detailsZh ? line.detailsZh + ' • ' : '') + parsed.notesZh;
+            if (parsed.notesEn) line.detailsEn = (line.detailsEn ? line.detailsEn + ' • ' : '') + parsed.notesEn;
             cfgItem = prevItem;
             cfg = prevCfg;
-            return cartLine;
+            return line;
         }
-        function commitVoiceJob() {
-            const job = voiceJob;
-            if (!jobHasItems(job)) return;
-            if (nextAsk(job).step !== 'done') {
-                const ask = nextAsk(job);
-                renderVoiceAsk(ask);
-                speakAskThenListen(ask.prompt);
-                return;
+        async function finishVoice() {
+            if (voiceBusy) return;
+            if (!document.getElementById('voice-sheet').classList.contains('is-open')) return;
+            voiceBusy = true;
+            const snap = voiceHeardText();
+            const live = document.getElementById('voice-live');
+            if (live) live.textContent = snap || '截緊最後一句…';
+            pauseListen();
+            const doneBtn = document.getElementById('voice-done-btn');
+            if (doneBtn) {
+                doneBtn.disabled = true;
+                doneBtn.textContent = 'AI 認緊單…';
             }
-            const added = [];
-            for (const line of job.lines) {
-                const cartLine = commitVoiceLine(line);
-                if (!cartLine) continue;
-                cart.push(cartLine);
-                added.push(((cartLine.qty || 1) + '× ' + (cartLine.nameZh || cartLine.nameEn)));
-            }
-            closeVoice();
-            renderCart();
-            flashCart();
-            const t = cartTotals();
-            showToast(added.length
-                ? ('已加入 ' + added.join('、') + '。小計 $' + t.sub + '，實收 $' + t.total)
-                : '冇加入任何餸');
+            clearTimeout(voiceFinishTimer);
+            voiceFinishTimer = setTimeout(async () => {
+                voiceFinishTimer = null;
+                const text = (snap + ' ' + voiceHeardText()).trim();
+                clearVoiceBuffer();
+                if (!text) {
+                    showToast('聽唔到，請再講一次。');
+                    if (doneBtn) {
+                        doneBtn.disabled = false;
+                        doneBtn.textContent = '我講完，入購物車';
+                    }
+                    voiceBusy = false;
+                    scheduleResumeListen(300, '聽唔到。請再講一次。');
+                    return;
+                }
+                try {
+                    const catalog = catalogForAi();
+                    const res = await fetch('/api/ai-parse-order', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: 'Bearer ' + getToken(),
+                        },
+                        body: JSON.stringify({
+                            speechText: text,
+                            menuItems: catalog.menuItems,
+                            modifiers: catalog.modifiers,
+                        }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+                    const parsedItems = Array.isArray(data.items) ? data.items : [];
+                    const added = [];
+                    for (const parsed of parsedItems) {
+                        const line = cartLineFromAi(parsed);
+                        if (!line) continue;
+                        cart.push(line);
+                        added.push((line.qty || 1) + '× ' + (line.nameZh || line.nameEn));
+                    }
+                    if (!added.length) {
+                        showToast('認唔到餸。請再講清楚，或者用手撳。');
+                        if (live) live.textContent = '聽成：「' + text + '」。認唔到餸。';
+                        if (doneBtn) {
+                            doneBtn.disabled = false;
+                            doneBtn.textContent = '我講完，入購物車';
+                        }
+                        voiceBusy = false;
+                        scheduleResumeListen(400, '認唔到。請再講一次。');
+                        return;
+                    }
+                    closeVoice();
+                    renderCart();
+                    flashCart();
+                    const t = cartTotals();
+                    showToast('已加入 ' + added.join('、') + '。小計 $' + t.sub + '，實收 $' + t.total);
+                } catch (err) {
+                    showToast('講單失敗：' + ((err && err.message) || err));
+                    if (live) live.textContent = '失敗：' + ((err && err.message) || err);
+                    if (doneBtn) {
+                        doneBtn.disabled = false;
+                        doneBtn.textContent = '我講完，入購物車';
+                    }
+                    voiceBusy = false;
+                    scheduleResumeListen(400, '失敗咗。請再講一次。');
+                    return;
+                }
+                voiceBusy = false;
+            }, 480);
         }
 
         async function charge(payMethod) {
