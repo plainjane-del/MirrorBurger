@@ -318,6 +318,7 @@ async function queryManagedOrder(managedOutTradeNo, managedOrderNo = '') {
         ...postBodies.map((body) => ['POST', '/v1/managed/order/query', body]),
         ...(orderNo ? [['GET', `/v1/managed/order/query?managedOutTradeNo=${encodeURIComponent(orderNo)}`, null]] : []),
         ...(kpayNo ? [['GET', `/v1/managed/order/query?managedOrderNo=${encodeURIComponent(kpayNo)}`, null]] : []),
+        ...(orderNo ? [['POST', '/v1/managed/order/get', { managedOutTradeNo: orderNo }]] : []),
         ...(orderNo ? [['POST', '/v1/managed/order/detail', { managedOutTradeNo: orderNo }]] : []),
     ];
 

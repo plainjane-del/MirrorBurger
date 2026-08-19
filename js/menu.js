@@ -1296,14 +1296,14 @@ function closePaymentChecking() {
 
 function showPaymentStillPending() {
     const msg = document.getElementById('payment-checking-msg');
-    const refreshBtn = document.getElementById('payment-refresh-btn');
     if (msg) {
         msg.innerHTML = lang(
-            'Payment not confirmed yet. If you already paid, tap Refresh. If you cancelled, you can close this.',
-            '尚未確認付款。若你已付款，請按「重新整理狀態」。若已取消，可關閉此視窗。'
+            'Payment not confirmed yet. We are confirming it automatically. Please keep this page open.',
+            '尚未確認付款。我哋會自動確認。請保持呢個頁面打開。'
         );
     }
-    if (refreshBtn) refreshBtn.classList.remove('hidden');
+    const refreshBtn = document.getElementById('payment-refresh-btn');
+    if (refreshBtn) refreshBtn.classList.add('hidden');
 }
 
 async function fetchOrderPaymentStatus(orderNo) {
@@ -1425,19 +1425,16 @@ async function confirmPaymentFromRedirect() {
         openPaymentChecking(orderNo);
 
         let order = null;
-        for (let i = 0; i < 8; i++) {
+        const deadline = Date.now() + 30000; // 30秒內應該會轉出 pending 區
+        while (Date.now() < deadline) {
             order = await fetchOrderPaymentStatus(orderNo);
-            if (order && String(order.payment_status || '').toUpperCase() === 'PAID') break;
-            if (i === 2) showPaymentStillPending();
-            await new Promise(r => setTimeout(r, 1500));
+            const pay = String(order?.payment_status || '').toUpperCase();
+            if (pay === 'PAID') break;
+            if (Date.now() > (deadline - 28000)) showPaymentStillPending();
+            await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (!order) {
-            showPaymentStillPending();
-            return;
-        }
-
-        const pay = String(order.payment_status || '').toUpperCase();
+        const pay = String(order?.payment_status || '').toUpperCase();
         if (pay === 'PAID') {
             closePaymentChecking();
             finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
@@ -1447,7 +1444,7 @@ async function confirmPaymentFromRedirect() {
             return;
         }
 
-        // 仍係 PENDING：可能取消，或 webhook 仍未到 → 畀人手動刷新
+        // 仲係 pending：唔再叫客人 Refresh，交俾廚房端自動 reconcile
         showPaymentStillPending();
     } catch (err) {
         console.warn('Redirect payment confirmation failed:', err);

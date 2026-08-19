@@ -1,6 +1,6 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending } = require('./_orders.js');
+const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -75,23 +75,40 @@ module.exports = async (req, res) => {
             if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
 
             if (action === 'board') {
-                try {
-                    await reconcileRecentPending(storeName);
-                } catch (err) {
-                    console.warn('board reconcile skipped:', err.message || err);
-                }
+                const getPendingOnline = (orders) => {
+                    const pendingCutoff = Date.now() - 4 * 60 * 60 * 1000;
+                    return (orders || [])
+                        .filter((o) => {
+                            const pay = String(o.payment_status || '').toUpperCase();
+                            if (pay !== 'PENDING') return false;
+                            const ch = String(o.channel || '').toLowerCase();
+                            if (ch === 'table' || ch === 'pos') return false;
+                            const created = Date.parse(o.created_at || '');
+                            if (Number.isFinite(created) && created < pendingCutoff) return false;
+                            return true;
+                        })
+                        .slice(0, 12);
+                };
+
+                // 先列出廚房畫面上會顯示嘅 pending online 訂單，
+                // 再針對呢幾張做即時 reconcile，確保「已收款」會自動跳出 pending 區。
                 const orders = await listKitchenOrders(storeName, { limit: 200 });
-                const pendingCutoff = Date.now() - 4 * 60 * 60 * 1000;
-                const pendingOnline = (orders || []).filter((o) => {
-                    const pay = String(o.payment_status || '').toUpperCase();
-                    if (pay !== 'PENDING') return false;
-                    const ch = String(o.channel || '').toLowerCase();
-                    if (ch === 'table' || ch === 'pos') return false;
-                    const created = Date.parse(o.created_at || '');
-                    if (Number.isFinite(created) && created < pendingCutoff) return false;
-                    return true;
-                }).slice(0, 12);
-                return res.status(200).json({ orders: orders || [], pending_online: pendingOnline });
+                const pendingOnline = getPendingOnline(orders);
+
+                const toReconcile = pendingOnline.slice(0, 3).map((o) => o.order_no).filter(Boolean);
+                const deadline = Date.now() + 12000; // 留時間比 listKitchenOrders 做第二次拉數
+                for (const orderNo of toReconcile) {
+                    if (Date.now() > deadline) break;
+                    try {
+                        await reconcilePendingIfPaid(orderNo);
+                    } catch (err) {
+                        console.warn('board targeted reconcile failed:', orderNo, err.message || err);
+                    }
+                }
+
+                const orders2 = await listKitchenOrders(storeName, { limit: 200 });
+                const pendingOnline2 = getPendingOnline(orders2);
+                return res.status(200).json({ orders: orders2 || [], pending_online: pendingOnline2 });
             }
 
             if (action === 'completed') {

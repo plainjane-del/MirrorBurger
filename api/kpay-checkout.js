@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, reconcilePendingIfPaid, saveKpayManagedNo } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, saveKpayManagedNo } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
@@ -84,14 +84,8 @@ module.exports = async (req, res) => {
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
             let order = await getPublicOrderStatus(orderNo);
             if (!order) return res.status(404).json({ error: 'Order not found' });
-            if (String(order.payment_status || '').toUpperCase() === 'PENDING') {
-                try {
-                    order = (await reconcilePendingIfPaid(orderNo)) || order;
-                    order = (await getPublicOrderStatus(orderNo)) || order;
-                } catch (err) {
-                    console.warn('status reconcile skipped:', err.message || err);
-                }
-            }
+            // 唔喺客戶端 poll 時直接做 reconcile（避免每次輪詢都去打 KPay）。
+            // 付款後依靠 webhook + 廚房 board 端嘅 targeted reconcile 將 PENDING 自動跳出。
             return res.status(200).json({ order });
         }
 
