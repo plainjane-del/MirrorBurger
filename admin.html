@@ -15,79 +15,154 @@
         .btn-primary { background: #fafafa; color: #0a0a0a; }
         .btn-danger { background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; }
         .btn-ghost { background: #262626; color: #e5e5e5; }
+        .tab-on { background: #fafafa; color: #0a0a0a; }
+        .tab-off { background: #262626; color: #d4d4d4; }
+        .app-shell { min-height: 100vh; }
+        .app-nav {
+            display: flex; gap: 0.5rem; overflow-x: auto; padding: 0.75rem 1rem;
+            border-bottom: 1px solid #262626; background: #0a0a0a;
+            -webkit-overflow-scrolling: touch;
+        }
+        .nav-btn {
+            flex: 0 0 auto; border-radius: 0.75rem; font-weight: 800;
+            padding: 0.55rem 0.9rem; background: transparent; color: #a3a3a3;
+        }
+        .nav-btn.is-on { background: #fafafa; color: #0a0a0a; }
+        .range-btn { background: #262626; color: #d4d4d4; }
+        .range-btn.is-on { background: #fafafa; color: #0a0a0a; }
+        .metric-hero { background: linear-gradient(180deg, #1a1a1a, #141414); }
+        .bar-track { height: 8px; background: #262626; border-radius: 999px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 999px; }
+        .delta-up { color: #6ee7b7; }
+        .delta-down { color: #f87171; }
+        .delta-flat { color: #a3a3a3; }
+        .ticket-row { cursor: pointer; }
+        .ticket-row:hover { border-color: #525252; }
+        .ticket-sum { position: sticky; bottom: 0; background: #0a0a0a; border-top: 1px solid #262626; padding: 0.85rem 0; font-weight: 800; }
+        @media (min-width: 900px) {
+            .app-shell { display: flex; }
+            .app-nav {
+                flex-direction: column; width: 13.5rem; flex-shrink: 0;
+                border-bottom: 0; border-right: 1px solid #262626;
+                padding: 1.5rem 1rem; position: sticky; top: 0; height: 100vh;
+            }
+            .nav-btn { width: 100%; text-align: left; }
+            .app-main { flex: 1; min-width: 0; }
+            #nav-brand, #nav-logout { display: block !important; }
+            #toolbar-logout { display: none; }
+        }
         @media print {
             body { background: #fff; color: #111; }
-            #login-view,
-            #app-view > .flex.flex-wrap.items-center,
-            #app-view > .flex.flex-wrap.gap-2,
-            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods { display: none !important; }
+            #login-view, #app-nav, #app-toolbar,
+            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #ticket-modal { display: none !important; }
             #panel-tables { display: block !important; }
-            #panel-tables .flex.flex-wrap.gap-3, #table-msg { display: none !important; }
+            #panel-tables .no-print, #table-msg { display: none !important; }
         }
     </style>
 </head>
 <body class="min-h-screen">
     <div id="login-view" class="max-w-md mx-auto px-4 py-16">
         <h1 class="text-2xl font-black mb-2">後台</h1>
-        <p class="text-neutral-400 text-sm mb-6">今日生意、改價錢／名稱、印枱 QR。用 ADMIN_PASSWORD（或廚房密碼）。</p>
+        <p class="text-neutral-400 text-sm mb-6">概况、改價錢／名稱、印枱 QR、睇單。用 ADMIN_PASSWORD（或廚房密碼）。</p>
         <label>Password</label>
         <input id="login-pass" type="password" class="mb-4" autocomplete="current-password">
         <button type="button" onclick="doLogin()" class="btn btn-primary w-full">登入</button>
         <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
     </div>
 
-        <div id="app-view" class="hidden max-w-5xl mx-auto px-4 py-8">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div id="app-view" class="hidden app-shell">
+        <nav id="app-nav" class="app-nav">
+            <div class="hidden" id="nav-brand" style="padding:0 0.25rem 0.75rem">
+                <div class="text-lg font-black">後台</div>
+                <div class="text-xs text-neutral-500 mt-1">Mirror Burger</div>
+            </div>
+            <button type="button" id="tab-sales" class="nav-btn is-on" onclick="setTab('sales')">概况</button>
+            <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')">菜品</button>
+            <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">枱 QR</button>
+            <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
+            <div class="mt-auto hidden" id="nav-logout" style="padding-top:1rem">
+                <button type="button" class="btn btn-ghost w-full" onclick="logout()">登出</button>
+            </div>
+        </nav>
+
+        <div class="app-main max-w-5xl mx-auto px-4 py-6 w-full">
+        <div id="app-toolbar" class="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
-                <h1 class="text-2xl font-black">後台</h1>
-                <p class="text-neutral-500 text-sm">今日生意 · 改餐點 · 每間店加枱同印 QR</p>
+                <h1 class="text-2xl font-black" id="page-title">概况</h1>
+                <p class="text-neutral-500 text-sm" id="page-sub">今日實收 · 堂食／外賣 · 客單價</p>
             </div>
             <div class="flex gap-2">
-                <button type="button" class="btn btn-ghost" onclick="loadAll()">重新載入</button>
-                <button type="button" class="btn btn-ghost" onclick="logout()">登出</button>
+                <button type="button" class="btn btn-ghost" onclick="refreshCurrent()">重新載入</button>
+                <button type="button" class="btn btn-ghost" id="toolbar-logout" onclick="logout()">登出</button>
             </div>
         </div>
         <p id="load-err" class="hidden mb-4 text-sm text-red-300 bg-red-950/50 border border-red-900 rounded-xl px-4 py-3"></p>
-        <p id="load-hint" class="mb-4 text-sm text-neutral-400"></p>
-
-        <div class="flex flex-wrap gap-2 mb-6">
-            <button type="button" id="tab-sales" class="btn tab-on" onclick="setTab('sales')">今日生意</button>
-            <button type="button" id="tab-items" class="btn tab-off" onclick="setTab('items')">餐點價錢</button>
-            <button type="button" id="tab-mods" class="btn tab-off" onclick="setTab('mods')">加料／套餐</button>
-            <button type="button" id="tab-tables" class="btn tab-off" onclick="setTab('tables')">枱 QR</button>
-        </div>
+        <p id="load-hint" class="hidden mb-4 text-sm text-neutral-400"></p>
 
         <div id="panel-sales">
-            <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
-                <p class="text-sm text-neutral-400">香港今日已收款（未完成都計入；未付／取消唔計）。</p>
-                <button type="button" class="btn btn-ghost" onclick="loadSales()">重新整理</button>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div class="flex gap-2">
+                    <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')">今日</button>
+                    <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')">昨日</button>
+                </div>
+                <p class="text-sm text-neutral-500">已收款先計；未付／取消唔計。</p>
             </div>
-            <div id="sales-summary" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4"></div>
-            <div id="sales-stores" class="space-y-3"></div>
+            <div id="sales-summary"></div>
+            <div id="sales-stores" class="space-y-3 mt-4"></div>
+            <div class="mt-6">
+                <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">常用操作</div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="quick-btn" onclick="setTab('items')">改菜／價錢</button>
+                    <button type="button" class="quick-btn" onclick="setTab('tables')">枱 QR</button>
+                    <button type="button" class="quick-btn" onclick="setTab('orders')">今日訂單</button>
+                </div>
+            </div>
         </div>
 
         <div id="panel-items" class="hidden">
-            <div class="flex flex-wrap gap-2 mb-4 items-end">
-                <div>
-                    <label>分類</label>
-                    <select id="filter-cat" onchange="renderItems()">
-                        <option value="">全部</option>
-                        <option value="beef">beef</option>
-                        <option value="others">others</option>
-                        <option value="veggie">veggie</option>
-                        <option value="snacks">snacks</option>
-                        <option value="drinks">drinks</option>
-                        <option value="sauces">sauces</option>
-                    </select>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="editItem(null)">＋ 新項目</button>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button type="button" id="sub-items" class="btn tab-on" onclick="setMenuSub('items')">餐點價錢</button>
+                <button type="button" id="sub-mods" class="btn tab-off" onclick="setMenuSub('mods')">加料／套餐</button>
             </div>
-            <div id="items-list" class="space-y-3"></div>
+            <div id="items-section">
+                <div class="flex flex-wrap gap-2 mb-4 items-end">
+                    <div>
+                        <label>分類</label>
+                        <select id="filter-cat" onchange="renderItems()">
+                            <option value="">全部</option>
+                            <option value="beef">beef</option>
+                            <option value="others">others</option>
+                            <option value="veggie">veggie</option>
+                            <option value="snacks">snacks</option>
+                            <option value="drinks">drinks</option>
+                            <option value="sauces">sauces</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="editItem(null)">＋ 新項目</button>
+                </div>
+                <div id="items-list" class="space-y-3"></div>
+            </div>
+            <div id="mods-section" class="hidden">
+                <div class="flex flex-wrap gap-2 mb-4 items-end">
+                    <div>
+                        <label>類型</label>
+                        <select id="filter-kind" onchange="renderMods()">
+                            <option value="">全部</option>
+                            <option value="addon">addon</option>
+                            <option value="sauce">sauce</option>
+                            <option value="combo_snack">combo_snack</option>
+                            <option value="combo_drink">combo_drink</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="editMod(null)">＋ 新選項</button>
+                </div>
+                <div id="mods-list" class="space-y-3"></div>
+            </div>
         </div>
 
         <div id="panel-tables" class="hidden">
             <p class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。</p>
-            <div class="flex flex-wrap gap-3 items-end mb-4">
+            <div class="flex flex-wrap gap-3 items-end mb-4 no-print">
                 <div>
                     <label>分店</label>
                     <select id="table-store" onchange="onTableStoreChange()"></select>
@@ -107,21 +182,52 @@
             <div id="table-qr-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </div>
 
-        <div id="panel-mods" class="hidden">
+        <div id="panel-orders" class="hidden">
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
-                    <label>類型</label>
-                    <select id="filter-kind" onchange="renderMods()">
-                        <option value="">全部</option>
-                        <option value="addon">addon</option>
-                        <option value="sauce">sauce</option>
-                        <option value="combo_snack">combo_snack</option>
-                        <option value="combo_drink">combo_drink</option>
+                    <label>日期</label>
+                    <select id="ticket-range" onchange="loadTickets()">
+                        <option value="today">今日</option>
+                        <option value="yesterday">昨日</option>
+                        <option value="week">近 7 日</option>
                     </select>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="editMod(null)">＋ 新選項</button>
+                <div>
+                    <label>分店</label>
+                    <select id="ticket-store" onchange="loadTickets()">
+                        <option value="">全部</option>
+                        <option value="Sai Ying Pun">西營盤</option>
+                        <option value="Fortress Hill">天后</option>
+                        <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[10rem]">
+                    <label>單號</label>
+                    <input id="ticket-q" placeholder="MB…" maxlength="32" onkeydown="if(event.key==='Enter')loadTickets()">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="loadTickets()">查詢</button>
             </div>
-            <div id="mods-list" class="space-y-3"></div>
+            <p id="orders-msg" class="text-sm text-neutral-500 mb-3"></p>
+            <div id="orders-list" class="space-y-2 pb-4"></div>
+            <div id="orders-sum" class="ticket-sum hidden"></div>
+        </div>
+        </div>
+    </div>
+
+    <div id="ticket-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4" onclick="if(event.target===this)closeTicket()">
+        <div class="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-black" id="ticket-title">訂單</h2>
+                    <p class="text-sm text-neutral-400 font-bold mt-1" id="ticket-meta"></p>
+                </div>
+                <button type="button" class="btn btn-ghost" onclick="closeTicket()">關閉</button>
+            </div>
+            <div id="ticket-items" class="space-y-2"></div>
+            <div class="flex justify-between font-black text-lg pt-2 border-t border-neutral-800">
+                <span>實收</span>
+                <span id="ticket-total"></span>
+            </div>
         </div>
     </div>
 
@@ -212,6 +318,17 @@
 
         let tableStores = [];
         let tableDraft = 0;
+        let salesData = null;
+        let salesRange = 'today';
+        let currentTab = 'sales';
+        let ticketRows = [];
+
+        const PAGE_META = {
+            sales: { title: '概况', sub: '今日實收 · 堂食／外賣 · 客單價' },
+            items: { title: '菜品', sub: '改名稱、價錢、上下架' },
+            tables: { title: '枱 QR', sub: '每間店加枱同印 QR' },
+            orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
+        };
 
         async function boot() {
             if (!token) return showLogin();
@@ -245,6 +362,7 @@
                 items = data.items || [];
                 modifiers = data.modifiers || [];
                 hintEl.textContent = `共 ${items.length} 個餐點 · ${modifiers.length} 個加料／套餐選項`;
+                hintEl.classList.toggle('hidden', currentTab !== 'items');
                 if (!items.length) {
                     errEl.textContent =
                         '資料庫未有餐點。請去 Supabase → SQL Editor 跑 supabase/menu-full.sql（同 restore-menu-prices.sql），再撳「重新載入」。';
@@ -289,41 +407,270 @@
             showLogin();
         }
 
+        function refreshCurrent() {
+            if (currentTab === 'sales') return loadSales();
+            if (currentTab === 'orders') return loadTickets();
+            if (currentTab === 'tables') return loadTables();
+            return loadAll();
+        }
+
         function setTab(which) {
-            ['sales', 'items', 'mods', 'tables'].forEach((name) => {
+            currentTab = which;
+            const meta = PAGE_META[which] || PAGE_META.sales;
+            document.getElementById('page-title').textContent = meta.title;
+            document.getElementById('page-sub').textContent = meta.sub;
+            ['sales', 'items', 'tables', 'orders'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);
-                if (tab) tab.className = 'btn ' + (name === which ? 'tab-on' : 'tab-off');
+                if (tab) tab.className = 'nav-btn' + (name === which ? ' is-on' : '');
             });
+            const hintEl = document.getElementById('load-hint');
+            if (hintEl) hintEl.classList.toggle('hidden', which !== 'items');
             if (which === 'sales') loadSales();
+            if (which === 'orders') loadTickets();
             if (which === 'tables') loadTables();
+        }
+
+        function setMenuSub(which) {
+            document.getElementById('items-section').classList.toggle('hidden', which !== 'items');
+            document.getElementById('mods-section').classList.toggle('hidden', which !== 'mods');
+            document.getElementById('sub-items').className = 'btn ' + (which === 'items' ? 'tab-on' : 'tab-off');
+            document.getElementById('sub-mods').className = 'btn ' + (which === 'mods' ? 'tab-on' : 'tab-off');
+        }
+
+        function setSalesRange(which) {
+            salesRange = which === 'yesterday' ? 'yesterday' : 'today';
+            document.getElementById('range-today').classList.toggle('is-on', salesRange === 'today');
+            document.getElementById('range-yesterday').classList.toggle('is-on', salesRange === 'yesterday');
+            renderSales();
+        }
+
+        function money(n) {
+            return 'HK$' + Number(n || 0);
+        }
+
+        function pctBar(part, total) {
+            if (!total) return 0;
+            return Math.max(0, Math.min(100, Math.round((part / total) * 100)));
+        }
+
+        function deltaHtml(current, previous) {
+            const diff = Number(current || 0) - Number(previous || 0);
+            if (!previous && !current) return '<span class="delta-flat">對比昨日 —</span>';
+            if (!previous) return '<span class="delta-up">新開數</span>';
+            const pct = Math.round((diff / previous) * 100);
+            const cls = diff > 0 ? 'delta-up' : (diff < 0 ? 'delta-down' : 'delta-flat');
+            const arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '•');
+            const sign = diff > 0 ? '+' : '';
+            return `<span class="${cls}">${arrow} 對比昨日 ${sign}${diff}（${sign}${pct}%）</span>`;
+        }
+
+        function hkTime(iso) {
+            if (!iso) return '';
+            try {
+                return new Date(iso).toLocaleTimeString('zh-HK', {
+                    timeZone: 'Asia/Hong_Kong',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                });
+            } catch {
+                return '';
+            }
+        }
+
+        function renderSales() {
+            const sum = document.getElementById('sales-summary');
+            const list = document.getElementById('sales-stores');
+            const data = salesData;
+            if (!data) {
+                if (sum) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+                return;
+            }
+            const current = salesRange === 'yesterday' ? (data.yesterday || {}) : (data.today || data);
+            const compare = salesRange === 'today' ? (data.yesterday || {}) : null;
+            const dine = current.dine_in || { orders: 0, revenue: 0 };
+            const take = current.takeaway || { orders: 0, revenue: 0 };
+            const dinePct = pctBar(dine.orders, current.orders);
+            const takePct = pctBar(take.orders, current.orders);
+            const compareLine = compare
+                ? deltaHtml(current.revenue, compare.revenue)
+                : '<span class="delta-flat">昨日實收</span>';
+
+            sum.innerHTML = `
+                <div class="card metric-hero p-6 mb-4">
+                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">營業實收</div>
+                    <div class="text-5xl font-black mt-2 tracking-tight">${money(current.revenue)}</div>
+                    <div class="text-sm font-bold mt-2">${compareLine}</div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="card p-4">
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">訂單總數</div>
+                        <div class="text-3xl font-black mt-2">${Number(current.orders || 0)}</div>
+                        ${compare ? `<div class="text-xs font-bold mt-1">${deltaHtml(current.orders, compare.orders)}</div>` : ''}
+                    </div>
+                    <div class="card p-4">
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">客單價</div>
+                        <div class="text-3xl font-black mt-2">${money(current.aov)}</div>
+                        ${compare ? `<div class="text-xs font-bold mt-1">${deltaHtml(current.aov, compare.aov)}</div>` : ''}
+                    </div>
+                </div>
+                <div class="card p-5">
+                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">堂食／外賣</div>
+                    <div class="flex justify-between text-sm font-bold mb-1">
+                        <span>堂食 ${Number(dine.orders)} 張 · ${money(dine.revenue)}</span>
+                        <span class="text-neutral-500">${dinePct}%</span>
+                    </div>
+                    <div class="bar-track mb-4"><div class="bar-fill" style="width:${dinePct}%;background:#fbbf24"></div></div>
+                    <div class="flex justify-between text-sm font-bold mb-1">
+                        <span>外賣 ${Number(take.orders)} 張 · ${money(take.revenue)}</span>
+                        <span class="text-neutral-500">${takePct}%</span>
+                    </div>
+                    <div class="bar-track"><div class="bar-fill" style="width:${takePct}%;background:#60a5fa"></div></div>
+                </div>`;
+
+            const storeRows = (data.stores || []).map((s) => {
+                const block = salesRange === 'yesterday' ? (s.yesterday || {}) : s;
+                const sDine = block.dine_in || { orders: 0 };
+                const sTake = block.takeaway || { orders: 0 };
+                return `<div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <div class="font-black">${esc(s.label)}</div>
+                        <div class="text-xs font-bold text-neutral-500 mt-1">堂食 ${Number(sDine.orders)} · 外賣 ${Number(sTake.orders)}</div>
+                    </div>
+                    <div class="text-sm font-bold text-neutral-300">${Number(block.orders || 0)} 張 · ${money(block.revenue)}</div>
+                </div>`;
+            }).join('');
+            list.innerHTML = storeRows || '<p class="text-neutral-500">呢段時間未有收款</p>';
         }
 
         async function loadSales() {
             const sum = document.getElementById('sales-summary');
-            const list = document.getElementById('sales-stores');
-            if (sum) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+            if (sum && !salesData) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
             try {
-                const data = await api('/api/admin-menu', { token, action: 'sales_today' });
-                sum.innerHTML = `
-                    <div class="card p-5">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">今日生意</div>
-                        <div class="text-4xl font-black mt-2">HK$${Number(data.revenue || 0)}</div>
-                    </div>
-                    <div class="card p-5">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">已收款單數</div>
-                        <div class="text-4xl font-black mt-2">${Number(data.orders || 0)}</div>
-                    </div>`;
-                list.innerHTML = (data.stores || []).map((s) => `
-                    <div class="card p-4 flex items-center justify-between gap-3">
-                        <div class="font-black">${esc(s.label)}</div>
-                        <div class="text-sm font-bold text-neutral-300">${Number(s.orders)} 張 · HK$${Number(s.revenue)}</div>
-                    </div>`).join('') || '<p class="text-neutral-500">今日未有收款</p>';
+                salesData = await api('/api/admin-menu', { token, action: 'sales_overview' });
+                renderSales();
             } catch (e) {
-                sum.innerHTML = '';
-                list.innerHTML = `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
+                salesData = null;
+                if (sum) sum.innerHTML = '';
+                document.getElementById('sales-stores').innerHTML =
+                    `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
             }
+        }
+
+        const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe', card: '卡機', kpay: 'KPay' };
+        const STATUS_LABEL = { paid: '已收款', pending: '等付款', unpaid: '未付', cancelled: '已取消', other: '' };
+
+        function hkWhen(iso, withDate) {
+            if (!iso) return '';
+            try {
+                const opts = {
+                    timeZone: 'Asia/Hong_Kong',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                };
+                if (withDate) {
+                    opts.month = '2-digit';
+                    opts.day = '2-digit';
+                }
+                return new Date(iso).toLocaleString('zh-HK', opts);
+            } catch {
+                return '';
+            }
+        }
+
+        function payLabel(method) {
+            const key = String(method || '').toLowerCase();
+            return PAY_LABEL[key] || method || '';
+        }
+
+        function renderTickets(data) {
+            const list = document.getElementById('orders-list');
+            const sum = document.getElementById('orders-sum');
+            const msg = document.getElementById('orders-msg');
+            ticketRows = data.tickets || [];
+            const q = data.q || '';
+            const range = data.range || 'today';
+            const rangeZh = range === 'yesterday' ? '昨日' : (range === 'week' ? '近 7 日' : '今日');
+            msg.textContent = q
+                ? (ticketRows.length ? `搵到 ${ticketRows.length} 張（單號含 ${q}）` : `搵唔到 ${q}`)
+                : '已收款先計入合計；撳一張睇餐。';
+            list.innerHTML = ticketRows.length
+                ? ticketRows.map((o, i) => {
+                    const kind = o.kind === 'dine_in' ? '堂食' : '外賣';
+                    const st = STATUS_LABEL[o.status] || '';
+                    const pay = payLabel(o.pay_method);
+                    const when = hkWhen(o.created_at, range === 'week' || !!q);
+                    return `<button type="button" class="card ticket-row p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openTicket(${i})">
+                        <div>
+                            <div class="font-black">#${esc(o.order_no)} · ${esc(o.label)}</div>
+                            <div class="text-xs font-bold text-neutral-500 mt-1">${esc(when)} · ${kind}${o.pickup_time ? ' · ' + esc(o.pickup_time) : ''}${pay ? ' · ' + esc(pay) : ''}${st && o.status !== 'paid' ? ' · ' + st : ''}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-black">${money(o.total_amount)}</div>
+                            <div class="text-xs font-bold text-neutral-500">${Number(o.item_count || 0)} 件</div>
+                        </div>
+                    </button>`;
+                }).join('')
+                : '<p class="text-neutral-500">呢段時間未有單</p>';
+            if (ticketRows.length) {
+                sum.classList.remove('hidden');
+                sum.textContent = `${rangeZh} · ${Number(data.orders || 0)} 張 · ${money(data.revenue)}`;
+            } else {
+                sum.classList.add('hidden');
+                sum.textContent = '';
+            }
+        }
+
+        async function loadTickets() {
+            const list = document.getElementById('orders-list');
+            const msg = document.getElementById('orders-msg');
+            if (list) list.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+            if (msg) msg.textContent = '';
+            try {
+                const data = await api('/api/admin-menu', {
+                    token,
+                    action: 'sales_tickets',
+                    range: document.getElementById('ticket-range').value,
+                    store_name: document.getElementById('ticket-store').value,
+                    q: document.getElementById('ticket-q').value,
+                });
+                renderTickets(data);
+            } catch (e) {
+                ticketRows = [];
+                if (list) list.innerHTML = `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
+            }
+        }
+
+        function openTicket(i) {
+            const o = ticketRows[i];
+            if (!o) return;
+            document.getElementById('ticket-title').textContent = '#' + o.order_no;
+            const bits = [
+                o.label,
+                o.kind === 'dine_in' ? '堂食' : '外賣',
+                o.pickup_time,
+                payLabel(o.pay_method),
+                o.customer_name,
+                hkWhen(o.created_at, true),
+            ].filter(Boolean);
+            document.getElementById('ticket-meta').textContent = bits.join(' · ');
+            document.getElementById('ticket-total').textContent = money(o.total_amount);
+            const lines = (o.items || []).map((it) => `
+                <div class="flex justify-between gap-3 text-sm">
+                    <div>
+                        <div class="font-bold">${Number(it.qty)}× ${esc(it.name)}</div>
+                        ${it.notes ? `<div class="text-xs text-neutral-500">${esc(it.notes)}</div>` : ''}
+                    </div>
+                </div>`).join('');
+            document.getElementById('ticket-items').innerHTML = lines || '<p class="text-neutral-500 text-sm">冇餐點明細</p>';
+            document.getElementById('ticket-modal').classList.remove('hidden');
+        }
+
+        function closeTicket() {
+            document.getElementById('ticket-modal').classList.add('hidden');
         }
 
         async function loadTables() {
