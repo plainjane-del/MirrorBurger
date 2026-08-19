@@ -92,7 +92,7 @@ function verifyKitchenTokenAny(token) {
     const masterSecret = getMasterSecret();
     if (masterSecret) {
         const parsed = parseKitchenToken(token, masterSecret);
-        if (parsed && parsed.scope === 'all_stores') {
+        if (parsed) {
             return { ...parsed, secret: masterSecret };
         }
     }

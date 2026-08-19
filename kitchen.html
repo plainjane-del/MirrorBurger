@@ -272,7 +272,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k2</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -300,7 +300,7 @@
         <div class="flex items-center gap-2">
             <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_140/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
             <div class="min-w-0 flex-1">
-                <div class="text-sm font-black text-kds-yellow leading-none">廚房</div>
+                <div class="text-sm font-black text-kds-yellow leading-none" id="kds-title">廚房</div>
                 <p class="text-[11px] text-neutral-400 font-bold mt-0.5 flex items-center gap-1.5 truncate">
                     <span id="conn-dot" class="inline-block w-2 h-2 rounded-full offline"></span>
                     <span id="conn-label">連線中…</span>
@@ -316,7 +316,7 @@
             熄芒收單未開 — 撳呢度允許 iPhone 通知（只須一次）
         </button>
 
-        <div class="mt-2 grid grid-cols-3 gap-1" role="tablist" aria-label="分店">
+        <div id="branch-tabs" class="mt-2 grid grid-cols-3 gap-1 hidden" role="tablist" aria-label="分店">
             <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)">西營盤</button>
             <button type="button" class="branch-tab" data-branch="Fortress Hill" onclick="selectBranch(this)">天后</button>
             <button type="button" class="branch-tab" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">荃灣</button>
@@ -519,6 +519,13 @@
                 .replace(/\u2029/g, '\\u2029');
         }
 
+        function storeLabel(name) {
+            if (name === 'Fortress Hill') return '天后';
+            if (name === 'Tsuen Wan (Takeaway Only)') return '荃灣';
+            if (name === 'Sai Ying Pun') return '西營盤';
+            return name || '廚房';
+        }
+
         function applyKitchenAuth(data = {}) {
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
@@ -538,12 +545,18 @@
         }
 
         function syncBranchTabs() {
+            const master = canSwitchBranches();
+            const row = document.getElementById('branch-tabs');
+            if (row) row.classList.toggle('hidden', !master);
+            const title = document.getElementById('kds-title');
+            if (title) {
+                title.textContent = master ? '廚房 · Master' : ('廚房 · ' + storeLabel(currentBranch));
+            }
             document.querySelectorAll('.branch-tab').forEach((el) => {
                 const active = el.dataset.branch === currentBranch;
-                const locked = !canSwitchBranches() && !active;
                 el.classList.toggle('is-active', active);
-                el.disabled = locked;
-                el.classList.toggle('opacity-50', locked);
+                el.disabled = !master;
+                el.hidden = !master;
             });
         }
 

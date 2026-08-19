@@ -40,13 +40,15 @@ module.exports = async (req, res) => {
         };
 
         let auth = null;
-        if (masterSecret && compare(password, masterSecret)) {
-            auth = { scope: 'all_stores', store_name: '', secret: masterSecret };
-        } else if (requestedStore) {
+        if (requestedStore) {
             const storeSecret = getStoreSecret(requestedStore);
             if (storeSecret && compare(password, storeSecret)) {
                 auth = { scope: 'single_store', store_name: requestedStore, secret: storeSecret };
+            } else if (masterSecret && compare(password, masterSecret)) {
+                auth = { scope: 'single_store', store_name: requestedStore, secret: masterSecret };
             }
+        } else if (masterSecret && compare(password, masterSecret)) {
+            auth = { scope: 'all_stores', store_name: '', secret: masterSecret };
         } else if (sharedSecret && compare(password, sharedSecret)) {
             // Old kitchen/POS clients only sent password.
             auth = { scope: 'all_stores', store_name: '', secret: sharedSecret };
