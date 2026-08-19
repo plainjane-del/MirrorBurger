@@ -39,6 +39,20 @@
         .ticket-row { cursor: pointer; }
         .ticket-row:hover { border-color: #525252; }
         .ticket-sum { position: sticky; bottom: 0; background: #0a0a0a; border-top: 1px solid #262626; padding: 0.85rem 0; font-weight: 800; }
+        .quick-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.9rem;
+            background: #1a1a1a; border: 1px solid #333; font-weight: 800;
+        }
+        .toast {
+            position: fixed; left: 50%; bottom: calc(1.25rem + env(safe-area-inset-bottom));
+            transform: translateX(-50%); z-index: 80;
+            background: #fafafa; color: #0a0a0a; font-weight: 800;
+            padding: 0.7rem 1.1rem; border-radius: 999px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.4);
+        }
+        .store-jump { cursor: pointer; }
+        .store-jump:hover { border-color: #525252; }
         @media (min-width: 900px) {
             .app-shell { display: flex; }
             .app-nav {
@@ -54,7 +68,7 @@
         @media print {
             body { background: #fff; color: #111; }
             #login-view, #app-nav, #app-toolbar,
-            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #ticket-modal { display: none !important; }
+            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #ticket-modal, #toast { display: none !important; }
             #panel-tables { display: block !important; }
             #panel-tables .no-print, #table-msg { display: none !important; }
         }
@@ -63,10 +77,12 @@
 <body class="min-h-screen">
     <div id="login-view" class="max-w-md mx-auto px-4 py-16">
         <h1 class="text-2xl font-black mb-2">後台</h1>
-        <p class="text-neutral-400 text-sm mb-6">概况、改價錢／名稱、印枱 QR、睇單。用 ADMIN_PASSWORD（或廚房密碼）。</p>
-        <label>Password</label>
+        <p class="text-neutral-400 text-sm mb-6">睇今日生意、改價錢、印枱 QR、搵單。廚房 Master 密碼通常都得。</p>
+        <form onsubmit="doLogin(); return false;">
+        <label>密碼</label>
         <input id="login-pass" type="password" class="mb-4" autocomplete="current-password">
-        <button type="button" onclick="doLogin()" class="btn btn-primary w-full">登入</button>
+        <button type="submit" class="btn btn-primary w-full">登入</button>
+        </form>
         <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
     </div>
 
@@ -130,12 +146,12 @@
                         <label>分類</label>
                         <select id="filter-cat" onchange="renderItems()">
                             <option value="">全部</option>
-                            <option value="beef">beef</option>
-                            <option value="others">others</option>
-                            <option value="veggie">veggie</option>
-                            <option value="snacks">snacks</option>
-                            <option value="drinks">drinks</option>
-                            <option value="sauces">sauces</option>
+                            <option value="beef">牛肉</option>
+                            <option value="others">其他漢堡</option>
+                            <option value="veggie">素食</option>
+                            <option value="snacks">小食</option>
+                            <option value="drinks">飲品</option>
+                            <option value="sauces">醬</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-primary" onclick="editItem(null)">＋ 新項目</button>
@@ -148,10 +164,10 @@
                         <label>類型</label>
                         <select id="filter-kind" onchange="renderMods()">
                             <option value="">全部</option>
-                            <option value="addon">addon</option>
-                            <option value="sauce">sauce</option>
-                            <option value="combo_snack">combo_snack</option>
-                            <option value="combo_drink">combo_drink</option>
+                            <option value="addon">加料</option>
+                            <option value="sauce">醬</option>
+                            <option value="combo_snack">套餐小食</option>
+                            <option value="combo_drink">套餐飲品</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-primary" onclick="editMod(null)">＋ 新選項</button>
@@ -186,11 +202,12 @@
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
                     <label>日期</label>
-                    <select id="ticket-range" onchange="loadTickets()">
-                        <option value="today">今日</option>
-                        <option value="yesterday">昨日</option>
-                        <option value="week">近 7 日</option>
-                    </select>
+                    <div class="flex gap-2">
+                        <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')">今日</button>
+                        <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')">昨日</button>
+                        <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')">近 7 日</button>
+                    </div>
+                    <input type="hidden" id="ticket-range" value="today">
                 </div>
                 <div>
                     <label>分店</label>
@@ -234,35 +251,46 @@
     <!-- Item editor -->
     <div id="item-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
         <div class="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-3">
-            <h2 class="text-lg font-black" id="item-modal-title">Edit item</h2>
+            <h2 class="text-lg font-black" id="item-modal-title">編輯項目</h2>
             <div class="grid grid-cols-2 gap-3">
-                <div><label>ID</label><input id="f-id" placeholder="b5"></div>
-                <div><label>Category</label>
+                <div><label>中文名</label><input id="f-name-zh"></div>
+                <div><label>英文名</label><input id="f-name-en"></div>
+                <div><label>價錢</label><input id="f-price" type="number" step="1"></div>
+                <div><label>分類</label>
                     <select id="f-cat">
-                        <option>beef</option><option>others</option><option>veggie</option>
-                        <option>snacks</option><option>drinks</option><option>sauces</option>
+                        <option value="beef">牛肉</option>
+                        <option value="others">其他漢堡</option>
+                        <option value="veggie">素食</option>
+                        <option value="snacks">小食</option>
+                        <option value="drinks">飲品</option>
+                        <option value="sauces">醬</option>
                     </select>
                 </div>
-                <div><label>Name EN</label><input id="f-name-en"></div>
-                <div><label>Name ZH</label><input id="f-name-zh"></div>
-                <div><label>Price</label><input id="f-price" type="number" step="1"></div>
-                <div><label>Sort</label><input id="f-sort" type="number" value="0"></div>
+                <div><label>編號</label><input id="f-id" placeholder="b5"></div>
             </div>
-            <div><label>Desc EN</label><textarea id="f-desc-en" rows="2"></textarea></div>
-            <div><label>Desc ZH</label><textarea id="f-desc-zh" rows="2"></textarea></div>
-            <div><label>Image URL</label><input id="f-img"></div>
-            <div class="grid grid-cols-2 gap-3">
-                <div><label>Tag EN</label><input id="f-tag-en"></div>
-                <div><label>Tag ZH</label><input id="f-tag-zh"></div>
-            </div>
-            <div><label>Dietary (JSON array)</label><input id="f-dietary" placeholder='["🌶️"]'></div>
-            <div><label>Sizes (JSON)</label><textarea id="f-sizes" rows="2" placeholder='[{"label":"M","labelZh":"M","upcharge":0}]'></textarea></div>
+            <div><label>中文說明</label><textarea id="f-desc-zh" rows="2"></textarea></div>
             <div class="flex flex-wrap gap-4 text-sm">
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-sold" type="checkbox" class="w-4 h-4"> Sold out</label>
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-active" type="checkbox" class="w-4 h-4" checked> Active</label>
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-side" type="checkbox" class="w-4 h-4"> Side</label>
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-temp" type="checkbox" class="w-4 h-4"> Has temp</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-sold" type="checkbox" class="w-4 h-4"> 賣晒</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-active" type="checkbox" class="w-4 h-4" checked> 上架</label>
             </div>
+            <details class="text-sm">
+                <summary class="font-bold text-neutral-400 cursor-pointer">進階</summary>
+                <div class="grid grid-cols-2 gap-3 mt-3">
+                    <div><label>排序</label><input id="f-sort" type="number" value="0"></div>
+                </div>
+                <div class="mt-3"><label>英文說明</label><textarea id="f-desc-en" rows="2"></textarea></div>
+                <div class="mt-3"><label>圖片網址</label><input id="f-img"></div>
+                <div class="grid grid-cols-2 gap-3 mt-3">
+                    <div><label>標籤 EN</label><input id="f-tag-en"></div>
+                    <div><label>標籤中文</label><input id="f-tag-zh"></div>
+                </div>
+                <div class="flex flex-wrap gap-4 text-sm mt-3">
+                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-side" type="checkbox" class="w-4 h-4"> 配菜</label>
+                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-temp" type="checkbox" class="w-4 h-4"> 有熱／凍</label>
+                </div>
+                <div class="mt-3 hidden" id="f-dietary-wrap"><label>Dietary JSON</label><input id="f-dietary" placeholder='["🌶️"]'></div>
+                <div class="mt-3 hidden" id="f-sizes-wrap"><label>Sizes JSON</label><textarea id="f-sizes" rows="2"></textarea></div>
+            </details>
             <div class="flex gap-2 pt-2">
                 <button type="button" class="btn btn-primary flex-1" onclick="saveItem()">儲存</button>
                 <button type="button" class="btn btn-ghost" onclick="closeItemModal()">取消</button>
@@ -273,29 +301,34 @@
     <!-- Modifier editor -->
     <div id="mod-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
         <div class="card w-full max-w-md p-5 space-y-3">
-            <h2 class="text-lg font-black" id="mod-modal-title">Edit modifier</h2>
+            <h2 class="text-lg font-black" id="mod-modal-title">編輯選項</h2>
             <div class="grid grid-cols-2 gap-3">
-                <div><label>ID</label><input id="m-id"></div>
-                <div><label>Kind</label>
+                <div><label>中文名</label><input id="m-name-zh"></div>
+                <div><label>英文名</label><input id="m-name-en"></div>
+                <div><label>加價</label><input id="m-price" type="number" step="1"></div>
+                <div><label>類型</label>
                     <select id="m-kind">
-                        <option value="addon">addon</option>
-                        <option value="sauce">sauce</option>
-                        <option value="combo_snack">combo_snack</option>
-                        <option value="combo_drink">combo_drink</option>
+                        <option value="addon">加料</option>
+                        <option value="sauce">醬</option>
+                        <option value="combo_snack">套餐小食</option>
+                        <option value="combo_drink">套餐飲品</option>
                     </select>
                 </div>
-                <div><label>Name EN</label><input id="m-name-en"></div>
-                <div><label>Name ZH</label><input id="m-name-zh"></div>
-                <div><label>Price / upcharge</label><input id="m-price" type="number" step="1"></div>
-                <div><label>Sort</label><input id="m-sort" type="number" value="0"></div>
+                <div><label>編號</label><input id="m-id"></div>
             </div>
-            <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="m-active" type="checkbox" class="w-4 h-4" checked> Active</label>
+            <details class="text-sm">
+                <summary class="font-bold text-neutral-400 cursor-pointer">進階</summary>
+                <div class="mt-3"><label>排序</label><input id="m-sort" type="number" value="0"></div>
+            </details>
+            <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="m-active" type="checkbox" class="w-4 h-4" checked> 上架</label>
             <div class="flex gap-2 pt-2">
                 <button type="button" class="btn btn-primary flex-1" onclick="saveMod()">儲存</button>
                 <button type="button" class="btn btn-ghost" onclick="closeModModal()">取消</button>
             </div>
         </div>
     </div>
+
+    <div id="toast" class="toast hidden"></div>
 
     <script>
         const TOKEN_KEY = 'mb_admin_token';
@@ -322,6 +355,20 @@
         let salesRange = 'today';
         let currentTab = 'sales';
         let ticketRows = [];
+        let ticketsData = null;
+
+        const CAT_ZH = { beef: '牛肉', others: '其他漢堡', veggie: '素食', snacks: '小食', drinks: '飲品', sauces: '醬' };
+        const KIND_ZH = { addon: '加料', sauce: '醬', combo_snack: '套餐小食', combo_drink: '套餐飲品' };
+
+        let toastTimer = null;
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.add('hidden'), 1800);
+        }
 
         const PAGE_META = {
             sales: { title: '概况', sub: '今日實收 · 堂食／外賣 · 客單價' },
@@ -366,7 +413,7 @@
                 if (!items.length) {
                     errEl.textContent =
                         '資料庫未有餐點。請去 Supabase → SQL Editor 跑 supabase/menu-full.sql（同 restore-menu-prices.sql），再撳「重新載入」。';
-                    errEl.classList.remove('hidden');
+                    errEl.classList.toggle('hidden', currentTab !== 'items');
                 }
                 renderItems();
                 renderMods();
@@ -427,8 +474,16 @@
             });
             const hintEl = document.getElementById('load-hint');
             if (hintEl) hintEl.classList.toggle('hidden', which !== 'items');
-            if (which === 'sales') loadSales();
-            if (which === 'orders') loadTickets();
+            const errEl = document.getElementById('load-err');
+            if (errEl && items.length) errEl.classList.add('hidden');
+            if (which === 'sales') {
+                if (salesData) renderSales();
+                loadSales();
+            }
+            if (which === 'orders') {
+                if (ticketsData) renderTickets(ticketsData);
+                loadTickets();
+            }
             if (which === 'tables') loadTables();
         }
 
@@ -437,6 +492,22 @@
             document.getElementById('mods-section').classList.toggle('hidden', which !== 'mods');
             document.getElementById('sub-items').className = 'btn ' + (which === 'items' ? 'tab-on' : 'tab-off');
             document.getElementById('sub-mods').className = 'btn ' + (which === 'mods' ? 'tab-on' : 'tab-off');
+        }
+
+        function setTicketRange(which, opts) {
+            const next = which === 'yesterday' ? 'yesterday' : (which === 'week' ? 'week' : 'today');
+            document.getElementById('ticket-range').value = next;
+            document.getElementById('tr-today').classList.toggle('is-on', next === 'today');
+            document.getElementById('tr-yesterday').classList.toggle('is-on', next === 'yesterday');
+            document.getElementById('tr-week').classList.toggle('is-on', next === 'week');
+            if (!opts || opts.load !== false) loadTickets();
+        }
+
+        function openStoreOrders(storeName) {
+            ticketsData = null;
+            document.getElementById('ticket-store').value = storeName || '';
+            setTicketRange(salesRange === 'yesterday' ? 'yesterday' : 'today', { load: false });
+            setTab('orders');
         }
 
         function setSalesRange(which) {
@@ -498,6 +569,16 @@
                 ? deltaHtml(current.revenue, compare.revenue)
                 : '<span class="delta-flat">昨日實收</span>';
 
+            const empty = !Number(current.orders);
+            const rangeLabel = salesRange === 'yesterday' ? '昨日' : '今日';
+            if (empty) {
+                sum.innerHTML = `
+                    <div class="card metric-hero p-6 mb-4">
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">營業實收</div>
+                        <div class="text-5xl font-black mt-2 tracking-tight">${money(0)}</div>
+                        <div class="text-sm font-bold text-neutral-400 mt-2">${rangeLabel}未有收款</div>
+                    </div>`;
+            } else {
             sum.innerHTML = `
                 <div class="card metric-hero p-6 mb-4">
                     <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">營業實收</div>
@@ -529,18 +610,19 @@
                     </div>
                     <div class="bar-track"><div class="bar-fill" style="width:${takePct}%;background:#60a5fa"></div></div>
                 </div>`;
+            }
 
             const storeRows = (data.stores || []).map((s) => {
                 const block = salesRange === 'yesterday' ? (s.yesterday || {}) : s;
                 const sDine = block.dine_in || { orders: 0 };
                 const sTake = block.takeaway || { orders: 0 };
-                return `<div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+                return `<button type="button" class="card store-jump p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openStoreOrders('${escAttr(s.store_name)}')">
                     <div>
                         <div class="font-black">${esc(s.label)}</div>
-                        <div class="text-xs font-bold text-neutral-500 mt-1">堂食 ${Number(sDine.orders)} · 外賣 ${Number(sTake.orders)}</div>
+                        <div class="text-xs font-bold text-neutral-500 mt-1">堂食 ${Number(sDine.orders)} · 外賣 ${Number(sTake.orders)} · 撳入睇單</div>
                     </div>
                     <div class="text-sm font-bold text-neutral-300">${Number(block.orders || 0)} 張 · ${money(block.revenue)}</div>
-                </div>`;
+                </button>`;
             }).join('');
             list.innerHTML = storeRows || '<p class="text-neutral-500">呢段時間未有收款</p>';
         }
@@ -627,8 +709,8 @@
         async function loadTickets() {
             const list = document.getElementById('orders-list');
             const msg = document.getElementById('orders-msg');
-            if (list) list.innerHTML = '<p class="text-neutral-500">載入中…</p>';
-            if (msg) msg.textContent = '';
+            if (list && !ticketsData) list.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+            if (msg && !ticketsData) msg.textContent = '';
             try {
                 const data = await api('/api/admin-menu', {
                     token,
@@ -637,9 +719,11 @@
                     store_name: document.getElementById('ticket-store').value,
                     q: document.getElementById('ticket-q').value,
                 });
+                ticketsData = data;
                 renderTickets(data);
             } catch (e) {
                 ticketRows = [];
+                ticketsData = null;
                 if (list) list.innerHTML = `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
             }
         }
@@ -743,6 +827,7 @@
             });
             await loadTables();
             document.getElementById('table-msg').textContent = '已儲存 ' + store.label + ' · ' + count + ' 張枱';
+            toast('已儲存 ' + store.label + ' · ' + count + ' 張枱');
         }
 
         function renderItems() {
@@ -753,9 +838,9 @@
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div class="min-w-0 flex-1">
                         <div class="font-black truncate">${esc(i.name_zh || i.name_en)} <span class="text-neutral-500 font-semibold text-xs">${esc(i.id)}</span></div>
-                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(i.category)}
-                            ${i.is_sold_out ? ' · <span class="text-amber-400">SOLD OUT</span>' : ''}
-                            ${i.is_active === false ? ' · <span class="text-red-400">INACTIVE</span>' : ''}
+                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(CAT_ZH[i.category] || i.category)}
+                            ${i.is_sold_out ? ' · <span class="text-amber-400">賣晒</span>' : ''}
+                            ${i.is_active === false ? ' · <span class="text-red-400">已下架</span>' : ''}
                         </div>
                     </div>
                     <div class="flex gap-2">
@@ -775,8 +860,8 @@
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div>
                         <div class="font-black">${esc(m.name_zh || m.name_en)} <span class="text-neutral-500 text-xs">${esc(m.id)}</span></div>
-                        <div class="text-sm text-neutral-400">${esc(m.kind)} · +$${Number(m.price)}
-                            ${m.is_active === false ? ' · INACTIVE' : ''}
+                        <div class="text-sm text-neutral-400">${esc(KIND_ZH[m.kind] || m.kind)} · +$${Number(m.price)}
+                            ${m.is_active === false ? ' · 已下架' : ''}
                         </div>
                     </div>
                     <div class="flex gap-2">
@@ -850,13 +935,15 @@
                 is_side: document.getElementById('f-side').checked,
                 has_temp: document.getElementById('f-temp').checked,
             };
-            if (!item.id || !item.name_en || !Number.isFinite(item.price)) {
-                alert('請填 ID、英文名、價錢');
+            if (!item.id || !item.name_zh || !Number.isFinite(item.price)) {
+                alert('請填編號、中文名、價錢');
                 return;
             }
+            if (!item.name_en) item.name_en = item.name_zh;
             await api('/api/admin-menu', { token, action: 'upsert_item', item });
             closeItemModal();
             await loadAll();
+            toast('已儲存');
         }
 
         async function toggleSold(id) {
@@ -868,12 +955,14 @@
                 item: { ...i, is_sold_out: !i.is_sold_out },
             });
             await loadAll();
+            toast(i.is_sold_out ? '已恢復供應' : '已標賣晒');
         }
 
         async function removeItem(id) {
             if (!confirm('刪除 ' + id + '？')) return;
             await api('/api/admin-menu', { token, action: 'delete_item', id });
             await loadAll();
+            toast('已刪除');
         }
 
         function editMod(id) {
@@ -905,19 +994,22 @@
                 sort_order: Number(document.getElementById('m-sort').value) || 0,
                 is_active: document.getElementById('m-active').checked,
             };
-            if (!modifier.id || !modifier.name_en) {
-                alert('請填 ID 同英文名');
+            if (!modifier.id || !modifier.name_zh) {
+                alert('請填編號同中文名');
                 return;
             }
+            if (!modifier.name_en) modifier.name_en = modifier.name_zh;
             await api('/api/admin-menu', { token, action: 'upsert_modifier', modifier });
             closeModModal();
             await loadAll();
+            toast('已儲存');
         }
 
         async function removeMod(id) {
             if (!confirm('刪除 ' + id + '？')) return;
             await api('/api/admin-menu', { token, action: 'delete_modifier', id });
             await loadAll();
+            toast('已刪除');
         }
 
         boot();
