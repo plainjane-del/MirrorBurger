@@ -272,7 +272,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k2</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k3</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -403,7 +403,34 @@
         </aside>
     </div>
 
-    <div id="more-sheet" class="more-sheet" aria-hidden="true">
+    <div id="password-panel" class="history-panel" aria-hidden="true">
+        <div class="history-panel-backdrop" onclick="closePasswordPanel()"></div>
+        <aside class="history-panel-sheet" role="dialog" aria-label="更改密碼">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
+                <div>
+                    <h2 class="text-xl font-black text-kds-yellow">更改密碼</h2>
+                    <p id="password-panel-hint" class="text-sm font-bold text-neutral-400 mt-0.5">只改呢個帳號。伺服器只存 hash，唔存明文。</p>
+                </div>
+                <button type="button" onclick="closePasswordPanel()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
+            </div>
+            <form class="p-4 space-y-3" onsubmit="return submitKitchenPassword(event)">
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">而家密碼</label>
+                <input id="pw-current" type="password" autocomplete="current-password" required
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">新密碼（至少 8 個字）</label>
+                <input id="pw-new" type="password" autocomplete="new-password" required minlength="8"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">再入一次新密碼</label>
+                <input id="pw-confirm" type="password" autocomplete="new-password" required minlength="8"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
+                <p id="password-panel-msg" class="hidden text-sm font-bold"></p>
+                <button type="submit" id="pw-save-btn"
+                    class="w-full rounded-xl bg-kds-yellow text-black py-3 text-sm font-black uppercase tracking-widest">
+                    儲存新密碼
+                </button>
+            </form>
+        </aside>
+    </div>
         <div class="history-panel-backdrop" onclick="closeMoreMenu()"></div>
         <div class="more-sheet-panel">
             <div class="flex items-center justify-between mb-3">
@@ -415,6 +442,7 @@
                 <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]">測試開屏響鈴</button>
                 <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
                 <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
+                <button type="button" onclick="closeMoreMenu(); openPasswordPanel()" class="chip-btn min-h-[44px] col-span-2">更改密碼</button>
                 <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
             </div>
         </div>
@@ -1206,6 +1234,83 @@
             if (!el) return;
             el.classList.remove('is-open');
             el.setAttribute('aria-hidden', 'true');
+        }
+
+        function openPasswordPanel() {
+            const panel = document.getElementById('password-panel');
+            const hint = document.getElementById('password-panel-hint');
+            const msg = document.getElementById('password-panel-msg');
+            if (hint) {
+                hint.textContent = canSwitchBranches()
+                    ? '改 Master 密碼。之後要用新密碼先入到「Master 全部分店」。'
+                    : ('改 ' + storeLabel(currentBranch) + ' 呢間店嘅密碼。');
+            }
+            if (msg) {
+                msg.classList.add('hidden');
+                msg.textContent = '';
+            }
+            ['pw-current', 'pw-new', 'pw-confirm'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            if (panel) {
+                panel.classList.add('is-open');
+                panel.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function closePasswordPanel() {
+            const panel = document.getElementById('password-panel');
+            if (!panel) return;
+            panel.classList.remove('is-open');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        async function submitKitchenPassword(event) {
+            event.preventDefault();
+            const current = document.getElementById('pw-current')?.value || '';
+            const next = document.getElementById('pw-new')?.value || '';
+            const confirmPw = document.getElementById('pw-confirm')?.value || '';
+            const msg = document.getElementById('password-panel-msg');
+            const btn = document.getElementById('pw-save-btn');
+            function showMsg(text, ok) {
+                if (!msg) return;
+                msg.textContent = text;
+                msg.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
+                msg.classList.add(ok ? 'text-emerald-400' : 'text-red-400');
+            }
+            if (next !== confirmPw) {
+                showMsg('兩次新密碼唔一致', false);
+                return false;
+            }
+            btn.disabled = true;
+            btn.textContent = '儲存中…';
+            try {
+                const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY) || localStorage.getItem(KITCHEN_TOKEN_KEY) || '';
+                const res = await fetch('/api/kitchen-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'change_password',
+                        token,
+                        currentPassword: current,
+                        newPassword: next,
+                    }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || '儲存失敗');
+                showMsg('已改好。之後請用新密碼登入。', true);
+                ['pw-current', 'pw-new', 'pw-confirm'].forEach((id) => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            } catch (err) {
+                showMsg(err.message || '儲存失敗', false);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '儲存新密碼';
+            }
+            return false;
         }
 
         let kitchenMode = 'orders';

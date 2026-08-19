@@ -21,6 +21,10 @@ function getMasterSecret() {
     return process.env.KITCHEN_MASTER_PASSWORD || process.env.MASTER_PASSWORD || '';
 }
 
+function getTokenSecret() {
+    return getKitchenSecret() || getMasterSecret() || '';
+}
+
 const KITCHEN_TOKEN_MS = 30 * 24 * 60 * 60 * 1000; // kitchen iPads stay signed in
 
 function signPayload(payload, secret) {
@@ -72,7 +76,12 @@ function parseKitchenToken(token, secret) {
     }
 }
 
-function makeKitchenToken(secret, auth = {}) {
+function makeKitchenToken(secretOrAuth, maybeAuth) {
+    const auth = maybeAuth || (secretOrAuth && typeof secretOrAuth === 'object' ? secretOrAuth : {});
+    const secret = typeof secretOrAuth === 'string' && maybeAuth
+        ? secretOrAuth
+        : getTokenSecret();
+    if (!secret) throw new Error('Missing kitchen token secret');
     const exp = Date.now() + KITCHEN_TOKEN_MS;
     const payload = JSON.stringify({
         exp,
@@ -89,17 +98,13 @@ function verifyKitchenToken(token, secret) {
 }
 
 function verifyKitchenTokenAny(token) {
-    const masterSecret = getMasterSecret();
-    if (masterSecret) {
-        const parsed = parseKitchenToken(token, masterSecret);
-        if (parsed) {
-            return { ...parsed, secret: masterSecret };
-        }
-    }
-    const shared = getKitchenSecret();
-    if (shared) {
-        const parsed = parseKitchenToken(token, shared);
-        if (parsed) return { ...parsed, secret: shared };
+    const secrets = [getTokenSecret(), getMasterSecret(), getKitchenSecret()].filter(Boolean);
+    const seen = new Set();
+    for (const secret of secrets) {
+        if (seen.has(secret)) continue;
+        seen.add(secret);
+        const parsed = parseKitchenToken(token, secret);
+        if (parsed) return { ...parsed, secret: getTokenSecret() || secret };
     }
     return null;
 }
@@ -129,6 +134,7 @@ module.exports = {
     getKitchenSecret,
     getStoreSecret,
     getMasterSecret,
+    getTokenSecret,
     makeKitchenToken,
     verifyKitchenToken,
     verifyKitchenTokenAny,
