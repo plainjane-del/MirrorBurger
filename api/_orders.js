@@ -18,7 +18,7 @@ async function getOrderByNo(orderNo) {
     if (!orderNo) throw new Error('Missing orderNo');
 
     // 唔 select status：舊 DB 可能未加呢欄；通知唔需要
-    const select = [
+    const baseSelect = [
         'order_no',
         'total_amount',
         'payment_status',
@@ -28,21 +28,33 @@ async function getOrderByNo(orderNo) {
         'pickup_time',
         'items_json',
         'created_at',
-    ].join(',');
+    ];
 
-    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&select=${select}`;
-    const resp = await fetch(url, {
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-    });
-    if (!resp.ok) {
+    async function fetchWithSelect(select) {
+        const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&select=${select}`;
+        const resp = await fetch(url, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+            },
+        });
         const text = await resp.text();
-        throw new Error(`Supabase fetch failed (${resp.status}): ${text}`);
+        if (!resp.ok) {
+            const err = new Error(`Supabase fetch failed (${resp.status}): ${text}`);
+            err.status = resp.status;
+            err.body = text;
+            throw err;
+        }
+        const rows = text ? JSON.parse(text) : [];
+        return Array.isArray(rows) ? rows[0] || null : null;
     }
-    const rows = await resp.json();
-    return Array.isArray(rows) ? rows[0] || null : null;
+
+    try {
+        return await fetchWithSelect([...baseSelect, 'kpay_managed_no'].join(','));
+    } catch (err) {
+        if (!/kpay_managed_no|schema cache|column/i.test(String(err.body || err.message || ''))) throw err;
+        return fetchWithSelect(baseSelect.join(','));
+    }
 }
 
 async function markOrderPaid(orderNo) {
@@ -88,6 +100,10 @@ async function markOrderPaid(orderNo) {
     if (!updated) {
         // 可能已係 PAID（重試 webhook）→ 唔重複發通知
         const existing = await getOrderByNo(orderNo);
+        const stillPending = String((existing && existing.payment_status) || '').toUpperCase() === 'PENDING';
+        if (stillPending) {
+            throw new Error(`Order ${orderNo} is still PENDING after paid update (0 rows). Check SUPABASE_SERVICE_ROLE_KEY / RLS.`);
+        }
         return { updated: false, order: existing || null };
     }
 
@@ -696,6 +712,22 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
     }
 }
 
+async function saveKpayManagedNo(orderNo, managedOrderNo) {
+    const no = clip(orderNo, 32);
+    const kpayNo = clip(managedOrderNo, 64);
+    if (!no || !kpayNo) return null;
+    try {
+        await sbRest(`orders?order_no=eq.${encodeURIComponent(no)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ kpay_managed_no: kpayNo }),
+        });
+    } catch (err) {
+        if (!/kpay_managed_no|schema cache|column/i.test(String(err.message || ''))) throw err;
+        console.warn('kpay_managed_no column missing; skip persist', no);
+    }
+    return kpayNo;
+}
+
 async function reconcilePendingIfPaid(orderNo) {
     const no = clip(orderNo, 32);
     if (!no) return null;
@@ -705,23 +737,25 @@ async function reconcilePendingIfPaid(orderNo) {
     if (pay !== 'PENDING') return existing;
 
     const { queryManagedOrder, isKpayPaymentSuccess } = require('./_kpay.js');
-    const queried = await queryManagedOrder(no);
+    const queried = await queryManagedOrder(no, existing.kpay_managed_no);
     if (!queried || !isKpayPaymentSuccess(queried)) return existing;
 
     const result = await markOrderPaid(no);
     return (result && result.order) || (await getOrderByNo(no)) || existing;
 }
 
-async function reconcileRecentPending(storeName) {
+async function reconcileRecentPending(storeName, { limit = 4, budgetMs = 7000 } = {}) {
     const store = clip(storeName, 80);
     if (!store) return { checked: 0, updated: 0 };
     const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     const rows = await listKitchenOrders(store, { since, limit: 40 });
     const pending = (rows || [])
         .filter((o) => String(o.payment_status || '').toUpperCase() === 'PENDING')
-        .slice(0, 3);
+        .slice(0, limit);
+    const deadline = Date.now() + budgetMs;
     let updated = 0;
     for (const row of pending) {
+        if (Date.now() > deadline) break;
         try {
             const next = await reconcilePendingIfPaid(row.order_no);
             if (next && String(next.payment_status || '').toUpperCase() === 'PAID') updated += 1;
@@ -744,6 +778,7 @@ module.exports = {
     markTableOrderPaid,
     getPublicOrderStatus,
     listKitchenOrders,
+    saveKpayManagedNo,
     reconcilePendingIfPaid,
     reconcileRecentPending,
     startOfTodayHkIso,

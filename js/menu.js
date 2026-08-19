@@ -1425,10 +1425,11 @@ async function confirmPaymentFromRedirect() {
         openPaymentChecking(orderNo);
 
         let order = null;
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < 8; i++) {
             order = await fetchOrderPaymentStatus(orderNo);
             if (order && String(order.payment_status || '').toUpperCase() === 'PAID') break;
-            await new Promise(r => setTimeout(r, 1000));
+            if (i === 2) showPaymentStillPending();
+            await new Promise(r => setTimeout(r, 1500));
         }
 
         if (!order) {

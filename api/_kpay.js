@@ -119,8 +119,12 @@ const KPAY_SUCCESS_STATES = new Set([
     'COMPLETED',
     'COMPLETE',
     'TRADE_SUCCESS',
+    'TRADE_FINISHED',
     'PAY_SUCCESS',
+    'PAY_SUCC',
+    'PAID_SUCCESS',
     'PAY_OK',
+    'PAY_FINISHED',
     'FINISH',
     'FINISHED',
     'SETTLED',
@@ -130,13 +134,51 @@ const KPAY_SUCCESS_STATES = new Set([
     '0000',
     '1',
     'S',
+    'P',
 ]);
+
+const KPAY_FAILED_STATES = new Set([
+    'FAIL', 'FAILED', 'FAILURE', 'CLOSED', 'CLOSE',
+    'CANCEL', 'CANCELLED', 'CANCELED', 'EXPIRED', 'EXPIRE',
+    'REFUND', 'REFUNDED', 'NOTPAY',
+]);
+
+const KPAY_WAITING_STATES = new Set([
+    'WAIT_PAY', 'WAIT_BUYER_PAY', 'WAITING', 'PENDING', 'INIT', 'CREATED',
+    'PROCESSING', 'PAYING', 'USERPAYING', 'WAIT',
+]);
+
+const KPAY_STATE_FIELDS = [
+    'transactionState',
+    'tradeState',
+    'payState',
+    'payStatus',
+    'orderState',
+    'orderStatus',
+    'transStatus',
+    'txnStatus',
+    'payResult',
+    'tradeStatus',
+    'resultStatus',
+    'status',
+];
 
 function flattenKpayPayload(payload) {
     if (!payload || typeof payload !== 'object') return {};
-    const nested = [payload.data, payload.bizContent, payload.result, payload.order]
-        .find((row) => row && typeof row === 'object' && !Array.isArray(row));
-    return nested ? { ...payload, ...nested } : { ...payload };
+    let current = { ...payload };
+    const nestKeys = ['data', 'bizContent', 'result', 'order', 'record', 'payment'];
+    for (const key of nestKeys) {
+        const nested = current[key];
+        if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+            current = { ...current, ...nested };
+        } else if (Array.isArray(nested) && nested[0] && typeof nested[0] === 'object') {
+            current = { ...current, ...nested[0] };
+        }
+    }
+    if (Array.isArray(current.list) && current.list[0] && typeof current.list[0] === 'object') {
+        current = { ...current, ...current.list[0] };
+    }
+    return current;
 }
 
 function extractKpayOrderNo(payload) {
@@ -157,43 +199,65 @@ function extractKpayOrderNo(payload) {
     return ours || candidates[0] || null;
 }
 
-function isKpayPaymentSuccess(payload) {
+function extractKpayManagedOrderNo(payload) {
     const flat = flattenKpayPayload(payload);
-    const state = kpayStateOf(flat);
-    if (KPAY_SUCCESS_STATES.has(state)) return true;
-    if (flat.success === true || flat.success === 'true' || String(flat.success) === '1') return true;
-    if (String(flat.code) === '10000' && !kpayWaitingOrFailedState(state)) return true;
-    return false;
+    const v = flat.managedOrderNo || flat.managed_order_no;
+    return v != null && String(v).trim() ? String(v).trim() : null;
+}
+
+function kpayStatesOf(payload) {
+    const flat = flattenKpayPayload(payload);
+    return KPAY_STATE_FIELDS
+        .map((key) => String(flat[key] == null ? '' : flat[key]).toUpperCase().trim())
+        .filter(Boolean);
 }
 
 function kpayStateOf(payload) {
+    return kpayStatesOf(payload)[0] || '';
+}
+
+function hasKpayPayEvidence(payload) {
     const flat = flattenKpayPayload(payload);
-    return String(
-        flat.transactionState
-        || flat.tradeState
-        || flat.payState
-        || flat.payStatus
-        || flat.orderStatus
-        || flat.status
-        || flat.payResult
-        || flat.transStatus
-        || flat.txnStatus
-        || ''
-    ).toUpperCase().trim();
+    const evidence = [
+        flat.payTime,
+        flat.paidTime,
+        flat.successTime,
+        flat.gmtPayment,
+        flat.transactionNo,
+        flat.transaction_no,
+        flat.tradeNo,
+        flat.kpayTransNo,
+        flat.transNo,
+        flat.channelTransNo,
+        flat.channelTransactionNo,
+        flat.payTransNo,
+    ].some((v) => v != null && String(v).trim() !== '');
+    if (evidence) return true;
+    const amount = Number(flat.receiptAmount || flat.paidAmount || flat.realAmount);
+    return Number.isFinite(amount) && amount > 0;
+}
+
+function isKpayPaymentSuccess(payload) {
+    const flat = flattenKpayPayload(payload);
+    const states = kpayStatesOf(flat);
+    if (states.some((s) => KPAY_SUCCESS_STATES.has(s))) return true;
+    if (flat.success === true || flat.success === 'true' || String(flat.success) === '1') return true;
+    if (states.some((s) => KPAY_FAILED_STATES.has(s))) return false;
+    // Query `code=10000` only means the API call worked, not that money was taken.
+    if (hasKpayPayEvidence(flat)) return true;
+    return false;
 }
 
 function kpayWaitingOrFailedState(state) {
-    return new Set([
-        'WAIT_PAY', 'WAITING', 'PENDING', 'NOTPAY', 'INIT', 'CREATED',
-        'PROCESSING', 'PAYING', 'USERPAYING', 'WAIT',
-        'FAIL', 'FAILED', 'FAILURE', 'CLOSED', 'CLOSE',
-        'CANCEL', 'CANCELLED', 'CANCELED', 'EXPIRED', 'EXPIRE',
-        'REFUND', 'REFUNDED',
-    ]).has(String(state || '').toUpperCase().trim());
+    const s = String(state || '').toUpperCase().trim();
+    return KPAY_WAITING_STATES.has(s) || KPAY_FAILED_STATES.has(s);
 }
 
 function isKpayWaitingOrFailed(payload) {
-    return kpayWaitingOrFailedState(kpayStateOf(payload));
+    if (isKpayPaymentSuccess(payload)) return false;
+    const states = kpayStatesOf(payload);
+    if (!states.length) return false;
+    return states.every((s) => kpayWaitingOrFailedState(s));
 }
 
 async function signedKpayRequest(method, uri, payload = null, { timeoutMs = 5000 } = {}) {
@@ -238,26 +302,47 @@ async function createManagedOrder(payload) {
     return kpayResponse;
 }
 
-async function queryManagedOrder(managedOutTradeNo) {
+async function queryManagedOrder(managedOutTradeNo, managedOrderNo = '') {
     const orderNo = String(managedOutTradeNo || '').trim();
-    if (!orderNo) return null;
+    const kpayNo = String(managedOrderNo || '').trim();
+    if (!orderNo && !kpayNo) return null;
+
+    const postBodies = [];
+    if (orderNo) {
+        postBodies.push({ managedOutTradeNo: orderNo });
+        postBodies.push({ outTradeNo: orderNo });
+    }
+    if (kpayNo) postBodies.push({ managedOrderNo: kpayNo });
+
     const attempts = [
-        ['POST', '/v1/managed/order/query', { managedOutTradeNo: orderNo }],
-        ['POST', '/v1/managed/order/detail', { managedOutTradeNo: orderNo }],
-        ['POST', '/v1/managed/order/get', { managedOutTradeNo: orderNo }],
+        ...postBodies.map((body) => ['POST', '/v1/managed/order/query', body]),
+        ...(orderNo ? [['GET', `/v1/managed/order/query?managedOutTradeNo=${encodeURIComponent(orderNo)}`, null]] : []),
+        ...(kpayNo ? [['GET', `/v1/managed/order/query?managedOrderNo=${encodeURIComponent(kpayNo)}`, null]] : []),
+        ...(orderNo ? [['POST', '/v1/managed/order/detail', { managedOutTradeNo: orderNo }]] : []),
     ];
+
     let lastErr = '';
     for (const [method, uri, body] of attempts) {
         try {
-            const result = await signedKpayRequest(method, uri, body, { timeoutMs: 4000 });
+            const result = await signedKpayRequest(method, uri, body, { timeoutMs: 6000 });
             const json = result.json || {};
-            if (String(json.code) === '10000') return flattenKpayPayload(json);
-            lastErr = `${uri} ${result.status} ${json.code || ''} ${json.message || json.msg || ''}`.trim();
+            if (String(json.code) === '10000') {
+                const flat = flattenKpayPayload(json);
+                console.log('KPay query ok:', orderNo || kpayNo, {
+                    states: kpayStatesOf(flat),
+                    success: isKpayPaymentSuccess(flat),
+                    keys: Object.keys(flat || {}).slice(0, 20),
+                });
+                return flat;
+            }
+            lastErr = `${method} ${uri} ${result.status} ${json.code || ''} ${json.message || json.msg || ''}`.trim();
+            // Real KPay error on the official query path → try the next body, skip invented endpoints if this was query.
+            if (json.code && String(json.code) !== '10000' && uri.includes('/managed/order/query')) continue;
         } catch (err) {
             lastErr = String(err.message || err);
         }
     }
-    if (lastErr) console.warn('KPay query failed:', orderNo, lastErr);
+    if (lastErr) console.warn('KPay query failed:', orderNo || kpayNo, lastErr);
     return null;
 }
 
@@ -294,6 +379,9 @@ module.exports = {
     getKeyContent,
     flattenKpayPayload,
     extractKpayOrderNo,
+    extractKpayManagedOrderNo,
     isKpayPaymentSuccess,
     isKpayWaitingOrFailed,
+    kpayStatesOf,
+    hasKpayPayEvidence,
 };

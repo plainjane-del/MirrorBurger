@@ -81,11 +81,14 @@ module.exports = async (req, res) => {
                     console.warn('board reconcile skipped:', err.message || err);
                 }
                 const orders = await listKitchenOrders(storeName, { limit: 200 });
+                const pendingCutoff = Date.now() - 4 * 60 * 60 * 1000;
                 const pendingOnline = (orders || []).filter((o) => {
                     const pay = String(o.payment_status || '').toUpperCase();
                     if (pay !== 'PENDING') return false;
                     const ch = String(o.channel || '').toLowerCase();
                     if (ch === 'table' || ch === 'pos') return false;
+                    const created = Date.parse(o.created_at || '');
+                    if (Number.isFinite(created) && created < pendingCutoff) return false;
                     return true;
                 }).slice(0, 12);
                 return res.status(200).json({ orders: orders || [], pending_online: pendingOnline });

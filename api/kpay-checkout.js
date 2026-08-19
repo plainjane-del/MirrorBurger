@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, reconcilePendingIfPaid } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, reconcilePendingIfPaid, saveKpayManagedNo } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
@@ -148,6 +148,11 @@ module.exports = async (req, res) => {
 
         const kpayRes = await kpay.createManagedOrder(payload);
         const managedOrderNo = kpayRes.data.managedOrderNo;
+        try {
+            await saveKpayManagedNo(orderNo, managedOrderNo);
+        } catch (err) {
+            console.warn('save kpay managed no skipped:', err.message || err);
+        }
         const checkoutUrl = kpay.buildCheckoutUrl(managedOrderNo, 'web');
 
         return res.status(200).json({ paymentUrl: checkoutUrl });

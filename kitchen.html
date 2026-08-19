@@ -1034,7 +1034,7 @@
             }
             box.classList.remove('hidden');
             box.innerHTML = `
-                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 可能已收款但未入廚</div>
+                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 可能已收款但未入廚 — 撳「入廚房」</div>
                 ${pendingOnline.map((o) => {
                     const no = escapeHtml(o.order_no);
                     const noJs = escapeJsString(o.order_no);

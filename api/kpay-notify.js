@@ -70,7 +70,10 @@ module.exports = async function handler(req, res) {
 
         const { bodyText, payload: rawPayload, raw } = await readNotifyBody(req);
         const payload = kpay.flattenKpayPayload(rawPayload);
-        const merchantCode = payload.merchantCode || rawPayload.merchantCode || '';
+        const merchantCode = payload.merchantCode
+            || rawPayload.merchantCode
+            || req.headers['k-merchant-code']
+            || '';
         const expectedMid = process.env.KPAY_MID || '';
 
         let verified = verifyNotifySignature({
@@ -99,6 +102,19 @@ module.exports = async function handler(req, res) {
             verified = { ok: true, uri: 'merchant-order-fallback' };
         }
 
+        if (!verified.ok && orderNo && /^(MB|UAT)/i.test(orderNo)) {
+            try {
+                const queried = await kpay.queryManagedOrder(orderNo, kpay.extractKpayManagedOrderNo(payload));
+                if (queried && kpay.isKpayPaymentSuccess(queried)) {
+                    const result = await markOrderPaid(orderNo);
+                    console.warn('⚠️ KPay webhook: signature failed; query confirmed paid', orderNo);
+                    return res.status(200).send('SUCCESS');
+                }
+            } catch (err) {
+                console.warn('KPay unsigned-notify query skipped:', err.message || err);
+            }
+        }
+
         if (!verified.ok) {
             console.error('🚨 KPay Webhook Signature Verification Failed', {
                 reason: verified.reason,
@@ -112,14 +128,29 @@ module.exports = async function handler(req, res) {
         }
 
         if (kpay.isKpayWaitingOrFailed(payload) && !kpay.isKpayPaymentSuccess(payload)) {
+            // First notify is often WAIT_PAY when the checkout is created.
+            // Still query KPay in case money already landed and this payload is stale.
+            if (orderNo) {
+                try {
+                    const queried = await kpay.queryManagedOrder(orderNo, kpay.extractKpayManagedOrderNo(payload));
+                    if (queried && kpay.isKpayPaymentSuccess(queried)) {
+                        const result = await markOrderPaid(orderNo);
+                        console.log(`✅ KPay query confirmed ${orderNo} after waiting notify (updated=${Boolean(result && result.updated)})`);
+                        return res.status(200).send('SUCCESS');
+                    }
+                } catch (err) {
+                    console.warn('KPay waiting-notify query skipped:', err.message || err);
+                }
+            }
             console.log('KPay notify ignored (not success):', {
                 transactionState: payload.transactionState,
                 tradeState: payload.tradeState,
                 payStatus: payload.payStatus,
                 status: payload.status,
+                states: kpay.kpayStatesOf(payload),
                 keys: Object.keys(payload || {}),
             });
-            return res.status(200).send('OK');
+            return res.status(200).send('SUCCESS');
         }
 
         if (!orderNo) {
@@ -130,13 +161,24 @@ module.exports = async function handler(req, res) {
             return res.status(400).send('Missing orderNo');
         }
 
+        // Prefer live KPay query over the notify body — Vercel often rewrites JSON.
+        try {
+            const queried = await kpay.queryManagedOrder(orderNo, kpay.extractKpayManagedOrderNo(payload));
+            if (queried && !kpay.isKpayPaymentSuccess(queried) && kpay.isKpayWaitingOrFailed(queried)) {
+                console.log('KPay notify skipped; query still waiting:', orderNo, kpay.kpayStatesOf(queried));
+                return res.status(200).send('SUCCESS');
+            }
+        } catch (err) {
+            console.warn('KPay notify query skipped:', err.message || err);
+        }
+
         // DB 失敗要回 5xx，等 KPay 重試；唔好假裝 OK
         const result = await markOrderPaid(orderNo);
         console.log(
             `✅ KPay Payment Success for ${orderNo} (updated=${Boolean(result && result.updated)}, via=${verified.uri})`
         );
 
-        return res.status(200).send('OK');
+        return res.status(200).send('SUCCESS');
     } catch (error) {
         console.error('KPay Notify Error:', error);
         return res.status(500).send('Internal Server Error');
