@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, saveKpayManagedNo } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, saveKpayManagedNo, reconcilePendingIfPaid } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
@@ -79,13 +79,33 @@ module.exports = async (req, res) => {
             return res.status(200).json({ ok: true, ...result });
         }
 
-        if (action === 'status') {
+        if (action === 'status' || action === 'confirm') {
             const orderNo = String(body.orderNo || '').trim();
             if (!orderNo) return res.status(400).json({ error: 'Missing orderNo' });
             let order = await getPublicOrderStatus(orderNo);
             if (!order) return res.status(404).json({ error: 'Order not found' });
-            // 唔喺客戶端 poll 時直接做 reconcile（避免每次輪詢都去打 KPay）。
-            // 付款後依靠 webhook + 廚房 board 端嘅 targeted reconcile 將 PENDING 自動跳出。
+            if (String(order.payment_status || '').toUpperCase() === 'PENDING') {
+                try {
+                    const kpayReturn = (body.kpayReturn && typeof body.kpayReturn === 'object')
+                        ? body.kpayReturn
+                        : {};
+                    const returnedKpayNo = kpay.extractKpayManagedOrderNo(kpayReturn);
+                    if (returnedKpayNo) {
+                        const queried = await kpay.queryManagedOrder(orderNo, returnedKpayNo);
+                        if (queried && kpay.queryBelongsToOrder(queried, orderNo)) {
+                            try { await saveKpayManagedNo(orderNo, returnedKpayNo); } catch (err) {
+                                console.warn('save returned kpay no skipped:', err.message || err);
+                            }
+                        }
+                    }
+                    const retries = action === 'confirm' ? 2 : 1;
+                    const delayMs = action === 'confirm' ? 700 : 0;
+                    await reconcilePendingIfPaid(orderNo, { retries, delayMs });
+                    order = (await getPublicOrderStatus(orderNo)) || order;
+                } catch (err) {
+                    console.warn('status reconcile skipped:', err.message || err);
+                }
+            }
             return res.status(200).json({ order });
         }
 
@@ -141,7 +161,11 @@ module.exports = async (req, res) => {
         };
 
         const kpayRes = await kpay.createManagedOrder(payload);
-        const managedOrderNo = kpayRes.data.managedOrderNo;
+        const managedOrderNo = kpay.extractKpayManagedOrderNo(kpayRes)
+            || (kpayRes.data && kpayRes.data.managedOrderNo);
+        if (!managedOrderNo) {
+            throw new Error('KPay did not return managedOrderNo');
+        }
         try {
             await saveKpayManagedNo(orderNo, managedOrderNo);
         } catch (err) {

@@ -6,6 +6,8 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
 let pendingPaymentOrderNo = null;
+let pendingPaymentReturn = null;
+let pendingPaymentPollTimer = null;
 
 // --- 2. GLOBAL STATE & CONFIG ---
 let currentLang = 'en';
@@ -1287,7 +1289,16 @@ function openPaymentChecking(orderNo) {
     syncPageLock();
 }
 
+function stopPaymentPoll() {
+    if (pendingPaymentPollTimer) {
+        clearTimeout(pendingPaymentPollTimer);
+        pendingPaymentPollTimer = null;
+    }
+}
+
 function closePaymentChecking() {
+    stopPaymentPoll();
+    pendingPaymentReturn = null;
     const modal = document.getElementById('payment-checking-modal');
     const content = document.getElementById('payment-checking-content');
     modal.classList.add('opacity-0'); content.classList.add('scale-95');
@@ -1306,16 +1317,26 @@ function showPaymentStillPending() {
     if (refreshBtn) refreshBtn.classList.add('hidden');
 }
 
-async function fetchOrderPaymentStatus(orderNo) {
+async function fetchOrderPaymentStatus(orderNo, { confirm = false, kpayReturn = null } = {}) {
+    const body = { action: confirm ? 'confirm' : 'status', orderNo };
+    if (kpayReturn && typeof kpayReturn === 'object') body.kpayReturn = kpayReturn;
     const res = await fetch('/api/kpay-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'status', orderNo }),
+        body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
     return data.order || null;
+}
+
+function showPaidOrder(order) {
+    closePaymentChecking();
+    finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
+        orderNo: order.order_no,
+        amount: order.total_amount
+    });
 }
 
 async function refreshPaymentStatus() {
@@ -1326,13 +1347,12 @@ async function refreshPaymentStatus() {
         refreshBtn.textContent = lang('Checking…', '檢查中…');
     }
     try {
-        const order = await fetchOrderPaymentStatus(pendingPaymentOrderNo);
+        const order = await fetchOrderPaymentStatus(pendingPaymentOrderNo, {
+            confirm: true,
+            kpayReturn: pendingPaymentReturn,
+        });
         if (order && String(order.payment_status || '').toUpperCase() === 'PAID') {
-            closePaymentChecking();
-            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
-                orderNo: order.order_no,
-                amount: order.total_amount
-            });
+            showPaidOrder(order);
             return;
         }
         showPaymentStillPending();
@@ -1415,41 +1435,70 @@ async function confirmPaymentFromRedirect() {
         const orderNo = params.get('order_return') || params.get('paid');
         if (!orderNo) return;
 
+        const kpayReturn = {};
+        params.forEach((value, key) => {
+            if (key === 'order_return' || key === 'paid') return;
+            kpayReturn[key] = value;
+        });
+        pendingPaymentReturn = kpayReturn;
+
         params.delete('order_return');
         params.delete('paid');
         const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
         window.history.replaceState({}, document.title, cleanUrl);
 
-        // ⚠️ 唔可以喺前端自行改成 PAID：KPay 取消付款都會打返 returnUrl，
-        // 只信任 webhook (kpay-notify) 先會標 PAID。Webhook 可能慢，先顯示「確認中」。
+        // ⚠️ 唔可以喺前端自行改成 PAID：KPay 取消付款都會打返 returnUrl。
+        // 返回後立即問 KPay，webhook 慢都唔會卡住。
         openPaymentChecking(orderNo);
 
+        const deadline = Date.now() + 45000;
         let order = null;
-        const deadline = Date.now() + 30000; // 30秒內應該會轉出 pending 區
         while (Date.now() < deadline) {
-            order = await fetchOrderPaymentStatus(orderNo);
-            const pay = String(order?.payment_status || '').toUpperCase();
-            if (pay === 'PAID') break;
-            if (Date.now() > (deadline - 28000)) showPaymentStillPending();
-            await new Promise(r => setTimeout(r, 1000));
+            try {
+                order = await fetchOrderPaymentStatus(orderNo, {
+                    confirm: true,
+                    kpayReturn: pendingPaymentReturn,
+                });
+                if (String(order?.payment_status || '').toUpperCase() === 'PAID') {
+                    showPaidOrder(order);
+                    return;
+                }
+            } catch (err) {
+                console.warn('Payment confirm poll failed:', err);
+            }
+            await new Promise(r => setTimeout(r, 1200));
         }
 
-        const pay = String(order?.payment_status || '').toUpperCase();
-        if (pay === 'PAID') {
-            closePaymentChecking();
-            finishOrderSuccess(order.store_name || getActiveStore(), order.pickup_time || '', null, '', {
-                orderNo: order.order_no,
-                amount: order.total_amount
-            });
-            return;
-        }
-
-        // 仲係 pending：唔再叫客人 Refresh，交俾廚房端自動 reconcile
         showPaymentStillPending();
+        scheduleBackgroundPaymentPoll(orderNo, Date.now() + 180000);
     } catch (err) {
         console.warn('Redirect payment confirmation failed:', err);
         showPaymentStillPending();
+        if (pendingPaymentOrderNo) {
+            scheduleBackgroundPaymentPoll(pendingPaymentOrderNo, Date.now() + 180000);
+        }
     }
+}
+
+function scheduleBackgroundPaymentPoll(orderNo, until) {
+    stopPaymentPoll();
+    const tick = async () => {
+        if (Date.now() > until || pendingPaymentOrderNo !== orderNo) return;
+        try {
+            const order = await fetchOrderPaymentStatus(orderNo, {
+                confirm: true,
+                kpayReturn: pendingPaymentReturn,
+            });
+            if (String(order?.payment_status || '').toUpperCase() === 'PAID') {
+                showPaidOrder(order);
+                return;
+            }
+        } catch (err) {
+            console.warn('Background payment poll failed:', err);
+        }
+        pendingPaymentPollTimer = setTimeout(tick, 2500);
+    };
+    pendingPaymentPollTimer = setTimeout(tick, 2500);
 }
 
 function isHidden(el) {

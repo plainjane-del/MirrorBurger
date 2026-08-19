@@ -697,6 +697,7 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
         'store_name',
         'channel',
         'pay_method',
+        'kpay_managed_no',
         'created_at',
     ].join(',');
     let path = `orders?store_name=eq.${encodeURIComponent(store)}&select=${select}&order=created_at.desc&limit=${Number(limit) || 200}`;
@@ -704,12 +705,38 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
     try {
         return await sbRest(path);
     } catch (err) {
-        if (!/channel|pay_method/i.test(String(err.message || ''))) throw err;
-        const legacy = select.replace(',channel,pay_method', '');
-        let fallback = `orders?store_name=eq.${encodeURIComponent(store)}&select=${legacy}&order=created_at.desc&limit=${Number(limit) || 200}`;
+        const msg = String(err.message || '');
+        let nextSelect = select;
+        if (/kpay_managed_no|schema cache|column/i.test(msg)) {
+            nextSelect = select.replace(',kpay_managed_no', '');
+        } else if (/channel|pay_method/i.test(msg)) {
+            nextSelect = select.replace(',channel,pay_method', '').replace(',kpay_managed_no', '');
+        } else {
+            throw err;
+        }
+        let fallback = `orders?store_name=eq.${encodeURIComponent(store)}&select=${nextSelect}&order=created_at.desc&limit=${Number(limit) || 200}`;
         if (since) fallback += `&created_at=gte.${encodeURIComponent(since)}`;
         return sbRest(fallback);
     }
+}
+
+function parseItemsJson(itemsJson) {
+    let items = itemsJson;
+    if (typeof items === 'string') {
+        try { items = JSON.parse(items || '[]'); } catch { items = []; }
+    }
+    return Array.isArray(items) ? items : [];
+}
+
+function kpayManagedNoOf(order) {
+    const fromCol = String((order && order.kpay_managed_no) || '').trim();
+    if (fromCol) return fromCol;
+    const items = parseItemsJson(order && order.items_json);
+    for (const it of items) {
+        const v = it && (it.kpayManagedNo || it.kpay_managed_no);
+        if (v) return String(v).trim();
+    }
+    return '';
 }
 
 async function saveKpayManagedNo(orderNo, managedOrderNo) {
@@ -723,25 +750,50 @@ async function saveKpayManagedNo(orderNo, managedOrderNo) {
         });
     } catch (err) {
         if (!/kpay_managed_no|schema cache|column/i.test(String(err.message || ''))) throw err;
-        console.warn('kpay_managed_no column missing; skip persist', no);
+        console.warn('kpay_managed_no column missing; storing on items_json', no);
+    }
+    try {
+        const existing = await getOrderByNo(no);
+        const items = parseItemsJson(existing && existing.items_json);
+        if (items.length) {
+            items[0] = { ...items[0], kpayManagedNo: kpayNo };
+            await sbRest(`orders?order_no=eq.${encodeURIComponent(no)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ items_json: items }),
+            });
+        }
+    } catch (err) {
+        console.warn('save kpayManagedNo on items skipped:', err.message || err);
     }
     return kpayNo;
 }
 
-async function reconcilePendingIfPaid(orderNo) {
+function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+}
+
+async function reconcilePendingIfPaid(orderNo, { retries = 1, delayMs = 0 } = {}) {
     const no = clip(orderNo, 32);
     if (!no) return null;
-    const existing = await getOrderByNo(no);
+    let existing = await getOrderByNo(no);
     if (!existing) return null;
     const pay = String(existing.payment_status || '').toUpperCase();
     if (pay !== 'PENDING') return existing;
 
-    const { queryManagedOrder, isKpayPaymentSuccess } = require('./_kpay.js');
-    const queried = await queryManagedOrder(no, existing.kpay_managed_no);
-    if (!queried || !isKpayPaymentSuccess(queried)) return existing;
-
-    const result = await markOrderPaid(no);
-    return (result && result.order) || (await getOrderByNo(no)) || existing;
+    const { queryManagedOrder, isKpayPaymentSuccess, queryBelongsToOrder } = require('./_kpay.js');
+    const tries = Math.max(1, Number(retries) || 1);
+    for (let i = 0; i < tries; i++) {
+        existing = await getOrderByNo(no);
+        if (!existing) return null;
+        if (String(existing.payment_status || '').toUpperCase() !== 'PENDING') return existing;
+        const queried = await queryManagedOrder(no, kpayManagedNoOf(existing));
+        if (queried && isKpayPaymentSuccess(queried) && queryBelongsToOrder(queried, no)) {
+            const result = await markOrderPaid(no);
+            return (result && result.order) || (await getOrderByNo(no)) || existing;
+        }
+        if (i + 1 < tries && delayMs) await sleep(delayMs);
+    }
+    return existing;
 }
 
 async function reconcileRecentPending(storeName, { limit = 4, budgetMs = 7000 } = {}) {
@@ -779,6 +831,7 @@ module.exports = {
     getPublicOrderStatus,
     listKitchenOrders,
     saveKpayManagedNo,
+    kpayManagedNoOf,
     reconcilePendingIfPaid,
     reconcileRecentPending,
     startOfTodayHkIso,

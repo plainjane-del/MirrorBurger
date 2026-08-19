@@ -95,8 +95,8 @@ module.exports = async (req, res) => {
                 const orders = await listKitchenOrders(storeName, { limit: 200 });
                 const pendingOnline = getPendingOnline(orders);
 
-                const toReconcile = pendingOnline.slice(0, 3).map((o) => o.order_no).filter(Boolean);
-                const deadline = Date.now() + 12000; // 留時間比 listKitchenOrders 做第二次拉數
+                const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
+                const deadline = Date.now() + 8000;
                 for (const orderNo of toReconcile) {
                     if (Date.now() > deadline) break;
                     try {

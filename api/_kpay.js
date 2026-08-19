@@ -135,6 +135,9 @@ const KPAY_SUCCESS_STATES = new Set([
     '1',
     'S',
     'P',
+    'PAYED',
+    'PAYMENT_SUCCESS',
+    'TRADE_PAY_SUCCESS',
 ]);
 
 const KPAY_FAILED_STATES = new Set([
@@ -150,23 +153,52 @@ const KPAY_WAITING_STATES = new Set([
 
 const KPAY_STATE_FIELDS = [
     'transactionState',
+    'transaction_state',
     'tradeState',
+    'trade_state',
     'payState',
+    'pay_state',
     'payStatus',
+    'pay_status',
     'orderState',
+    'order_state',
     'orderStatus',
+    'order_status',
     'transStatus',
+    'trans_status',
     'txnStatus',
+    'txn_status',
     'payResult',
+    'pay_result',
     'tradeStatus',
+    'trade_status',
     'resultStatus',
+    'result_status',
+    'resultCode',
+    'result_code',
+    'notifyType',
+    'notify_type',
+    'eventType',
+    'event_type',
+    'bizType',
+    'biz_type',
     'status',
 ];
+
+function addCamelAliases(obj) {
+    const extra = {};
+    for (const [key, val] of Object.entries(obj || {})) {
+        if (!key.includes('_')) continue;
+        const camel = key.replace(/_([a-zA-Z0-9])/g, (_, c) => c.toUpperCase());
+        if (!(camel in obj)) extra[camel] = val;
+    }
+    return { ...obj, ...extra };
+}
 
 function flattenKpayPayload(payload) {
     if (!payload || typeof payload !== 'object') return {};
     let current = { ...payload };
-    const nestKeys = ['data', 'bizContent', 'result', 'order', 'record', 'payment'];
+    const nestKeys = ['data', 'bizContent', 'biz_content', 'result', 'order', 'record', 'payment'];
     for (const key of nestKeys) {
         const nested = current[key];
         if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
@@ -178,7 +210,7 @@ function flattenKpayPayload(payload) {
     if (Array.isArray(current.list) && current.list[0] && typeof current.list[0] === 'object') {
         current = { ...current, ...current.list[0] };
     }
-    return current;
+    return addCamelAliases(current);
 }
 
 function extractKpayOrderNo(payload) {
@@ -196,7 +228,13 @@ function extractKpayOrderNo(payload) {
         .filter((v) => v != null && String(v).trim() !== '')
         .map((v) => String(v).trim());
     const ours = candidates.find((c) => /^(MB|UAT)[A-Z0-9]+/i.test(c));
-    return ours || candidates[0] || null;
+    if (ours) return ours;
+    try {
+        const blob = JSON.stringify(flat);
+        const m = blob.match(/\b((?:MB|UAT)[A-Z0-9]{6,})\b/i);
+        if (m) return m[1];
+    } catch (_) { /* ignore */ }
+    return candidates[0] || null;
 }
 
 function extractKpayManagedOrderNo(payload) {
@@ -207,9 +245,22 @@ function extractKpayManagedOrderNo(payload) {
 
 function kpayStatesOf(payload) {
     const flat = flattenKpayPayload(payload);
-    return KPAY_STATE_FIELDS
-        .map((key) => String(flat[key] == null ? '' : flat[key]).toUpperCase().trim())
-        .filter(Boolean);
+    const seen = new Set();
+    const states = [];
+    const add = (val) => {
+        const s = String(val == null ? '' : val).toUpperCase().trim();
+        if (!s || seen.has(s)) return;
+        seen.add(s);
+        states.push(s);
+    };
+    for (const key of KPAY_STATE_FIELDS) add(flat[key]);
+    for (const [key, val] of Object.entries(flat)) {
+        if (typeof val === 'object') continue;
+        if (!/(state|status|result)/i.test(key)) continue;
+        if (/^(code|subCode|sub_code|message|msg)$/i.test(key)) continue;
+        add(val);
+    }
+    return states;
 }
 
 function kpayStateOf(payload) {
@@ -220,17 +271,26 @@ function hasKpayPayEvidence(payload) {
     const flat = flattenKpayPayload(payload);
     const evidence = [
         flat.payTime,
+        flat.pay_time,
         flat.paidTime,
+        flat.paid_time,
         flat.successTime,
+        flat.success_time,
         flat.gmtPayment,
+        flat.gmt_payment,
         flat.transactionNo,
         flat.transaction_no,
         flat.tradeNo,
+        flat.trade_no,
         flat.kpayTransNo,
+        flat.kpay_trans_no,
         flat.transNo,
+        flat.trans_no,
         flat.channelTransNo,
+        flat.channel_trans_no,
         flat.channelTransactionNo,
         flat.payTransNo,
+        flat.pay_trans_no,
     ].some((v) => v != null && String(v).trim() !== '');
     if (evidence) return true;
     const amount = Number(flat.receiptAmount || flat.paidAmount || flat.realAmount);
@@ -302,47 +362,67 @@ async function createManagedOrder(payload) {
     return kpayResponse;
 }
 
+function isKpayQueryOk(json) {
+    const code = String((json && (json.code ?? json.subCode)) || '');
+    return code === '10000' || code === '0' || code === '200';
+}
+
+function queryBelongsToOrder(payload, orderNo) {
+    const expected = String(orderNo || '').trim().toUpperCase();
+    if (!expected) return true;
+    const echoed = extractKpayOrderNo(payload);
+    if (!echoed) return true;
+    return String(echoed).trim().toUpperCase() === expected;
+}
+
 async function queryManagedOrder(managedOutTradeNo, managedOrderNo = '') {
     const orderNo = String(managedOutTradeNo || '').trim();
     const kpayNo = String(managedOrderNo || '').trim();
     if (!orderNo && !kpayNo) return null;
 
     const postBodies = [];
+    if (kpayNo) postBodies.push({ managedOrderNo: kpayNo });
     if (orderNo) {
         postBodies.push({ managedOutTradeNo: orderNo });
         postBodies.push({ outTradeNo: orderNo });
     }
-    if (kpayNo) postBodies.push({ managedOrderNo: kpayNo });
 
     const attempts = [
         ...postBodies.map((body) => ['POST', '/v1/managed/order/query', body]),
-        ...(orderNo ? [['GET', `/v1/managed/order/query?managedOutTradeNo=${encodeURIComponent(orderNo)}`, null]] : []),
-        ...(kpayNo ? [['GET', `/v1/managed/order/query?managedOrderNo=${encodeURIComponent(kpayNo)}`, null]] : []),
-        ...(orderNo ? [['POST', '/v1/managed/order/get', { managedOutTradeNo: orderNo }]] : []),
         ...(orderNo ? [['POST', '/v1/managed/order/detail', { managedOutTradeNo: orderNo }]] : []),
+        ...(orderNo ? [['POST', '/v1/managed/order/get', { managedOutTradeNo: orderNo }]] : []),
+        ...(kpayNo ? [['POST', '/v1/managed/order/detail', { managedOrderNo: kpayNo }]] : []),
     ];
 
     let lastErr = '';
+    let bestWaiting = null;
+    const deadline = Date.now() + 9000;
     for (const [method, uri, body] of attempts) {
+        if (Date.now() > deadline) break;
         try {
-            const result = await signedKpayRequest(method, uri, body, { timeoutMs: 6000 });
+            const result = await signedKpayRequest(method, uri, body, { timeoutMs: 3000 });
             const json = result.json || {};
-            if (String(json.code) === '10000') {
-                const flat = flattenKpayPayload(json);
-                console.log('KPay query ok:', orderNo || kpayNo, {
-                    states: kpayStatesOf(flat),
-                    success: isKpayPaymentSuccess(flat),
-                    keys: Object.keys(flat || {}).slice(0, 20),
-                });
-                return flat;
+            if (!isKpayQueryOk(json)) {
+                lastErr = `${method} ${uri} ${result.status} ${json.code || ''} ${json.message || json.msg || ''}`.trim();
+                continue;
             }
-            lastErr = `${method} ${uri} ${result.status} ${json.code || ''} ${json.message || json.msg || ''}`.trim();
-            // Real KPay error on the official query path → try the next body, skip invented endpoints if this was query.
-            if (json.code && String(json.code) !== '10000' && uri.includes('/managed/order/query')) continue;
+            const flat = flattenKpayPayload(json);
+            if (!queryBelongsToOrder(flat, orderNo)) {
+                lastErr = `${method} ${uri} order mismatch ${extractKpayOrderNo(flat)}`;
+                continue;
+            }
+            console.log('KPay query ok:', orderNo || kpayNo, {
+                states: kpayStatesOf(flat),
+                success: isKpayPaymentSuccess(flat),
+                keys: Object.keys(flat || {}).slice(0, 24),
+            });
+            if (isKpayPaymentSuccess(flat)) return flat;
+            if (!bestWaiting) bestWaiting = flat;
         } catch (err) {
             lastErr = String(err.message || err);
         }
     }
+    if (bestWaiting) return bestWaiting;
     if (lastErr) console.warn('KPay query failed:', orderNo || kpayNo, lastErr);
     return null;
 }
@@ -385,4 +465,5 @@ module.exports = {
     isKpayWaitingOrFailed,
     kpayStatesOf,
     hasKpayPayEvidence,
+    queryBelongsToOrder,
 };
