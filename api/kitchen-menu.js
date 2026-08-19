@@ -1,5 +1,5 @@
 const { requireKitchen } = require('./_kitchenAuth.js');
-const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut } = require('./_menuDb.js');
+const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut } = require('./_menuDb.js');
 const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
@@ -63,9 +63,26 @@ module.exports = async (req, res) => {
 
         if (action === 'set_sold_out') {
             if (!body.id) return res.status(400).json({ error: 'Missing id' });
-            const saved = await setMenuItemSoldOut(body.id, !!body.is_sold_out);
+            const storeName = resolveStoreAccess(auth, body.store_name);
+            let saved = null;
+            let perStore = false;
+            if (storeName) {
+                try {
+                    saved = await setStoreMenuSoldOut(storeName, body.id, !!body.is_sold_out);
+                    perStore = true;
+                    // Stop sharing one global flag across all 3 shops.
+                    await setMenuItemSoldOut(body.id, false).catch(() => {});
+                } catch (err) {
+                    console.warn('menu_sold_out write failed, using global flag:', err.message);
+                }
+            }
+            if (!perStore) {
+                saved = await setMenuItemSoldOut(body.id, !!body.is_sold_out);
+            }
             return res.status(200).json({
                 ok: true,
+                per_store: perStore,
+                store_name: storeName || null,
                 item: Array.isArray(saved) ? saved[0] : saved,
             });
         }
@@ -153,6 +170,8 @@ module.exports = async (req, res) => {
                 fulfill: body.fulfill,
                 table_no: body.table_no,
                 items: body.items,
+                client_id: body.client_id || body.pos_client_id,
+                allow_sold_out: !!body.allow_sold_out,
             });
             return res.status(200).json({ ok: true, ...result });
         }

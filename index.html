@@ -1356,8 +1356,8 @@
                     <div class="space-y-3 hidden" id="temp-section">
                         <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400"><span class="en">Hot or Iced?</span><span class="zh">冷熱選擇</span></h3>
                         <div class="grid grid-cols-2 gap-3">
-                            <label class="relative flex flex-col items-center p-4 border-2 rounded-3xl cursor-pointer bg-apple-bg border-transparent has-[:checked]:border-black"><input type="radio" name="opt-temp" value="Hot" data-zh="熱" class="hidden" checked><span class="text-xs font-bold uppercase"><span class="en">Hot</span><span class="zh">熱</span></span></label>
-                            <label class="relative flex flex-col items-center p-4 border-2 rounded-3xl cursor-pointer bg-apple-bg border-transparent has-[:checked]:border-black"><input type="radio" name="opt-temp" value="Iced" data-zh="凍" class="hidden"><span class="text-xs font-bold uppercase"><span class="en">Iced</span><span class="zh">凍</span></span></label>
+                            <label class="relative flex flex-col items-center p-4 border-2 rounded-3xl cursor-pointer bg-apple-bg border-transparent has-[:checked]:border-black"><input type="radio" name="opt-temp" value="Hot" data-zh="熱" class="hidden" checked onchange="onDrinkTempChange()"><span class="text-xs font-bold uppercase"><span class="en">Hot</span><span class="zh">熱</span></span></label>
+                            <label class="relative flex flex-col items-center p-4 border-2 rounded-3xl cursor-pointer bg-apple-bg border-transparent has-[:checked]:border-black"><input type="radio" name="opt-temp" value="Iced" data-zh="凍" class="hidden" onchange="onDrinkTempChange()"><span class="text-xs font-bold uppercase"><span class="en">Iced</span><span class="zh">凍</span></span></label>
                         </div>
                     </div>
                     <div class="space-y-3 hidden" id="size-section">
@@ -1379,7 +1379,8 @@
                         </div>
                     </div>
                     <div class="space-y-3" id="addons-section">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400"><span class="en">2. Make it yours</span><span class="zh">2. 自選加配</span></h3>
+                        <h3 class="text-[10px] font-black uppercase tracking-widest text-gray-400"><span class="en">2. Make it yours (max 3)</span><span class="zh">2. 自選加配（最多 3 款）</span></h3>
+                        <p id="addons-limit-hint" class="hidden text-[11px] font-bold text-amber-700">已揀滿 3 款配料</p>
                         <div class="grid grid-cols-1 gap-2" id="addons-list"></div>
                     </div>
                     <div class="space-y-3" id="sauces-section">
@@ -1504,7 +1505,7 @@
 
     <!-- 腳本引入 -->
     <script src="/js/store-hours.js"></script>
-    <script src="/js/menu.js?v=3.5"></script>
+    <script src="/js/menu.js?v=3.6"></script>
     <script src="/js/order-handler.js?v=2.2"></script>
 </body>
 </html>

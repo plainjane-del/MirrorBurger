@@ -297,6 +297,8 @@ async function createPendingOrder(input) {
         }
     }
 
+    await assertItemsAvailable(storeName, items);
+
     const priced = await recalculateOrderTotal({
         store_name: storeName,
         items_json: items,
@@ -384,6 +386,69 @@ async function insertOrderWithFallback(row) {
     }
 }
 
+function posClientIdOf(itemsJson) {
+    for (const it of parseItemsJson(itemsJson)) {
+        const v = it && (it.posClientId || it.pos_client_id);
+        if (v) return String(v).trim();
+    }
+    return '';
+}
+
+function stampPosClientId(items, clientId) {
+    const id = clip(clientId, 80);
+    if (!id || !Array.isArray(items) || !items.length) return items;
+    const next = items.map((it) => (it && typeof it === 'object' ? { ...it } : it));
+    next[0] = { ...(next[0] || {}), posClientId: id };
+    return next;
+}
+
+function mapPosOrderResult(row, fallbackItems) {
+    const items = parseItemsJson((row && row.items_json) || fallbackItems);
+    return {
+        orderNo: (row && row.order_no) || '',
+        total: Number(row && row.total_amount) || 0,
+        pay_method: (row && row.pay_method) || '',
+        pickup_time: (row && row.pickup_time) || '',
+        items,
+    };
+}
+
+async function findPosOrderByClientId(storeName, clientId) {
+    const id = clip(clientId, 80);
+    if (!id || !storeName) return null;
+    const since = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+    const select = 'order_no,items_json,total_amount,pay_method,pickup_time,customer_name,created_at';
+    let rows;
+    try {
+        rows = await sbRest(
+            `orders?store_name=eq.${encodeURIComponent(storeName)}&channel=eq.pos&created_at=gte.${encodeURIComponent(since)}&select=${select}&order=created_at.desc&limit=120`
+        );
+    } catch (err) {
+        if (!/channel/i.test(String(err.message || ''))) throw err;
+        rows = await sbRest(
+            `orders?store_name=eq.${encodeURIComponent(storeName)}&customer_phone=eq.POS&created_at=gte.${encodeURIComponent(since)}&select=${select}&order=created_at.desc&limit=120`
+        );
+    }
+    return (Array.isArray(rows) ? rows : []).find((row) => posClientIdOf(row.items_json) === id) || null;
+}
+
+async function assertItemsAvailable(storeName, items) {
+    const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
+    const soldIds = await listSoldOutIds(storeName);
+    const catalog = await listMenuItems({ includeInactive: false });
+    const byId = new Map((catalog || []).map((row) => [row.id, row]));
+    for (const item of items || []) {
+        if (!item || !item.menuId) continue;
+        const row = byId.get(item.menuId);
+        const name = (item && (item.nameZh || item.nameEn)) || item.menuId;
+        if (!row || soldIds.has(item.menuId) || row.is_sold_out) {
+            const err = new Error(`已沽清：${name}`);
+            err.status = 400;
+            throw err;
+        }
+    }
+}
+
 async function createPosOrder(input) {
     const storeName = clip(input && input.store_name, 80);
     if (!KNOWN_STORES.includes(storeName)) {
@@ -397,12 +462,38 @@ async function createPosOrder(input) {
         err.status = 400;
         throw err;
     }
-    const items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
+    const clientId = clip((input && (input.client_id || input.pos_client_id)) || '', 80);
+    if (clientId) {
+        const existing = await findPosOrderByClientId(storeName, clientId);
+        if (existing) {
+            const replayed = mapPosOrderResult(existing);
+            const priced = await recalculateOrderTotal({
+                store_name: storeName,
+                items_json: replayed.items,
+                fulfill: clip(input && input.fulfill, 20) === 'dine_in' ? 'dine_in' : 'takeaway',
+                pickup_time: replayed.pickup_time,
+            }).catch(() => null);
+            return {
+                ...replayed,
+                total: (priced && priced.total) || replayed.total,
+                subtotal: priced && priced.subtotal,
+                discount: priced && priced.discount,
+                replayed: true,
+            };
+        }
+    }
+    let items = Array.isArray(input && input.items) ? input.items.slice(0, 40) : [];
     if (!items.length) {
         const err = new Error('No items');
         err.status = 400;
         throw err;
     }
+    items = items.map((it) => (
+        it && Array.isArray(it.addonIds) && it.addonIds.length > 3
+            ? { ...it, addonIds: it.addonIds.slice(0, 3) }
+            : it
+    ));
+    if (clientId) items = stampPosClientId(items, clientId);
     const customerName = clip(input && input.customer_name, 80) || '店取客人';
     const note = clip(input && input.note, 80);
     const fulfill = clip(input && input.fulfill, 20) === 'dine_in' ? '堂食' : '即取';
@@ -412,18 +503,8 @@ async function createPosOrder(input) {
     if (note) pickupBits.push(note);
     const pickupTime = pickupBits.join(' · ');
 
-    const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
-    const soldIds = await listSoldOutIds(storeName);
-    const catalog = await listMenuItems({ includeInactive: false });
-    const byId = new Map((catalog || []).map((row) => [row.id, row]));
-    for (const item of items) {
-        const row = byId.get(item.menuId);
-        const name = (item && (item.nameZh || item.nameEn)) || item.menuId;
-        if (!row || row.is_sold_out || soldIds.has(item.menuId)) {
-            const err = new Error(`已沽清：${name}`);
-            err.status = 400;
-            throw err;
-        }
+    if (!input.allow_sold_out) {
+        await assertItemsAvailable(storeName, items);
     }
 
     const priced = await recalculateOrderTotal({
@@ -554,19 +635,7 @@ async function createTableOrder(input) {
         throw err;
     }
 
-    const { listMenuItems, listSoldOutIds } = require('./_menuDb.js');
-    const soldIds = await listSoldOutIds(storeName);
-    const catalog = await listMenuItems({ includeInactive: false });
-    const byId = new Map((catalog || []).map((row) => [row.id, row]));
-    for (const item of items) {
-        const row = byId.get(item.menuId);
-        const name = (item && (item.nameZh || item.nameEn)) || item.menuId;
-        if (item.menuId && (!row || row.is_sold_out || soldIds.has(item.menuId))) {
-            const err = new Error(`已沽清：${name}`);
-            err.status = 400;
-            throw err;
-        }
-    }
+    await assertItemsAvailable(storeName, items);
 
     const priced = await recalculateOrderTotal({
         store_name: storeName,

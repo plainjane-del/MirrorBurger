@@ -54,6 +54,7 @@ let currentCat = 'beef';
 let menuItems = [];
 let mods = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
 let comboBase = 19;
+const MAX_ADDONS = 3;
 let cart = [];
 let sending = false;
 let cfgItem = null;
@@ -151,6 +152,32 @@ function itemNeedsTemp(item) {
 function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
 function findMod(kind, id) { return modsOf(kind).find((m) => m.id === id); }
 function isSold(item) { return !!(item && item.is_sold_out); }
+function modText(m) {
+    return `${(m && m.id) || ''} ${(m && m.name_zh) || ''} ${(m && m.name_en) || ''}`;
+}
+function isIcedDrinkMod(m) {
+    const id = String((m && m.id) || '');
+    if (/^cd\d+c$/.test(id)) return true;
+    return /凍|沙冰|iced|smoothie|走冰/i.test(modText(m));
+}
+function isHotDrinkMod(m) {
+    const id = String((m && m.id) || '');
+    if (/^cd\d+h$/.test(id)) return true;
+    return /熱|\bhot\b/i.test(modText(m)) && !isIcedDrinkMod(m);
+}
+function isIceAdjMod(m) {
+    return /走冰|少冰|加冰|去冰|no ice|less ice/i.test(modText(m));
+}
+function visibleAddons() {
+    return modsOf('addon').filter((a) => !(cfg.temp === 'Hot' && isIceAdjMod(a)));
+}
+function visibleComboDrinks() {
+    return modsOf('combo_drink').filter((m) => {
+        if (cfg.temp === 'Hot' && isIcedDrinkMod(m)) return false;
+        if (cfg.temp === 'Iced' && isHotDrinkMod(m)) return false;
+        return true;
+    });
+}
 function catalogItem(id) { return menuItems.find((i) => i && i.id === id) || null; }
 
 function unitOf(line) {
@@ -260,8 +287,8 @@ function closeCfg() {
 function chipRow(title, html) {
     return `<div><div class="text-[11px] font-black text-neutral-500 mb-1">${title}</div><div class="flex flex-wrap gap-1">${html}</div></div>`;
 }
-function optChip(on, label, fn) {
-    return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" onclick="${fn}">${escapeHtml(label)}</button>`;
+function optChip(on, label, fn, disabled) {
+    return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" ${disabled ? 'disabled' : ''} onclick="${disabled ? '' : fn}">${escapeHtml(label)}</button>`;
 }
 
 function renderCfg() {
@@ -286,14 +313,20 @@ function renderCfg() {
         bits.push(chipRow('溫度', optChip(cfg.temp === 'Hot', '熱', "setCfg('temp','Hot')") + optChip(cfg.temp === 'Iced', '凍', "setCfg('temp','Iced')")));
     }
     if (isBurger(item)) {
-        bits.push(chipRow('加料', modsOf('addon').map((a) => optChip(cfg.addonIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`)).join('')));
+        const addons = visibleAddons();
+        const addonMaxed = (cfg.addonIds || []).length >= MAX_ADDONS;
+        bits.push(chipRow('加料（最多 ' + MAX_ADDONS + ' 款）', addons.map((a) => {
+            const on = cfg.addonIds.includes(a.id);
+            return optChip(on, `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`, !on && addonMaxed);
+        }).join('')));
+        if (addonMaxed) bits.push('<p class="text-xs font-bold text-amber-300">已揀滿 ' + MAX_ADDONS + ' 款配料</p>');
         bits.push(chipRow('加醬', modsOf('sauce').map((a) => optChip(cfg.sauceIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('sauceIds','${a.id}')`)).join('')));
         bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '單點', "setCfg('combo', false)") + optChip(cfg.combo, '套餐', "setCfg('combo', true)")));
         if (cfg.combo) {
             bits.push(chipRow('套餐小食', modsOf('combo_snack').map((m) =>
                 optChip(cfg.comboSnackId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboSnackId','${m.id}')`)
             ).join('')));
-            bits.push(chipRow('套餐飲品', modsOf('combo_drink').map((m) =>
+            bits.push(chipRow('套餐飲品', visibleComboDrinks().map((m) =>
                 optChip(cfg.comboDrinkId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboDrinkId','${m.id}')`)
             ).join('')));
             if (!cfg.comboSnackId || !cfg.comboDrinkId) {
@@ -318,13 +351,21 @@ function setCfg(key, value) {
         cfg.comboSnackId = null;
         cfg.comboDrinkId = null;
     }
+    if (key === 'temp') {
+        const drink = findMod('combo_drink', cfg.comboDrinkId) || {};
+        if (value === 'Hot' && isIcedDrinkMod(drink)) cfg.comboDrinkId = null;
+        if (value === 'Iced' && isHotDrinkMod(drink)) cfg.comboDrinkId = null;
+        cfg.addonIds = (cfg.addonIds || []).filter((id) => !isIceAdjMod(findMod('addon', id) || { id }));
+    }
     renderCfg();
 }
 
 function toggleCfg(key, id) {
     const arr = cfg[key].slice();
     const i = arr.indexOf(id);
-    if (i >= 0) arr.splice(i, 1); else arr.push(id);
+    if (i >= 0) arr.splice(i, 1);
+    else if (key === 'addonIds' && arr.length >= MAX_ADDONS) return;
+    else arr.push(id);
     cfg[key] = arr;
     renderCfg();
 }
@@ -498,6 +539,26 @@ function closeDone() {
     document.getElementById('done-sheet').classList.remove('is-open');
 }
 
+function applyPublicMenu(data) {
+    menuItems = data.items || [];
+    const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
+    for (const m of data.modifiers || []) {
+        if (grouped[m.kind]) grouped[m.kind].push(m);
+    }
+    mods = grouped;
+    if (Number.isFinite(Number(data.combo_base))) comboBase = Number(data.combo_base);
+    const lock = document.getElementById('closed-lock');
+    if (lock) lock.classList.toggle('hidden', data.is_open !== false);
+    renderCats();
+    renderMenu();
+}
+
+async function refreshPublicMenu() {
+    if (!tableStore) return;
+    const data = await api({ action: 'public_menu', store_name: tableStore });
+    applyPublicMenu(data);
+}
+
 async function boot() {
     const route = parseTableRoute();
     tableStore = route.store;
@@ -517,22 +578,17 @@ async function boot() {
             document.getElementById('bad-table').classList.remove('hidden');
             return;
         }
-        menuItems = data.items || [];
-        const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
-        for (const m of data.modifiers || []) {
-            if (grouped[m.kind]) grouped[m.kind].push(m);
-        }
-        mods = grouped;
-        if (Number.isFinite(Number(data.combo_base))) comboBase = Number(data.combo_base);
-        if (data.is_open === false) document.getElementById('closed-lock').classList.remove('hidden');
+        applyPublicMenu(data);
     } catch (err) {
         document.getElementById('menu-grid').innerHTML =
             `<p class="col-span-2 text-center font-bold text-red-400 py-10">載入菜單失敗：${escapeHtml(err.message || err)}</p>`;
         return;
     }
-    renderCats();
-    renderMenu();
     renderCart();
+    setInterval(() => {
+        if (document.hidden) return;
+        refreshPublicMenu().catch(() => {});
+    }, 1500);
 }
 
 boot();

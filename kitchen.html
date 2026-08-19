@@ -1359,7 +1359,7 @@
             const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: getKitchenToken(), ...payload }),
+                body: JSON.stringify({ token: getKitchenToken(), store_name: currentBranch, ...payload }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Request failed');

@@ -168,6 +168,43 @@ async function setMenuItemSoldOut(id, isSoldOut) {
     });
 }
 
+async function setStoreMenuSoldOut(storeName, itemId, isSoldOut) {
+    const store = String(storeName || '').trim();
+    const id = String(itemId || '').trim();
+    if (!store || !id) throw new Error('Missing store or item id');
+    const now = new Date().toISOString();
+    const row = {
+        store_name: store,
+        item_id: id,
+        is_sold_out: !!isSoldOut,
+        updated_at: now,
+    };
+    const patched = await sbFetch(
+        `menu_sold_out?store_name=eq.${encodeURIComponent(store)}&item_id=eq.${encodeURIComponent(id)}`,
+        {
+            method: 'PATCH',
+            prefer: 'return=representation',
+            body: JSON.stringify({
+                is_sold_out: !!isSoldOut,
+                updated_at: now,
+            }),
+        }
+    );
+    if (Array.isArray(patched) && patched.length) return patched;
+    try {
+        return await sbFetch('menu_sold_out?on_conflict=store_name,item_id', {
+            method: 'POST',
+            prefer: 'resolution=merge-duplicates,return=representation',
+            body: JSON.stringify(row),
+        });
+    } catch (err) {
+        return sbFetch('menu_sold_out', {
+            method: 'POST',
+            body: JSON.stringify(row),
+        });
+    }
+}
+
 module.exports = {
     listMenuItems,
     listModifiers,
@@ -179,4 +216,5 @@ module.exports = {
     setSetting,
     listSoldOutIds,
     setMenuItemSoldOut,
+    setStoreMenuSoldOut,
 };

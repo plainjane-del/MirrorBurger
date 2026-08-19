@@ -274,12 +274,149 @@ function mapDbItem(row) {
         sizes: Array.isArray(row.sizes) && row.sizes.length ? row.sizes : undefined,
         isSide: !!row.is_side,
         hasTemp: !!row.has_temp,
+        _dbSoldOut: !!row.is_sold_out,
         isSoldOut: !!row.is_sold_out,
     };
 }
 
 function emptyMenuBuckets() {
     return { beef: [], others: [], veggie: [], snacks: [], drinks: [], sauces: [] };
+}
+
+const MAX_ADDONS = 3;
+let storeSoldOutIds = new Set();
+let soldOutPollTimer = null;
+
+function modLabelText(m) {
+    return `${(m && m.id) || ''} ${(m && m.nameZh) || ''} ${(m && m.nameEn) || ''} ${(m && m.name_zh) || ''} ${(m && m.name_en) || ''}`;
+}
+function isIcedDrinkMod(m) {
+    const id = String((m && m.id) || '');
+    if (/^cd\d+c$/.test(id)) return true;
+    return /凍|沙冰|iced|smoothie|走冰/i.test(modLabelText(m));
+}
+function isHotDrinkMod(m) {
+    const id = String((m && m.id) || '');
+    if (/^cd\d+h$/.test(id)) return true;
+    return /熱|\bhot\b/i.test(modLabelText(m)) && !isIcedDrinkMod(m);
+}
+function isIceAdjMod(m) {
+    return /走冰|少冰|加冰|去冰|no ice|less ice/i.test(modLabelText(m));
+}
+function currentDrinkTemp() {
+    const section = document.getElementById('temp-section');
+    if (section && section.classList.contains('hidden')) return '';
+    return document.querySelector('input[name="opt-temp"]:checked')?.value || '';
+}
+function visibleAddons() {
+    const temp = currentDrinkTemp();
+    return addons.filter((a) => !(temp === 'Hot' && isIceAdjMod(a)));
+}
+function visibleComboDrinks() {
+    const temp = currentDrinkTemp();
+    return comboDrinks.filter((d) => {
+        if (temp === 'Hot' && isIcedDrinkMod(d)) return false;
+        if (temp === 'Iced' && isHotDrinkMod(d)) return false;
+        return true;
+    });
+}
+function syncAddonLimit() {
+    const boxes = Array.from(document.querySelectorAll('input[name="addon"]'));
+    const checked = boxes.filter((b) => b.checked);
+    const atMax = checked.length >= MAX_ADDONS;
+    boxes.forEach((b) => {
+        if (!b.checked) b.disabled = atMax;
+    });
+    const hint = document.getElementById('addons-limit-hint');
+    if (hint) hint.classList.toggle('hidden', !atMax);
+}
+function fillComboDrinkOptions() {
+    const el = document.getElementById('combo-drink');
+    if (!el) return;
+    const prev = el.value;
+    const list = visibleComboDrinks();
+    el.innerHTML = list.map((d) => `<option value="${d.id}" data-price="${d.p}">${lang(d.nameEn, d.nameZh)} ${d.p > 0 ? '(+' + d.p + ')' : ''}</option>`).join('');
+    if (list.some((d) => d.id === prev)) el.value = prev;
+}
+function onDrinkTempChange() {
+    const temp = currentDrinkTemp();
+    if (temp === 'Hot') {
+        document.querySelectorAll('input[name="addon"]').forEach((cb) => {
+            const a = addons.find((x) => x.id === cb.value);
+            if (a && isIceAdjMod(a)) cb.checked = false;
+        });
+    }
+    fillComboDrinkOptions();
+    renderAddonOptions();
+    updateConfigPrice();
+}
+function renderAddonOptions() {
+    const list = visibleAddons();
+    document.getElementById('addons-list').innerHTML = list.map((a) =>
+        `<label class="flex items-center justify-between p-4 bg-apple-bg rounded-2xl cursor-pointer"><span class="text-xs font-bold uppercase tracking-tight">${lang(a.nameEn, a.nameZh)} (+${a.p})</span><input type="checkbox" name="addon" value="${a.id}" data-price="${a.p}" class="w-5 h-5 accent-black rounded" onchange="syncAddonLimit(); updateConfigPrice()"></label>`
+    ).join('');
+    syncAddonLimit();
+}
+
+function applyStoreSoldOutOverlay() {
+    Object.keys(menuData).forEach((cat) => {
+        (menuData[cat] || []).forEach((item) => {
+            item.isSoldOut = !!(item._dbSoldOut || storeSoldOutIds.has(item.id));
+        });
+    });
+}
+
+async function fetchStoreSoldOut() {
+    const store = getActiveStore();
+    try {
+        if (!store) {
+            storeSoldOutIds = new Set();
+            applyStoreSoldOutOverlay();
+            renderMenuByCategory(currentCategory);
+            return;
+        }
+        const { data, error } = await supabaseClient
+            .from('menu_sold_out')
+            .select('item_id, is_sold_out')
+            .eq('store_name', store)
+            .eq('is_sold_out', true);
+        if (error) throw error;
+        storeSoldOutIds = new Set((data || []).map((r) => r.item_id).filter(Boolean));
+        applyStoreSoldOutOverlay();
+        renderMenuByCategory(currentCategory);
+    } catch (err) {
+        console.warn('menu_sold_out fetch skipped:', err.message || err);
+    }
+}
+
+function startSoldOutRealtime() {
+    supabaseClient
+        .channel('menu-sold-out-public')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'menu_sold_out' },
+            (payload) => {
+                const row = payload.new || payload.old;
+                const store = getActiveStore();
+                if (!row || (store && row.store_name && row.store_name !== store)) return;
+                fetchStoreSoldOut();
+            }
+        )
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'menu_items' },
+            () => { fetchLiveMenu(); }
+        )
+        .subscribe();
+    if (soldOutPollTimer) clearInterval(soldOutPollTimer);
+    soldOutPollTimer = setInterval(() => {
+        if (document.hidden) return;
+        if (!getActiveStore()) return;
+        fetchStoreSoldOut();
+    }, 1500);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) fetchStoreSoldOut();
+    });
 }
 
 async function fetchLiveMenu() {
@@ -317,6 +454,8 @@ async function fetchLiveMenu() {
                     dietary: (mapped.dietary && mapped.dietary.length) ? mapped.dietary : prev.dietary,
                     isSide: row.is_side != null ? !!row.is_side : prev.isSide,
                     hasTemp: row.has_temp != null ? !!row.has_temp : prev.hasTemp,
+                    _dbSoldOut: mapped._dbSoldOut,
+                    isSoldOut: mapped.isSoldOut,
                     img: mapped.img || prev.img,
                     desc: mapped.desc || prev.desc,
                     descZh: mapped.descZh || prev.descZh,
@@ -326,7 +465,7 @@ async function fetchLiveMenu() {
             });
         }
 
-        renderMenuByCategory(currentCategory);
+        await fetchStoreSoldOut();
     } catch (error) {
         console.error('Supabase menu load error — using fallback:', error);
         renderMenuByCategory(currentCategory);
@@ -547,14 +686,15 @@ function openConfig(cat, id) {
     document.getElementById('combo-section').classList.toggle('hidden', !isBurger);
 
     if (hasSizes) document.getElementById('size-list').innerHTML = item.sizes.map((sz, index) => `<label class="relative flex flex-col items-center p-4 border-2 rounded-3xl cursor-pointer bg-apple-bg border-transparent has-[:checked]:border-black"><input type="radio" name="opt-size" value="${sz.label}" data-zh="${sz.labelZh}" data-price="${sz.upcharge}" class="hidden" ${index === 0 ? 'checked' : ''} onchange="updateConfigPrice()"><span class="text-xs font-bold uppercase"><span class="en">${sz.label}</span><span class="zh">${sz.labelZh}</span> ${sz.upcharge > 0 ? '(+' + sz.upcharge + ')' : ''}</span></label>`).join('');
-    document.getElementById('addons-list').innerHTML = addons.map(a => `<label class="flex items-center justify-between p-4 bg-apple-bg rounded-2xl cursor-pointer"><span class="text-xs font-bold uppercase tracking-tight">${lang(a.nameEn, a.nameZh)} (+${a.p})</span><input type="checkbox" name="addon" value="${a.id}" data-price="${a.p}" class="w-5 h-5 accent-black rounded" onchange="updateConfigPrice()"></label>`).join('');
     document.getElementById('sauces-list').innerHTML = sauces.map(s => `<label class="flex items-center justify-between p-4 bg-apple-bg rounded-2xl cursor-pointer"><span class="text-xs font-bold uppercase tracking-tight">${lang(s.nameEn, s.nameZh)} (+${s.p})</span><input type="checkbox" name="sauce" value="${s.id}" data-price="${s.p}" class="w-5 h-5 accent-black rounded" onchange="updateConfigPrice()"></label>`).join('');
     
     document.getElementById('combo-snack').innerHTML = comboSnacks.map(s => `<option value="${s.id}" data-price="${s.p}">${lang(s.nameEn, s.nameZh)} ${s.p > 0 ? '(+' + s.p + ')' : ''}</option>`).join('');
-    document.getElementById('combo-drink').innerHTML = comboDrinks.map(d => `<option value="${d.id}" data-price="${d.p}">${lang(d.nameEn, d.nameZh)} ${d.p > 0 ? '(+' + d.p + ')' : ''}</option>`).join('');
+    fillComboDrinkOptions();
 
     document.getElementById('opt-combo').checked = false;
     toggleComboDetails();
+    renderAddonOptions();
+    syncAddonLimit();
     updateConfigPrice();
     document.getElementById('config-scroll-area').scrollTop = 0;
     document.getElementById('sheet-overlay').classList.remove('hidden');
@@ -572,6 +712,7 @@ function updateConfigPrice() {
 
     document.querySelectorAll('input[name="addon"]:checked').forEach(cb => total += parseInt(cb.dataset.price));
     document.querySelectorAll('input[name="sauce"]:checked').forEach(cb => total += parseInt(cb.dataset.price));
+    syncAddonLimit();
     
     const isCombo = document.getElementById('opt-combo') ? document.getElementById('opt-combo').checked : false;
     if (isCombo) {
@@ -667,7 +808,7 @@ function addCurrentToBag() {
         nameZh: activeItem.nameZh,
         price: finalPrice,
         size: sizeLabel,
-        addonIds,
+        addonIds: addonIds.slice(0, MAX_ADDONS),
         sauceIds,
         comboSnackId,
         comboDrinkId,
@@ -714,7 +855,7 @@ function setFlowStore(storeName) {
         return;
     }
     flowSelectedStore = storeName;
-    const storeObj = stores.find(s => s.name === storeName);
+    fetchStoreSoldOut();
     const storeZh = storeObj ? storeObj.nameZh : storeName;
     document.getElementById('flow-selected-store-label').innerText = lang(`From: ${storeName}`, `取餐分店: ${storeZh}`);
     
@@ -1081,7 +1222,12 @@ function updateCartUI() {
 }
 
 function removeFromCart(id) { cart = cart.filter(i => i.id !== id); updateCartUI(); }
-function handleStoreChange() { flowSelectedStore = document.getElementById('cust-store').value; updateCartStoreUI(); updateCartUI(); }
+function handleStoreChange() {
+    flowSelectedStore = document.getElementById('cust-store').value;
+    updateCartStoreUI();
+    updateCartUI();
+    fetchStoreSoldOut();
+}
 function changeStore() {
     if (isTableMode()) return;
     flowSelectedStore = '';
@@ -1572,6 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchLiveMenu();
     fetchStoreSettings();
     startStoreSettingsRealtime();
+    startSoldOutRealtime();
     setInterval(() => applyStoreOpenUI(), 30000);
 
     confirmPaymentFromRedirect();

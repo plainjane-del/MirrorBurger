@@ -24,7 +24,8 @@
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:15px; }
         #voice-live-bar { display:none; }
         #voice-live-bar.is-on { display:block; }
-        .pay-btn:disabled, #cfg-add:disabled { opacity:.45; }
+        .chip-btn:disabled { opacity:.35; pointer-events:none; }
+        #pos-queue-bar { background:#78350f; color:#ffedd5; border-bottom:1px solid #b45309; }
         .mic-btn.is-on { background:#b91c1c; color:#fff; border-color:#b91c1c; }
         #pos-cart.is-flash { box-shadow: inset 0 0 0 2px #FFD131; }
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
@@ -84,6 +85,9 @@
                 <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
                 <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
+            </div>
+            <div id="pos-queue-bar" class="hidden px-3 py-2 text-xs font-black">
+                斷網排隊 <span id="pos-queue-count">0</span> 單 · 網絡一回復就自動上雲，唔使再撳
             </div>
             <div id="pos-store-row" class="mt-2 grid grid-cols-3 gap-1 hidden">
                 <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
@@ -229,6 +233,8 @@
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
         const HOLD_KEY = 'mb_pos_holds';
+        const QUEUE_KEY = 'mb_pos_offline_queue_v1';
+        const MAX_ADDONS = 3;
         const VOICE_ORDERING_ENABLED = false;
         const CATS = [
             { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
@@ -286,6 +292,9 @@
         let comboBase = 19;
         let cart = [];
         let charging = false;
+        let flushingQueue = false;
+        let menuPollTimer = null;
+        let queueFlushTimer = null;
         let cfgItem = null;
         let cfg = {};
         let cfgEditIndex = -1;
@@ -368,6 +377,69 @@
         function modsOf(kind) { return mods[kind] && mods[kind].length ? mods[kind] : FALLBACK[kind]; }
         function findMod(kind, id) { return modsOf(kind).find((m) => m.id === id); }
         function isSold(item) { return !!(item && item.is_sold_out); }
+        function modText(m) {
+            return `${(m && m.id) || ''} ${(m && m.name_zh) || ''} ${(m && m.name_en) || ''}`;
+        }
+        function isIcedDrinkMod(m) {
+            const id = String((m && m.id) || '');
+            if (/^cd\d+c$/.test(id)) return true;
+            return /凍|沙冰|iced|smoothie|走冰/i.test(modText(m));
+        }
+        function isHotDrinkMod(m) {
+            const id = String((m && m.id) || '');
+            if (/^cd\d+h$/.test(id)) return true;
+            return /熱|\bhot\b/i.test(modText(m)) && !isIcedDrinkMod(m);
+        }
+        function isIceAdjMod(m) {
+            return /走冰|少冰|加冰|去冰|no ice|less ice/i.test(modText(m));
+        }
+        function visibleAddons() {
+            return modsOf('addon').filter((a) => !(cfg.temp === 'Hot' && isIceAdjMod(a)));
+        }
+        function visibleComboDrinks() {
+            return modsOf('combo_drink').filter((m) => {
+                if (cfg.temp === 'Hot' && isIcedDrinkMod(m)) return false;
+                if (cfg.temp === 'Iced' && isHotDrinkMod(m)) return false;
+                return true;
+            });
+        }
+
+        function newClientId() {
+            try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (_) {}
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        function isRetryableNetworkError(err) {
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+            const msg = String((err && err.message) || err || '');
+            return /Failed to fetch|NetworkError|Load failed|offline|timeout|network|HTTP 5\d\d|HTTP 429/i.test(msg);
+        }
+        function readQueue() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+                return Array.isArray(raw) ? raw : [];
+            } catch (_) { return []; }
+        }
+        function writeQueue(rows) {
+            localStorage.setItem(QUEUE_KEY, JSON.stringify((rows || []).slice(0, 40)));
+            renderQueueBar();
+        }
+        function storeQueue() {
+            return readQueue().filter(function (row) { return row && row.store === currentStore; });
+        }
+        function renderQueueBar() {
+            const bar = document.getElementById('pos-queue-bar');
+            const nEl = document.getElementById('pos-queue-count');
+            const n = storeQueue().length;
+            if (nEl) nEl.textContent = String(n);
+            if (bar) bar.classList.toggle('hidden', n === 0);
+        }
+        function queueTicketNo(clientId) {
+            return 'Q-' + String(clientId || '').replace(/-/g, '').slice(-4).toUpperCase();
+        }
 
         async function posApi(payload) {
             const res = await fetch('/api/kitchen-menu', {
@@ -434,6 +506,7 @@
             localStorage.setItem(STORE_KEY, currentStore);
             markStoreButtons();
             renderHoldBadge();
+            renderQueueBar();
             await loadMenu();
             refreshTableUnpaidBadge();
         }
@@ -525,8 +598,8 @@
         function chipRow(title, html) {
             return `<div><div class="text-[11px] font-black text-neutral-500 mb-1">${title}</div><div class="flex flex-wrap gap-1">${html}</div></div>`;
         }
-        function optChip(on, label, fn) {
-            return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" onclick="${fn}">${escapeHtml(label)}</button>`;
+        function optChip(on, label, fn, disabled) {
+            return `<button type="button" class="chip-btn ${on ? 'is-active' : ''}" ${disabled ? 'disabled' : ''} onclick="${disabled ? '' : fn}">${escapeHtml(label)}</button>`;
         }
         function renderCfg() {
             if (!cfgItem) return;
@@ -550,14 +623,20 @@
                 bits.push(chipRow('溫度', optChip(cfg.temp === 'Hot', '熱', "setCfg('temp','Hot')") + optChip(cfg.temp === 'Iced', '凍', "setCfg('temp','Iced')")));
             }
             if (isBurger(item)) {
-                bits.push(chipRow('加料', modsOf('addon').map((a) => optChip(cfg.addonIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`)).join('')));
+                const addons = visibleAddons();
+                const addonMaxed = (cfg.addonIds || []).length >= MAX_ADDONS;
+                bits.push(chipRow('加料（最多 ' + MAX_ADDONS + ' 款）', addons.map((a) => {
+                    const on = cfg.addonIds.includes(a.id);
+                    return optChip(on, `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('addonIds','${a.id}')`, !on && addonMaxed);
+                }).join('')));
+                if (addonMaxed) bits.push('<p class="text-xs font-bold text-amber-300">已揀滿 ' + MAX_ADDONS + ' 款配料</p>');
                 bits.push(chipRow('加醬', modsOf('sauce').map((a) => optChip(cfg.sauceIds.includes(a.id), `${a.name_zh || a.name_en} +$${a.price}`, `toggleCfg('sauceIds','${a.id}')`)).join('')));
                 bits.push(chipRow('套餐 +$' + comboBase, optChip(!cfg.combo, '單點', "setCfg('combo', false)") + optChip(cfg.combo, '套餐', "setCfg('combo', true)")));
                 if (cfg.combo) {
                     bits.push(chipRow('套餐小食（請揀）', modsOf('combo_snack').map((m) =>
                         optChip(cfg.comboSnackId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboSnackId','${m.id}')`)
                     ).join('')));
-                    bits.push(chipRow('套餐飲品（請揀）', modsOf('combo_drink').map((m) =>
+                    bits.push(chipRow('套餐飲品（請揀）', visibleComboDrinks().map((m) =>
                         optChip(cfg.comboDrinkId === m.id, `${m.name_zh || m.name_en} +$${m.price}`, `setCfg('comboDrinkId','${m.id}')`)
                     ).join('')));
                     if (!cfg.comboSnackId || !cfg.comboDrinkId) {
@@ -581,12 +660,20 @@
                 cfg.comboSnackId = null;
                 cfg.comboDrinkId = null;
             }
+            if (key === 'temp') {
+                const drink = findMod('combo_drink', cfg.comboDrinkId) || {};
+                if (value === 'Hot' && isIcedDrinkMod(drink)) cfg.comboDrinkId = null;
+                if (value === 'Iced' && isHotDrinkMod(drink)) cfg.comboDrinkId = null;
+                cfg.addonIds = (cfg.addonIds || []).filter((id) => !isIceAdjMod(findMod('addon', id) || { id }));
+            }
             renderCfg();
         }
         function toggleCfg(key, id) {
             const arr = cfg[key].slice();
             const i = arr.indexOf(id);
-            if (i >= 0) arr.splice(i, 1); else arr.push(id);
+            if (i >= 0) arr.splice(i, 1);
+            else if (key === 'addonIds' && arr.length >= MAX_ADDONS) return;
+            else arr.push(id);
             cfg[key] = arr;
             renderCfg();
         }
@@ -1340,6 +1427,91 @@
             }, 480);
         }
 
+        async function finishChargedOrder(data, items, payMethod, extra, guest) {
+            extra = extra || {};
+            if (payMethod === 'cash') {
+                data.cash_received = extra.received;
+                data.cash_change = extra.change;
+            }
+            clearCart();
+            document.getElementById('guest-name').value = '';
+            document.getElementById('order-note').value = '';
+            closeCashSheet();
+            showTicket(data, items);
+            try {
+                await PosPrint.printTicket({
+                    ...data,
+                    store_name: currentStore,
+                    customer_name: guest,
+                    queued: !!data.queued,
+                }, items, { openDrawer: payMethod === 'cash' });
+            } catch (printErr) {
+                console.warn('print failed', printErr);
+            }
+        }
+
+        async function flushPosQueue() {
+            if (flushingQueue || charging) return;
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+            const rows = readQueue();
+            if (!rows.length) return;
+            flushingQueue = true;
+            const keep = [];
+            let synced = 0;
+            try {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    try {
+                        const payload = Object.assign({}, row.payload, {
+                            allow_sold_out: true,
+                            client_id: row.clientId,
+                        });
+                        const data = await posApi(payload);
+                        synced += 1;
+                        if (lastTicket && lastTicket.queued && queueTicketNo(row.clientId) === lastTicket.orderNo) {
+                            lastTicket.orderNo = data.orderNo;
+                            lastTicket.queued = false;
+                            const noEl = document.getElementById('ticket-no');
+                            if (noEl) noEl.textContent = '#' + data.orderNo;
+                            const lastEl = document.getElementById('last-ticket');
+                            if (lastEl) lastEl.textContent = `#${data.orderNo} · ${PAY_LABEL[data.pay_method] || data.pay_method} · $${data.total}`;
+                        }
+                    } catch (err) {
+                        const msg = String((err && err.message) || err || '');
+                        if (isRetryableNetworkError(err) || /401|403|unauthor|token|密碼/i.test(msg)) {
+                            keep.push.apply(keep, rows.slice(i));
+                            break;
+                        }
+                        row.attempts = (row.attempts || 0) + 1;
+                        row.lastError = msg;
+                        if (row.attempts < 8) keep.push(row);
+                    }
+                }
+                writeQueue(keep);
+                if (synced) showToast('已將 ' + synced + ' 張排隊單上雲');
+            } finally {
+                flushingQueue = false;
+            }
+        }
+
+        let posSyncStarted = false;
+        function startPosBackgroundSync() {
+            renderQueueBar();
+            if (menuPollTimer) clearInterval(menuPollTimer);
+            menuPollTimer = setInterval(function () {
+                const app = document.getElementById('pos-app');
+                if (!app || app.classList.contains('hidden')) return;
+                loadMenu().catch(function () {});
+            }, 1500);
+            if (queueFlushTimer) clearInterval(queueFlushTimer);
+            queueFlushTimer = setInterval(function () { flushPosQueue(); }, 6000);
+            if (!posSyncStarted) {
+                window.addEventListener('online', function () { flushPosQueue(); });
+                posSyncStarted = true;
+            }
+            flushPosQueue();
+        }
+
         async function charge(payMethod, extra) {
             extra = extra || {};
             if (charging || !cart.length) return;
@@ -1353,6 +1525,8 @@
             const guest = document.getElementById('guest-name').value.trim();
             const note = document.getElementById('order-note').value.trim();
             const tableNo = tableNoValue();
+            const clientId = newClientId();
+            const totals = cartTotals();
             try {
                 const items = snapshot.map((line) => ({
                     menuId: line.menuId,
@@ -1367,7 +1541,7 @@
                     detailsEn: line.detailsEn,
                     detailsZh: line.detailsZh,
                 }));
-                const data = await posApi({
+                const payload = {
                     action: 'create_pos_order',
                     store_name: currentStore,
                     pay_method: payMethod,
@@ -1376,24 +1550,43 @@
                     customer_name: guest,
                     note,
                     items,
-                });
-                if (payMethod === 'cash') {
-                    data.cash_received = extra.received;
-                    data.cash_change = extra.change;
-                }
-                clearCart();
-                document.getElementById('guest-name').value = '';
-                document.getElementById('order-note').value = '';
-                closeCashSheet();
-                showTicket(data, items);
+                    client_id: clientId,
+                };
                 try {
-                    await PosPrint.printTicket({
-                        ...data,
-                        store_name: currentStore,
-                        customer_name: guest,
-                    }, items, { openDrawer: payMethod === 'cash' });
-                } catch (printErr) {
-                    console.warn('print failed', printErr);
+                    const data = await posApi(payload);
+                    await finishChargedOrder(data, items, payMethod, extra, guest);
+                } catch (err) {
+                    if (!isRetryableNetworkError(err)) throw err;
+                    const queuedRows = readQueue();
+                    if (!queuedRows.some(function (r) { return r.clientId === clientId; })) {
+                        queuedRows.push({
+                            clientId,
+                            store: currentStore,
+                            payload,
+                            items,
+                            payMethod,
+                            extra,
+                            guest,
+                            createdAt: Date.now(),
+                        });
+                        writeQueue(queuedRows);
+                    } else {
+                        renderQueueBar();
+                    }
+                    const pickupBits = [fulfill === 'dine_in' ? '堂食' : '即取'];
+                    if (tableNo) pickupBits.push(tableNo + '號枱');
+                    if (note) pickupBits.push(note);
+                    pickupBits.push('排隊上雲');
+                    await finishChargedOrder({
+                        orderNo: queueTicketNo(clientId),
+                        total: totals.total,
+                        subtotal: totals.sub,
+                        discount: totals.discount,
+                        pay_method: payMethod,
+                        pickup_time: pickupBits.join(' · '),
+                        queued: true,
+                    }, items, payMethod, extra, guest);
+                    showToast('網絡斷咗，單已暫存。恢復後會自動上雲，唔使再撳一次。');
                 }
             } catch (err) {
                 alert('入單失敗：' + (err.message || err));
@@ -1597,8 +1790,10 @@
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
             renderHoldBadge();
+            renderQueueBar();
             await loadMenu();
             startTableUnpaidPoll();
+            startPosBackgroundSync();
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
         window.onload = async () => {

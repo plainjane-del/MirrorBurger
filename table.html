@@ -18,7 +18,7 @@
         .pos-thumb { aspect-ratio: 1 / 1; width: 100%; background:#111; overflow:hidden; border-radius:10px; margin-bottom:8px; }
         .pos-thumb img { width:100%; height:100%; object-fit:contain; object-position:center; display:block; }
         .pay-btn { min-height:52px; font-weight:900; border-radius:14px; font-size:16px; }
-        .pay-btn:disabled, #cfg-add:disabled { opacity:.45; }
+        .chip-btn:disabled { opacity:.35; pointer-events:none; }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
@@ -104,6 +104,6 @@
     </div>
 
     <script src="/js/store-hours.js"></script>
-    <script src="/js/table-order.js?v=2"></script>
+    <script src="/js/table-order.js?v=3"></script>
 </body>
 </html>

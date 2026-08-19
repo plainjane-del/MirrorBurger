@@ -154,7 +154,8 @@ function priceLine(item, catalog) {
         if (key && sizeMap) line += Number(sizeMap[key]) || 0;
     }
 
-    for (const aid of Array.isArray(item.addonIds) ? item.addonIds : []) {
+    const addonIds = (Array.isArray(item.addonIds) ? item.addonIds : []).slice(0, 3);
+    for (const aid of addonIds) {
         if (!(aid in addons)) throw new Error(`Unknown addon: ${aid}`);
         line += addons[aid];
     }
