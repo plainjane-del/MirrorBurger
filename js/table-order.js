@@ -1,4 +1,20 @@
-const STORE = 'Sai Ying Pun';
+const STORE_SLUGS = {
+    syp: 'Sai Ying Pun',
+    'sai-ying-pun': 'Sai Ying Pun',
+    th: 'Fortress Hill',
+    'tin-hau': 'Fortress Hill',
+    'fortress-hill': 'Fortress Hill',
+    tw: 'Tsuen Wan (Takeaway Only)',
+    'tsuen-wan': 'Tsuen Wan (Takeaway Only)',
+};
+const STORE_LABEL = {
+    'Sai Ying Pun': '西營盤',
+    'Fortress Hill': '天后',
+    'Tsuen Wan (Takeaway Only)': '荃灣',
+};
+
+let tableStore = 'Sai Ying Pun';
+let tableNo = 0;
 const CATS = [
     { id: 'beef', label: '牛肉' }, { id: 'others', label: '其他' }, { id: 'veggie', label: '素食' },
     { id: 'snacks', label: '小食' }, { id: 'drinks', label: '飲品' }, { id: 'sauces', label: '醬汁' },
@@ -34,7 +50,6 @@ const FALLBACK = {
     ],
 };
 
-let tableNo = 0;
 let currentCat = 'beef';
 let menuItems = [];
 let mods = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
@@ -45,11 +60,26 @@ let cfgItem = null;
 let cfg = {};
 let cfgEditIndex = -1;
 
-function parseTableNo() {
+function parseTableRoute() {
     const path = (location.pathname || '').replace(/\/+$/, '');
-    const fromPath = path.match(/^\/t\/(\d+)$/);
-    const n = fromPath ? Number(fromPath[1]) : Number(new URLSearchParams(location.search).get('table') || 0);
-    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : 0;
+    const withStore = path.match(/^\/t\/([a-z0-9-]+)\/(\d+)$/i);
+    if (withStore) {
+        const store = STORE_SLUGS[withStore[1].toLowerCase()] || '';
+        const n = Number(withStore[2]);
+        return { store, table: Number.isInteger(n) ? n : 0 };
+    }
+    const legacy = path.match(/^\/t\/(\d+)$/);
+    if (legacy) {
+        const n = Number(legacy[1]);
+        return { store: 'Sai Ying Pun', table: Number.isInteger(n) ? n : 0 };
+    }
+    const q = new URLSearchParams(location.search);
+    const n = Number(q.get('table') || 0);
+    const slug = String(q.get('store') || 'syp').toLowerCase();
+    return {
+        store: STORE_SLUGS[slug] || 'Sai Ying Pun',
+        table: Number.isInteger(n) ? n : 0,
+    };
 }
 
 function escapeHtml(str) {
@@ -443,7 +473,7 @@ async function sendOrder() {
         }));
         const data = await api({
             action: 'create_table',
-            store_name: STORE,
+            store_name: tableStore,
             customer_name: name,
             items,
             table: tableNo,
@@ -469,14 +499,24 @@ function closeDone() {
 }
 
 async function boot() {
-    tableNo = parseTableNo();
-    if (!tableNo) {
+    const route = parseTableRoute();
+    tableStore = route.store;
+    tableNo = route.table;
+    if (!tableStore || tableNo < 1) {
         document.getElementById('bad-table').classList.remove('hidden');
         return;
     }
     document.getElementById('table-title').textContent = tableNo + '號枱';
+    const storeLabel = STORE_LABEL[tableStore] || tableStore;
+    const storeEl = document.getElementById('table-store-label');
+    if (storeEl) storeEl.textContent = storeLabel + '堂食 · 送到廚房後請到櫃檯付款';
     try {
-        const data = await api({ action: 'public_menu', store_name: STORE });
+        const data = await api({ action: 'public_menu', store_name: tableStore });
+        const max = Number(data.table_count);
+        if (!Number.isFinite(max) || tableNo > max) {
+            document.getElementById('bad-table').classList.remove('hidden');
+            return;
+        }
         menuItems = data.items || [];
         const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
         for (const m of data.modifiers || []) {

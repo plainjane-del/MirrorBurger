@@ -19,10 +19,12 @@
     { "source": "/fortress-hill", "destination": "/tin-hau", "permanent": true },
     { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true }
   ],
-  "rewrites": [
+    "rewrites": [
     { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
     { "source": "/tin-hau", "destination": "/tin-hau.html" },
     { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/t/:store/:n", "destination": "/table.html" },
     { "source": "/t/:n", "destination": "/table.html" },
     { "source": "/tables", "destination": "/table-qr.html" }
   ],
@@ -55,6 +57,10 @@
     },
     {
       "source": "/kitchen.html",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/t/:store/:n",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     },
     {

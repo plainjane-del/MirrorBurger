@@ -3,6 +3,7 @@ const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrd
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
+const { getTableCount } = require('./_tableSettings.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -58,6 +59,12 @@ module.exports = async (req, res) => {
                 ...item,
                 is_sold_out: !!(item.is_sold_out || soldIds.has(item.id)),
             }));
+            let table_count = storeName === 'Sai Ying Pun' ? 5 : 0;
+            try {
+                table_count = await getTableCount(storeName);
+            } catch (err) {
+                console.warn('public_menu table_count skipped:', err.message);
+            }
             return res.status(200).json({
                 ok: true,
                 items: merged,
@@ -65,6 +72,7 @@ module.exports = async (req, res) => {
                 combo_base,
                 is_open,
                 store_name: storeName,
+                table_count,
             });
         }
 

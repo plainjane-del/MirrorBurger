@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { notifyOrderPaid } = require('./_notify.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { KNOWN_STORES, getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
+const { getTableCount } = require('./_tableSettings.js');
 
 /** Prefer service role — RLS trigger blocks anon from changing payment_status. */
 function getSupabaseConfig() {
@@ -335,8 +336,6 @@ async function createPendingOrder(input) {
 }
 
 const POS_PAY_METHODS = new Set(['cash', 'fps', 'payme', 'card']);
-const TABLE_STORE = 'Sai Ying Pun';
-const TABLE_MAX = 5;
 
 async function assertStoreAccepting(storeName) {
     try {
@@ -526,14 +525,15 @@ async function cancelPosOrder(orderNo) {
 
 async function createTableOrder(input) {
     const tableNo = Number(input && input.table);
-    if (!Number.isInteger(tableNo) || tableNo < 1 || tableNo > TABLE_MAX) {
-        const err = new Error('Invalid table');
+    const storeName = clip(input && input.store_name, 80);
+    if (!KNOWN_STORES.includes(storeName)) {
+        const err = new Error('Invalid store');
         err.status = 400;
         throw err;
     }
-    const storeName = clip(input && input.store_name, 80) || TABLE_STORE;
-    if (storeName !== TABLE_STORE) {
-        const err = new Error('Table QR is Sai Ying Pun only');
+    const tableMax = await getTableCount(storeName);
+    if (!Number.isInteger(tableNo) || tableNo < 1 || tableNo > tableMax) {
+        const err = new Error('Invalid table');
         err.status = 400;
         throw err;
     }

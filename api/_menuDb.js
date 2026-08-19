@@ -130,6 +130,18 @@ async function getSetting(key) {
     return Array.isArray(rows) && rows[0] ? rows[0].value : null;
 }
 
+async function setSetting(key, value) {
+    return sbFetch('menu_settings?on_conflict=key', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=representation',
+        body: JSON.stringify({
+            key: String(key),
+            value,
+            updated_at: new Date().toISOString(),
+        }),
+    });
+}
+
 async function listSoldOutIds(storeName) {
     const store = String(storeName || '').trim();
     if (!store) return new Set();
@@ -164,6 +176,7 @@ module.exports = {
     upsertModifier,
     deleteModifier,
     getSetting,
+    setSetting,
     listSoldOutIds,
     setMenuItemSoldOut,
 };
