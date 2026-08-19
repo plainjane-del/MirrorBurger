@@ -11,16 +11,48 @@
     <meta name="robots" content="noindex,nofollow">
     <link rel="manifest" href="/kitchen-manifest.json">
     <title>Mirror Burger | Kitchen Display System</title>
+    <script>
+        (function () {
+            var standalone = window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches
+                || window.matchMedia('(display-mode: fullscreen)').matches;
+            if (standalone) document.documentElement.classList.add('is-standalone');
+        })();
+    </script>
     <link href="./output.css?v=2.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/store-hours.js"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
+        :root {
+            --kds-sat: 0px;
+            --kds-sab: 0px;
+        }
+        html.is-standalone {
+            --kds-sat: max(20px, env(safe-area-inset-top, 0px));
+            --kds-sab: env(safe-area-inset-bottom, 0px);
+        }
+        @supports (padding-top: constant(safe-area-inset-top)) {
+            html.is-standalone {
+                --kds-sat: max(20px, constant(safe-area-inset-top));
+                --kds-sab: constant(safe-area-inset-bottom);
+            }
+        }
         body {
             background: #0a0a0a;
             color: #f5f5f5;
             font-family: "Avenir Next", "Helvetica Neue", "PingFang HK", "Noto Sans TC", sans-serif;
             min-height: 100dvh;
+        }
+        html.is-standalone #kitchen-lock {
+            padding-top: var(--kds-sat);
+            padding-bottom: max(24px, var(--kds-sab));
+        }
+        html.is-standalone .kds-header {
+            padding-top: calc(10px + var(--kds-sat));
+        }
+        html.is-standalone .history-panel-sheet {
+            padding-top: var(--kds-sat);
         }
         .order-card {
             animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
@@ -191,7 +223,7 @@
             overflow-y: auto;
         }
         @media (max-width: 1023px) {
-            .board-col { display: none; min-height: calc(100dvh - 168px); }
+            .board-col { display: none; min-height: calc(100dvh - 168px - var(--kds-sat)); }
             .board-col.is-shown { display: flex; }
             .board-col-h { display: none; }
         }
@@ -240,7 +272,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.18k</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -264,7 +296,7 @@
     </div>
 
     <div id="kitchen-app" class="hidden">
-    <header class="sticky top-0 z-50 bg-kds-bg border-b border-kds-border px-3 py-2">
+    <header class="kds-header sticky top-0 z-50 bg-kds-bg border-b border-kds-border px-3 pb-2 pt-2">
         <div class="flex items-center gap-2">
             <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_140/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
             <div class="min-w-0 flex-1">
