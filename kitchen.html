@@ -234,6 +234,7 @@
             display: none;
         }
         .more-sheet.is-open { display: block; }
+        .more-sheet[hidden] { display: none !important; }
         .more-sheet-panel {
             position: absolute;
             left: 0; right: 0; bottom: 0;
@@ -272,7 +273,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k3</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k4</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -431,6 +432,8 @@
             </form>
         </aside>
     </div>
+
+    <div id="more-sheet" class="more-sheet" hidden aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closeMoreMenu()"></div>
         <div class="more-sheet-panel">
             <div class="flex items-center justify-between mb-3">
@@ -1226,12 +1229,14 @@
         function openMoreMenu() {
             const el = document.getElementById('more-sheet');
             if (!el) return;
+            el.hidden = false;
             el.classList.add('is-open');
             el.setAttribute('aria-hidden', 'false');
         }
         function closeMoreMenu() {
             const el = document.getElementById('more-sheet');
             if (!el) return;
+            el.hidden = true;
             el.classList.remove('is-open');
             el.setAttribute('aria-hidden', 'true');
         }
