@@ -1,13 +1,8 @@
-/* POS kitchen tickets — pick a path from what this browser can actually do:
- * 1) Sunmi JS USDK (Android Sunmi inner printer; works on old Chrome)
- * 2) Gprinter GP-58MBIII+ over WebUSB / Web Serial (Chromium that exposes those APIs)
- * 3) System print dialog, 58mm (Firefox, old Chrome, Edge, desktop Safari)
- *
- * iPhone/iPad Safari cannot talk to a USB thermal printer (no WebUSB, no AirPrint
- * for this Gprinter). Use the till's Chrome/Firefox/Sunmi instead.
- *
- * Printer model is stored per till (mb_pos_printer_driver) so a later admin
- * picker can switch drivers without rewriting the ticket layout.
+/* POS kitchen tickets — pick a path from what this till can actually do:
+ * 1) Sunmi JS USDK on Sunmi OS (old Chrome or Firefox, no Play Store).
+ *    USB 佳博 must be plugged into the Sunmi and selected in Sunmi printer settings.
+ * 2) WebUSB / Web Serial Gprinter (newer Chrome / Edge on a real computer)
+ * 3) System print dialog only on desktop browsers, never on Sunmi
  */
 (function (global) {
     const STORE_ZH = {
@@ -29,9 +24,11 @@
     let serialWriter = null;
 
     function currentDriver() {
-        try { return localStorage.getItem(DRIVER_KEY) || 'gprinter-usb'; } catch (_) {
-            return 'gprinter-usb';
-        }
+        try {
+            const saved = localStorage.getItem(DRIVER_KEY);
+            if (saved) return saved;
+        } catch (_) {}
+        return isSunmiTill() ? 'sunmi' : 'gprinter-usb';
     }
     function setDriver(name) {
         try { localStorage.setItem(DRIVER_KEY, name); } catch (_) {}
@@ -41,6 +38,12 @@
     }
     function isFirefox() {
         return /firefox/i.test(navigator.userAgent || '');
+    }
+    function isSunmiTill() {
+        const ua = navigator.userAgent || '';
+        if (/sunmi/i.test(ua)) return true;
+        if (/android/i.test(ua)) return true;
+        return isFirefox() && /linux/i.test(ua) && !/windows|mac os x|iphone|ipad/i.test(ua);
     }
     function isIosSafari() {
         const ua = navigator.userAgent || '';
@@ -349,15 +352,17 @@
         if (!sdk) sdk = new SUNMI();
         if (isSocketUp()) {
             readySunmi = true;
-            setStatus('Sunmi 已駁', true);
+            setDriver('sunmi');
+            setStatus('出單機已駁', true);
             return true;
         }
-        if (!isAndroid()) return false;
+        if (!isSunmiTill() && currentDriver() !== 'sunmi') return false;
         setStatus('駁緊出單機…', false);
         if (!sdk.socketManager) sdk.init();
         if (await waitConnected(1000)) {
             readySunmi = true;
-            setStatus('Sunmi 已駁', true);
+            setDriver('sunmi');
+            setStatus('出單機已駁', true);
             return true;
         }
         if (!launch) {
@@ -368,7 +373,10 @@
         resetSocket();
         sdk.init();
         readySunmi = await waitConnected(4000);
-        if (readySunmi) setStatus('Sunmi 已駁', true);
+        if (readySunmi) {
+            setDriver('sunmi');
+            setStatus('出單機已駁', true);
+        }
         return readySunmi;
     }
 
@@ -496,7 +504,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
     }
 
     function escapeHtml(str) {
-        return String(str ?? '')
+        return String(str == null ? '' : str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -571,21 +579,45 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         });
     }
 
+    async function printSunmiTestSlip() {
+        await printSunmi({
+            store: '出單機',
+            orderNo: 'OK',
+            fulfill: '已駁',
+            pay: '',
+            total: '',
+            guest: '',
+            when: new Date().toLocaleString('zh-HK', { hour12: false }),
+            lines: [{ kind: 'item', text: 'Mirror Burger POS' }],
+        }, false);
+    }
+
     async function connect(opts) {
         const launch = !!(opts && opts.launch);
         if (gprinterReady()) {
             setStatus('佳博已駁', true);
             return true;
         }
-        if (hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
+        if (!isSunmiTill() && hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
             setStatus('佳博已駁', true);
             return true;
         }
 
-        // Old Sunmi Chrome has no WebUSB — inner printer still works via USDK.
-        if (isAndroid() || currentDriver() === 'sunmi') {
+        // Sunmi OS (old Chrome or Firefox, no Play): print via local printer service.
+        if (isSunmiTill() || currentDriver() === 'sunmi') {
             const ok = await connectSunmi(opts);
-            if (ok) return true;
+            if (ok) {
+                if (launch) {
+                    try { await printSunmiTestSlip(); } catch (err) { console.warn('sunmi test print', err); }
+                    if (typeof global.showToast === 'function') global.showToast('已駁出單機，試咗印一張');
+                }
+                return true;
+            }
+            if (launch && typeof global.showToast === 'function') {
+                global.showToast('未駁到出單機。用 Firefox 開 POS，佳博 USB 插呢部 Sunmi，再撳一次「出單機」。');
+            }
+            setStatus(launch ? '未駁到出單機' : '出單機未駁', false);
+            if (isSunmiTill()) return false;
         }
 
         if (launch && hasWebUsb()) {
@@ -610,7 +642,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
                 if (err && err.name !== 'NotFoundError') {
                     console.warn('USB pick failed', err);
                     if (typeof global.showToast === 'function') {
-                        global.showToast(err.message || 'USB 直駁失敗，改用系統列印。');
+                        global.showToast(err.message || 'USB 直駁失敗。');
                     }
                 }
             }
@@ -625,7 +657,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             }
         }
 
-        if (launch || !hasDirectUsb() || currentDriver() === 'browser' || readyBrowser) {
+        if (!isSunmiTill() && (launch || !hasDirectUsb() || currentDriver() === 'browser' || readyBrowser)) {
             enableBrowserPrint();
             if (launch) {
                 printBrowserTestSlip();
@@ -634,7 +666,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             return true;
         }
 
-        setStatus('出單機未駁', false);
+        setStatus(launch ? '未駁到出單機' : '出單機未駁', false);
         return false;
     }
 
@@ -644,7 +676,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         const forceBrowser = !!(opts && opts.forceBrowser);
 
         if (!forceBrowser) {
-            if (!gprinterReady()) await connect({ launch: false });
+            if (!gprinterReady() && !readySunmi) await connect({ launch: false });
             if (gprinterReady()) {
                 try {
                     await printGprinter(job, openDrawer);
@@ -669,6 +701,13 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
                     console.warn('Sunmi print failed:', err);
                 }
             }
+        }
+
+        if (isSunmiTill()) {
+            if (typeof global.showToast === 'function') {
+                global.showToast('出單失敗。撳右上「出單機」再試。佳博 USB 要插喺呢部 Sunmi。');
+            }
+            return false;
         }
 
         printBrowser(job);
