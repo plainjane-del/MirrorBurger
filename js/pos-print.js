@@ -1,7 +1,10 @@
-/* POS kitchen tickets.
- * 1) Gprinter GP-58MBIII+ (USB ESC/POS, VID 6868 / PID 0200) via WebUSB or Web Serial
- * 2) Sunmi JS USDK on Android Sunmi devices
- * 3) Browser 58mm print as last resort
+/* POS kitchen tickets — pick a path from what this browser can actually do:
+ * 1) Sunmi JS USDK (Android Sunmi inner printer; works on old Chrome)
+ * 2) Gprinter GP-58MBIII+ over WebUSB / Web Serial (Chromium that exposes those APIs)
+ * 3) System print dialog, 58mm (Firefox, old Chrome, Edge, desktop Safari)
+ *
+ * iPhone/iPad Safari cannot talk to a USB thermal printer (no WebUSB, no AirPrint
+ * for this Gprinter). Use the till's Chrome/Firefox/Sunmi instead.
  *
  * Printer model is stored per till (mb_pos_printer_driver) so a later admin
  * picker can switch drivers without rewriting the ticket layout.
@@ -20,6 +23,7 @@
 
     let sdk = null;
     let readySunmi = false;
+    let readyBrowser = false;
     let usb = null;
     let serialPort = null;
     let serialWriter = null;
@@ -34,6 +38,24 @@
     }
     function isAndroid() {
         return /android/i.test(navigator.userAgent || '');
+    }
+    function isFirefox() {
+        return /firefox/i.test(navigator.userAgent || '');
+    }
+    function isIosSafari() {
+        const ua = navigator.userAgent || '';
+        const iOS = /iPad|iPhone|iPod/i.test(ua)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        return iOS && /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS|Chrome|Android/i.test(ua);
+    }
+    function hasWebUsb() {
+        return !!(navigator.usb && typeof navigator.usb.requestDevice === 'function');
+    }
+    function hasWebSerial() {
+        return !!(navigator.serial && typeof navigator.serial.requestPort === 'function');
+    }
+    function hasDirectUsb() {
+        return hasWebUsb() || hasWebSerial();
     }
     function setStatus(label, ok) {
         const el = document.getElementById('print-status');
@@ -110,7 +132,7 @@
             await device.claimInterface(found.interfaceNumber);
         } catch (err) {
             try { await device.close(); } catch (_) {}
-            throw new Error('Chrome 用唔到呢部 USB 機（可能 Windows 驅動霸住）。請用 Chrome，插 9V 火牛，再撳「出單機」揀 GP-58MBIII+。');
+            throw new Error('USB 被系統驅動霸住，直駁失敗。可改用系統列印，或喺 Windows 用 Zadig 裝 WinUSB 後再用新版 Chrome。');
         }
         if (found.alternateSetting) {
             try { await device.selectAlternateInterface(found.interfaceNumber, found.alternateSetting); } catch (_) {}
@@ -138,7 +160,7 @@
 
     async function requestUsb() {
         if (!navigator.usb || typeof navigator.usb.requestDevice !== 'function') {
-            throw new Error('呢個瀏覽器唔支援 USB 出單。請用 Chrome / Edge。');
+            throw new Error('呢個瀏覽器冇 WebUSB，改用系統列印。');
         }
         const device = await navigator.usb.requestDevice({
             filters: [
@@ -389,16 +411,18 @@
         }
     }
 
-    function printBrowser(job) {
-        const rows = job.lines.map((row) =>
+    function ticketDocument(job) {
+        const rows = (job.lines || []).map((row) =>
             row.kind === 'item'
                 ? `<div class="item">${escapeHtml(row.text)}</div>`
                 : `<div class="detail">${escapeHtml(row.text)}</div>`
         ).join('');
-        const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+        return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>廚房單 #${escapeHtml(job.orderNo)}</title>
 <style>
 @page { size: 58mm auto; margin: 2mm; }
-body { width: 54mm; margin: 0; color: #000; font-family: "PingFang HK","Noto Sans TC",sans-serif; font-weight: 800; }
+html, body { width: 58mm; margin: 0; padding: 0; color: #000; background: #fff;
+  font-family: "PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif; font-weight: 800; }
 h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
 .no { font-size: 28px; text-align: center; margin: 6px 0; letter-spacing: -0.04em; }
 .center { text-align: center; }
@@ -420,18 +444,55 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 <div class="no">$${escapeHtml(job.total)}</div>
 <div class="center">${escapeHtml(job.when)}</div>
 </body></html>`;
+    }
+
+    function printViaWindow(html) {
+        let w = null;
+        try { w = window.open('', 'mb_pos_ticket'); } catch (_) { w = null; }
+        if (!w) return false;
+        try {
+            w.document.open();
+            w.document.write(html);
+            w.document.close();
+            setTimeout(function () {
+                try { w.focus(); w.print(); } catch (_) {}
+            }, 250);
+            return true;
+        } catch (err) {
+            try { w.close(); } catch (_) {}
+            return false;
+        }
+    }
+
+    function printViaIframe(html) {
         const iframe = document.createElement('iframe');
         iframe.setAttribute('aria-hidden', 'true');
-        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:58mm;height:800px;border:0;opacity:0;pointer-events:none';
         document.body.appendChild(iframe);
-        const doc = iframe.contentDocument;
+        const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+        if (!doc) {
+            iframe.remove();
+            return false;
+        }
         doc.open();
         doc.write(html);
         doc.close();
-        setTimeout(() => {
-            try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (_) {}
-            setTimeout(() => iframe.remove(), 2500);
-        }, 250);
+        setTimeout(function () {
+            try {
+                const cw = iframe.contentWindow;
+                if (cw) { cw.focus(); cw.print(); }
+            } catch (_) {}
+            setTimeout(function () { iframe.remove(); }, 4000);
+        }, 300);
+        return true;
+    }
+
+    function printBrowser(job) {
+        enableBrowserPrint();
+        const html = ticketDocument(job);
+        if (isFirefox() && printViaWindow(html)) return true;
+        if (printViaIframe(html)) return true;
+        return printViaWindow(html);
     }
 
     function escapeHtml(str) {
@@ -478,17 +539,56 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         }, false);
     }
 
+    function browserFallbackToast(kind) {
+        if (typeof global.showToast !== 'function') return;
+        if (isIosSafari()) {
+            global.showToast('iPhone/iPad Safari 駁唔到 USB 佳博。請用店舖電腦或 Sunmi 機出單。');
+            return;
+        }
+        if (kind === 'pair') {
+            global.showToast('呢部瀏覽器唔支援直駁 USB。請喺列印視窗揀佳博 GP-58MBIII+，紙闊 58mm。');
+            return;
+        }
+        global.showToast('請喺列印視窗揀出單機（58mm）。');
+    }
+
+    function enableBrowserPrint() {
+        readyBrowser = true;
+        setDriver('browser');
+        setStatus(isFirefox() ? 'Firefox 系統列印' : '系統列印', true);
+    }
+
+    function printBrowserTestSlip() {
+        printBrowser({
+            store: '佳博 58MBIII+',
+            orderNo: 'OK',
+            fulfill: '請揀呢部出單機',
+            pay: '',
+            total: '',
+            guest: '',
+            when: new Date().toLocaleString('zh-HK', { hour12: false }),
+            lines: [{ kind: 'item', text: '系統列印 · 紙闊 58mm' }],
+        });
+    }
+
     async function connect(opts) {
         const launch = !!(opts && opts.launch);
         if (gprinterReady()) {
             setStatus('佳博已駁', true);
             return true;
         }
-        if (await reconnectUsb() || await reconnectSerial()) {
+        if (hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
             setStatus('佳博已駁', true);
             return true;
         }
-        if (launch) {
+
+        // Old Sunmi Chrome has no WebUSB — inner printer still works via USDK.
+        if (isAndroid() || currentDriver() === 'sunmi') {
+            const ok = await connectSunmi(opts);
+            if (ok) return true;
+        }
+
+        if (launch && hasWebUsb()) {
             setStatus('揀出單機…', false);
             try {
                 await requestUsb();
@@ -497,7 +597,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
                 if (typeof global.showToast === 'function') global.showToast('已駁佳博出單機，試咗印一張');
                 return true;
             } catch (err) {
-                if (err && err.name === 'NotFoundError') {
+                if (err && err.name === 'NotFoundError' && hasWebSerial()) {
                     try {
                         await requestSerial();
                         setStatus('佳博已駁', true);
@@ -508,57 +608,76 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
                     }
                 }
                 if (err && err.name !== 'NotFoundError') {
-                    setStatus(err.message || '駁唔到出單機', false);
+                    console.warn('USB pick failed', err);
                     if (typeof global.showToast === 'function') {
-                        global.showToast(err.message || '駁唔到佳博出單機。請用 Chrome，USB 插實再撳一次。');
+                        global.showToast(err.message || 'USB 直駁失敗，改用系統列印。');
                     }
                 }
             }
+        } else if (launch && hasWebSerial()) {
+            try {
+                await requestSerial();
+                setStatus('佳博已駁', true);
+                try { await printTestSlip(); } catch (_) {}
+                return true;
+            } catch (err) {
+                console.warn('serial pick failed', err);
+            }
         }
-        if (currentDriver() !== 'gprinter-usb' || isAndroid()) {
-            const ok = await connectSunmi(opts);
-            if (ok) return true;
+
+        if (launch || !hasDirectUsb() || currentDriver() === 'browser' || readyBrowser) {
+            enableBrowserPrint();
+            if (launch) {
+                printBrowserTestSlip();
+                browserFallbackToast('pair');
+            }
+            return true;
         }
-        setStatus(launch ? '未揀到出單機' : '出單機未駁', false);
+
+        setStatus('出單機未駁', false);
         return false;
     }
 
     async function printTicket(data, items, opts) {
         const job = ticketLines(data, items);
         const openDrawer = !!(opts && opts.openDrawer);
-        if (!gprinterReady()) await connect({ launch: false });
-        if (gprinterReady()) {
-            try {
-                await printGprinter(job, openDrawer);
-                if (typeof global.showToast === 'function') global.showToast('已出廚房單 #' + job.orderNo);
-                return true;
-            } catch (err) {
-                usb = null;
-                await closeSerial();
-                setStatus('出單失敗', false);
-                console.warn('Gprinter print failed:', err);
+        const forceBrowser = !!(opts && opts.forceBrowser);
+
+        if (!forceBrowser) {
+            if (!gprinterReady()) await connect({ launch: false });
+            if (gprinterReady()) {
+                try {
+                    await printGprinter(job, openDrawer);
+                    if (typeof global.showToast === 'function') global.showToast('已出廚房單 #' + job.orderNo);
+                    return true;
+                } catch (err) {
+                    usb = null;
+                    await closeSerial();
+                    setStatus('出單失敗', false);
+                    console.warn('Gprinter print failed:', err);
+                }
+            }
+            if (!readySunmi) await connectSunmi({ launch: false });
+            if (readySunmi) {
+                try {
+                    await printSunmi(job, openDrawer);
+                    if (typeof global.showToast === 'function') global.showToast('已出廚房單 #' + job.orderNo);
+                    return true;
+                } catch (err) {
+                    readySunmi = false;
+                    setStatus('出單失敗', false);
+                    console.warn('Sunmi print failed:', err);
+                }
             }
         }
-        if (!readySunmi) await connectSunmi({ launch: isAndroid() && currentDriver() === 'sunmi' });
-        if (readySunmi) {
-            try {
-                await printSunmi(job, openDrawer);
-                if (typeof global.showToast === 'function') global.showToast('已出廚房單 #' + job.orderNo);
-                return true;
-            } catch (err) {
-                readySunmi = false;
-                setStatus('出單失敗', false);
-                console.warn('Sunmi print failed:', err);
-            }
+
+        printBrowser(job);
+        if (isIosSafari()) {
+            browserFallbackToast('ticket');
+        } else if (typeof global.showToast === 'function') {
+            global.showToast('請喺列印視窗揀出單機 · #' + job.orderNo);
         }
-        if (opts && opts.forceBrowser) {
-            printBrowser(job);
-            return true;
-        }
-        if (typeof global.showToast === 'function') {
-            global.showToast('單已入廚房。撳右上「出單機」駁佳博再重印。');
-        }
-        return false;
+        return true;
     }
 
     if (navigator.usb && navigator.usb.addEventListener) {
@@ -573,7 +692,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
     global.PosPrint = {
         connect: connect,
         printTicket: printTicket,
-        isReady: () => gprinterReady() || readySunmi,
+        isReady: () => gprinterReady() || readySunmi || readyBrowser || currentDriver() === 'browser',
         currentDriver: currentDriver,
         setDriver: setDriver,
     };
