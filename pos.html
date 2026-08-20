@@ -31,6 +31,7 @@
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
         #print-status.is-on { color:#0a0a0a; background:#86efac; border-color:#86efac; }
+        #pos-store-row[hidden], #pos-store-row.is-locked { display:none !important; }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
@@ -51,10 +52,11 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.19c</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.20p</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
-                <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
+                <p id="pos-login-hint" class="text-sm font-bold text-neutral-400">揀分店，用嗰間店嘅密碼。Master 先可以睇到其他分店。</p>
             </div>
+            <p id="pos-login-store-label" class="hidden w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white"></p>
             <select id="pos-login-store"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
                 <option value="Sai Ying Pun">西營盤</option>
@@ -84,15 +86,16 @@
                 <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()">掛單</button>
                 <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
                 <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
+                <button type="button" class="chip-btn" onclick="openPosPassword()">密碼</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
             <div id="pos-queue-bar" class="hidden px-3 py-2 text-xs font-black">
                 斷網排隊 <span id="pos-queue-count">0</span> 單 · 網絡一回復就自動上雲，唔使再撳
             </div>
-            <div id="pos-store-row" class="mt-2 grid grid-cols-3 gap-1 hidden">
-                <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
-                <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
-                <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
+            <div id="pos-store-row" class="mt-2 grid grid-cols-3 gap-1 is-locked" hidden>
+                <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)" hidden>西營盤</button>
+                <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)" hidden>天后</button>
+                <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)" hidden>荃灣</button>
             </div>
             <!-- Voice ordering kept in code; hidden until VOICE_ORDERING_ENABLED is true. -->
             <div id="pos-voice-ui" class="hidden">
@@ -216,6 +219,28 @@
         </div>
     </div>
 
+    <div id="password-sheet" class="sheet" onclick="if(event.target===this) closePosPassword()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h3 class="text-lg font-black">更改密碼</h3>
+                    <p id="pos-pw-hint" class="text-sm font-bold text-neutral-400 mt-0.5">只改呢個帳號。同廚房同一套分店／Master 密碼。</p>
+                </div>
+                <button type="button" class="chip-btn" onclick="closePosPassword()">關閉</button>
+            </div>
+            <form class="space-y-3" onsubmit="submitPosPassword(event); return false;">
+                <input id="pos-pw-current" type="password" autocomplete="current-password" required placeholder="而家密碼"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-3 text-sm font-bold outline-none">
+                <input id="pos-pw-new" type="password" autocomplete="new-password" required minlength="8" placeholder="新密碼（至少 8 個字）"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-3 text-sm font-bold outline-none">
+                <input id="pos-pw-confirm" type="password" autocomplete="new-password" required minlength="8" placeholder="再入一次新密碼"
+                    class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-3 text-sm font-bold outline-none">
+                <p id="pos-pw-msg" class="hidden text-sm font-bold"></p>
+                <button type="submit" id="pos-pw-save" class="w-full rounded-2xl bg-yellow-400 text-black py-4 font-black">儲存新密碼</button>
+            </form>
+        </div>
+    </div>
+
     <div id="hold-sheet" class="sheet" onclick="if(event.target===this) closeHolds()">
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between mb-3">
@@ -230,10 +255,18 @@
     <script src="./js/sunmi-printer.umd.js"></script>
     <script src="./js/pos-print.js"></script>
     <script>
-        const TOKEN_KEY = 'mb_kds_token';
+        const TOKEN_KEY = 'mb_pos_token';
         const STORE_KEY = 'mb_pos_store';
+        const SCOPE_KEY = 'mb_pos_scope';
+        const LOGIN_STORE_KEY = 'mb_pos_login_store';
         const HOLD_KEY = 'mb_pos_holds';
         const QUEUE_KEY = 'mb_pos_offline_queue_v1';
+        const STORE_SLUGS = {
+            'sai-ying-pun': 'Sai Ying Pun',
+            'tin-hau': 'Fortress Hill',
+            'fortress-hill': 'Fortress Hill',
+            'tsuen-wan': 'Tsuen Wan (Takeaway Only)'
+        };
         const MAX_ADDONS = 3;
         const VOICE_ORDERING_ENABLED = false;
         const CATS = [
@@ -283,7 +316,7 @@
 
         let token = '';
         let currentStore = localStorage.getItem(STORE_KEY) || 'Sai Ying Pun';
-        let sessionScope = 'single_store';
+        let sessionScope = localStorage.getItem(SCOPE_KEY) === 'all_stores' ? 'all_stores' : 'single_store';
         let sessionStore = '';
         let currentCat = 'beef';
         let fulfill = 'takeaway';
@@ -302,26 +335,77 @@
 
         function getToken() { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || token; }
         function saveToken(v) { token = v; localStorage.setItem(TOKEN_KEY, v); sessionStorage.setItem(TOKEN_KEY, v); }
-        function applySessionAuth(data = {}) {
+        function applySessionAuth(data) {
+            data = data || {};
+            var pinned = pinnedLoginStore();
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
-            if (sessionScope !== 'all_stores' && sessionStore) {
+            if (pinned) {
+                currentStore = pinned;
+                sessionStore = pinned;
+            } else if (sessionScope !== 'all_stores' && sessionStore) {
                 currentStore = sessionStore;
-                localStorage.setItem(STORE_KEY, currentStore);
             }
+            try { localStorage.setItem(SCOPE_KEY, sessionScope); } catch (_) {}
+            try { localStorage.setItem(STORE_KEY, currentStore); } catch (_) {}
         }
         function canSwitchStores() {
+            if (pinnedLoginStore()) return false;
             return sessionScope === 'all_stores';
         }
         function storeLabel(name) {
             if (name === 'Fortress Hill') return '天后';
             if (name === 'Tsuen Wan (Takeaway Only)') return '荃灣';
-            return '西營盤';
+            if (name === 'Sai Ying Pun') return '西營盤';
+            return name || 'POS';
+        }
+        function pinnedLoginStore() {
+            var path = String(location.pathname || '').replace(/\/+$/, '');
+            var slug = '';
+            var match = path.match(/^\/pos\/([a-z0-9-]+)$/i);
+            if (match) slug = String(match[1] || '').toLowerCase();
+            if (!slug) {
+                var search = String(location.search || '');
+                if (search.charAt(0) === '?') search = search.slice(1);
+                var parts = search.split('&');
+                for (var i = 0; i < parts.length; i++) {
+                    var kv = parts[i].split('=');
+                    if (decodeURIComponent(kv[0] || '') === 'store') {
+                        slug = decodeURIComponent((kv[1] || '').replace(/\+/g, ' ')).toLowerCase();
+                        break;
+                    }
+                }
+            }
+            return STORE_SLUGS[slug] || '';
         }
         function selectedLoginStore() {
-            const el = document.getElementById('pos-login-store');
-            const value = (el && el.value) ? el.value : '';
+            var pinned = pinnedLoginStore();
+            if (pinned) return pinned;
+            var el = document.getElementById('pos-login-store');
+            var value = (el && el.value) ? el.value : '';
             return value === '__master__' ? '' : value;
+        }
+        function preparePosLoginForm() {
+            var select = document.getElementById('pos-login-store');
+            var label = document.getElementById('pos-login-store-label');
+            var hint = document.getElementById('pos-login-hint');
+            var pinned = pinnedLoginStore();
+            if (pinned) {
+                if (select) {
+                    select.value = pinned;
+                    select.classList.add('hidden');
+                    select.hidden = true;
+                }
+                if (label) {
+                    label.textContent = storeLabel(pinned);
+                    label.classList.remove('hidden');
+                }
+                if (hint) hint.textContent = '用 ' + storeLabel(pinned) + ' 分店密碼登入。入去之後唔會見到其他分店。';
+                return;
+            }
+            var last = '';
+            try { last = localStorage.getItem(LOGIN_STORE_KEY) || ''; } catch (_) {}
+            if (select && last) select.value = last;
         }
         function itemImg(item) {
             return (item && (item.img || item.image_url)) || '';
@@ -474,6 +558,7 @@
                 if (!res.ok) throw new Error(data.error || '密碼錯誤');
                 saveToken(data.token);
                 applySessionAuth(data);
+                try { localStorage.setItem(LOGIN_STORE_KEY, store_name || '__master__'); } catch (_) {}
                 await bootPos();
             } catch (e) {
                 err.textContent = e.message || '登入失敗';
@@ -481,28 +566,45 @@
             } finally { btn.disabled = false; }
             return false;
         }
-        function logoutPos() { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); location.reload(); }
+        function logoutPos() {
+            try {
+                localStorage.removeItem(TOKEN_KEY);
+                sessionStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem(SCOPE_KEY);
+            } catch (_) {}
+            location.reload();
+        }
 
         function markStoreButtons() {
             var master = canSwitchStores();
             var row = document.getElementById('pos-store-row');
             var title = document.getElementById('pos-title');
             if (row) {
-                if (master) row.classList.remove('hidden');
-                else row.classList.add('hidden');
+                if (master) {
+                    row.classList.remove('hidden', 'is-locked');
+                    row.hidden = false;
+                    row.removeAttribute('hidden');
+                } else {
+                    row.classList.add('hidden', 'is-locked');
+                    row.hidden = true;
+                }
             }
             if (title) {
                 title.textContent = master ? '測試 POS · Master' : ('測試 POS · ' + storeLabel(currentStore));
             }
-            document.querySelectorAll('[data-branch]').forEach((el) => {
-                el.classList.toggle('is-active', el.dataset.branch === currentStore);
+            var buttons = document.querySelectorAll('#pos-store-row [data-branch]');
+            for (var i = 0; i < buttons.length; i++) {
+                var el = buttons[i];
+                var active = el.getAttribute('data-branch') === currentStore;
+                if (active) el.classList.add('is-active');
+                else el.classList.remove('is-active');
                 el.disabled = !master;
-                el.classList.toggle('opacity-50', false);
-            });
+                el.hidden = !master;
+            }
         }
         async function selectStore(btn) {
-            if (!canSwitchStores() && btn.dataset.branch !== currentStore) return;
-            currentStore = btn.dataset.branch;
+            if (!canSwitchStores()) return;
+            currentStore = btn.getAttribute('data-branch');
             localStorage.setItem(STORE_KEY, currentStore);
             markStoreButtons();
             renderHoldBadge();
@@ -1785,6 +1887,82 @@
             renderHoldList();
         }
 
+        function openPosPassword() {
+            var hint = document.getElementById('pos-pw-hint');
+            var msg = document.getElementById('pos-pw-msg');
+            if (hint) {
+                hint.textContent = canSwitchStores()
+                    ? '改 Master 密碼。之後要用新密碼先入到「Master 全部分店」。'
+                    : ('改 ' + storeLabel(currentStore) + ' 呢間店嘅密碼。同廚房同一套。');
+            }
+            if (msg) {
+                msg.classList.add('hidden');
+                msg.textContent = '';
+            }
+            var ids = ['pos-pw-current', 'pos-pw-new', 'pos-pw-confirm'];
+            for (var i = 0; i < ids.length; i++) {
+                var el = document.getElementById(ids[i]);
+                if (el) el.value = '';
+            }
+            var sheet = document.getElementById('password-sheet');
+            if (sheet) sheet.classList.add('is-open');
+        }
+        function closePosPassword() {
+            var sheet = document.getElementById('password-sheet');
+            if (sheet) sheet.classList.remove('is-open');
+        }
+        async function submitPosPassword(event) {
+            if (event && event.preventDefault) event.preventDefault();
+            var currentEl = document.getElementById('pos-pw-current');
+            var nextEl = document.getElementById('pos-pw-new');
+            var confirmEl = document.getElementById('pos-pw-confirm');
+            var msg = document.getElementById('pos-pw-msg');
+            var btn = document.getElementById('pos-pw-save');
+            var current = String((currentEl && currentEl.value) || '');
+            var next = String((nextEl && nextEl.value) || '');
+            var confirmPw = String((confirmEl && confirmEl.value) || '');
+            function showMsg(text, ok) {
+                if (!msg) return;
+                msg.textContent = text;
+                msg.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
+                msg.classList.add(ok ? 'text-emerald-400' : 'text-red-400');
+            }
+            if (next !== confirmPw) {
+                showMsg('兩次新密碼唔一致', false);
+                return false;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '儲存中…';
+            }
+            try {
+                var res = await fetch('/api/kitchen-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'change_password',
+                        token: getToken(),
+                        currentPassword: current,
+                        newPassword: next,
+                    }),
+                });
+                var data = await res.json().catch(function () { return {}; });
+                if (!res.ok) throw new Error(data.error || '儲存失敗');
+                showMsg('已改好。之後請用新密碼登入。', true);
+                if (currentEl) currentEl.value = '';
+                if (nextEl) nextEl.value = '';
+                if (confirmEl) confirmEl.value = '';
+            } catch (err) {
+                showMsg(err.message || '儲存失敗', false);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '儲存新密碼';
+                }
+            }
+            return false;
+        }
+
         async function bootPos() {
             document.getElementById('pos-lock').classList.add('hidden');
             document.getElementById('pos-app').classList.remove('hidden');
@@ -1796,18 +1974,20 @@
             startPosBackgroundSync();
             try { await PosPrint.connect({ launch: false }); } catch (_) {}
         }
-        window.onload = async () => {
+        window.onload = async function () {
             try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}
-            const existing = getToken();
-            if (!existing) { markStoreButtons(); return; }
+            preparePosLoginForm();
+            markStoreButtons();
+            var existing = getToken();
+            if (!existing) return;
             try {
-                const res = await fetch('/api/kitchen-login', {
+                var res = await fetch('/api/kitchen-login', {
                     method: 'POST',
                     headers: { 'Content-Type':'application/json' },
                     body: JSON.stringify({ token: existing }),
                 });
                 if (!res.ok) return;
-                const data = await res.json().catch(() => ({}));
+                var data = await res.json().catch(function () { return {}; });
                 if (data.token) saveToken(data.token);
                 applySessionAuth(data);
                 await bootPos();

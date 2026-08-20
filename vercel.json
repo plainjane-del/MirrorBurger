@@ -24,6 +24,9 @@
     { "source": "/tin-hau", "destination": "/tin-hau.html" },
     { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/pos", "destination": "/pos.html" },
+    { "source": "/pos/:store", "destination": "/pos.html" },
+    { "source": "/kitchen", "destination": "/kitchen.html" },
     { "source": "/t/:store/:n", "destination": "/table.html" },
     { "source": "/t/:n", "destination": "/table.html" },
     { "source": "/tables", "destination": "/table-qr.html" }
@@ -46,6 +49,13 @@
     },
     {
       "source": "/pos.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/pos/:store",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
