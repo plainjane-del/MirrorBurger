@@ -419,55 +419,91 @@ function startSoldOutRealtime() {
     });
 }
 
+function applyMenuRows(data) {
+    if (!Array.isArray(data) || !data.length) return;
+    data.forEach((row) => {
+        if (!row?.id || !row.category || !menuData[row.category]) return;
+        if (row.is_active === false) {
+            menuData[row.category] = menuData[row.category].filter((i) => i.id !== row.id);
+            return;
+        }
+        const mapped = mapDbItem(row);
+        const idx = menuData[row.category].findIndex((i) => i.id === row.id);
+        if (idx === -1) {
+            menuData[row.category].push(mapped);
+            return;
+        }
+        const prev = menuData[row.category][idx];
+        menuData[row.category][idx] = {
+            ...prev,
+            ...mapped,
+            sizes: mapped.sizes || prev.sizes,
+            dietary: (mapped.dietary && mapped.dietary.length) ? mapped.dietary : prev.dietary,
+            isSide: row.is_side != null ? !!row.is_side : prev.isSide,
+            hasTemp: row.has_temp != null ? !!row.has_temp : prev.hasTemp,
+            _dbSoldOut: mapped._dbSoldOut,
+            isSoldOut: mapped.isSoldOut,
+            img: mapped.img || prev.img,
+            desc: mapped.desc || prev.desc,
+            descZh: mapped.descZh || prev.descZh,
+            tag: mapped.tag || prev.tag,
+            tagZh: mapped.tagZh || prev.tagZh,
+        };
+    });
+}
+
+function applyHoursRows(hours) {
+    if (!hours || typeof hours !== 'object') return;
+    Object.keys(hours).forEach((name) => {
+        const row = hours[name];
+        if (!row) return;
+        storeStatusByName[name] = {
+            is_open: !!row.is_open,
+            override_until: row.override_until || null,
+        };
+    });
+}
+
+function applyPublicMenuPayload(data) {
+    if (!data) return;
+    applyMenuRows(data.raw_items || data.items || []);
+    if (data.hours) applyHoursRows(data.hours);
+    if (Array.isArray(data.sold_ids)) {
+        storeSoldOutIds = new Set(data.sold_ids.filter(Boolean));
+    }
+    applyStoreSoldOutOverlay();
+}
+
+function hydratePublicMenuCache() {
+    if (!window.MBPublicDb) return false;
+    const hours = MBPublicDb.readHours();
+    if (hours) applyHoursRows(hours);
+    const cached = MBPublicDb.readCatalog(getActiveStore());
+    if (!cached || !(cached.raw_items || cached.items || []).length) return false;
+    applyPublicMenuPayload(cached);
+    return true;
+}
+
 async function fetchLiveMenu() {
     try {
-        // Only menu_items exists on live today. Skip modifiers/settings until
-        // supabase/fix-live-menu-schema.sql is applied (avoids console 404s).
+        if (window.MBPublicDb && typeof MBPublicDb.fetchPublicMenu === 'function') {
+            const data = await MBPublicDb.fetchPublicMenu(getActiveStore());
+            applyPublicMenuPayload(data);
+            applyStoreOpenUI();
+            renderMenuByCategory(currentCategory);
+            return;
+        }
         const { data, error } = await supabaseClient
             .from('menu_items')
             .select('*')
             .order('id', { ascending: true });
         if (error) throw error;
-
-        // Merge into existing catalog — never wipe fallback sizes / missing drinks
-        // when DB row is incomplete. Prefer DB price/name/img/sold-out.
-        if (Array.isArray(data) && data.length) {
-            data.forEach((row) => {
-                if (!row?.id || !row.category || !menuData[row.category]) return;
-                if (row.is_active === false) {
-                    // hide inactive from customer menu
-                    menuData[row.category] = menuData[row.category].filter((i) => i.id !== row.id);
-                    return;
-                }
-                const mapped = mapDbItem(row);
-                const idx = menuData[row.category].findIndex((i) => i.id === row.id);
-                if (idx === -1) {
-                    menuData[row.category].push(mapped);
-                    return;
-                }
-                const prev = menuData[row.category][idx];
-                menuData[row.category][idx] = {
-                    ...prev,
-                    ...mapped,
-                    // keep local sizes/dietary/side/temp if DB left them empty
-                    sizes: mapped.sizes || prev.sizes,
-                    dietary: (mapped.dietary && mapped.dietary.length) ? mapped.dietary : prev.dietary,
-                    isSide: row.is_side != null ? !!row.is_side : prev.isSide,
-                    hasTemp: row.has_temp != null ? !!row.has_temp : prev.hasTemp,
-                    _dbSoldOut: mapped._dbSoldOut,
-                    isSoldOut: mapped.isSoldOut,
-                    img: mapped.img || prev.img,
-                    desc: mapped.desc || prev.desc,
-                    descZh: mapped.descZh || prev.descZh,
-                    tag: mapped.tag || prev.tag,
-                    tagZh: mapped.tagZh || prev.tagZh,
-                };
-            });
-        }
-
-        await fetchStoreSoldOut();
+        applyMenuRows(data);
+        await Promise.all([fetchStoreSoldOut(), fetchStoreSettings()]);
+        renderMenuByCategory(currentCategory);
     } catch (error) {
         console.error('Supabase menu load error — using fallback:', error);
+        fetchStoreSettings().catch(() => {});
         renderMenuByCategory(currentCategory);
     }
 }
@@ -1707,16 +1743,17 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.innerText = currentLang === 'en' ? '中文' : 'ENG';
     });
 
+    applyStoreFromQuery();
+    applyTableMode();
+    hydratePublicMenuCache();
     renderMenuByCategory(currentCategory);
     updateCartUI();
     updatePlaceholders(); populateStoresDropdown(); renderStores(); renderGoogleReviews();
-    applyStoreFromQuery();
-    applyTableMode();
+    applyStoreOpenUI();
     if (isTableMode()) {
         setTimeout(() => startTableOrdering(), 400);
     }
     fetchLiveMenu();
-    fetchStoreSettings();
     startStoreSettingsRealtime();
     startSoldOutRealtime();
     setInterval(() => applyStoreOpenUI(), 30000);

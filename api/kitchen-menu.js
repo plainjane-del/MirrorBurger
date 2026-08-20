@@ -30,33 +30,30 @@ module.exports = async (req, res) => {
         const action = body.action || 'list';
 
         if (action === 'list') {
-            const items = await listMenuItems({ includeInactive: false });
-            let modifiers = [];
-            let combo_base = 19;
-            try {
-                modifiers = await listModifiers({ includeInactive: false }) || [];
-            } catch (err) {
-                console.warn('POS modifiers skipped:', err.message);
-            }
-            try {
-                const raw = await getSetting('combo_base');
-                const n = Number(raw);
-                if (Number.isFinite(n)) combo_base = n;
-            } catch (err) {
-                console.warn('combo_base skipped:', err.message);
-            }
             const storeName = resolveStoreAccess(auth, body.store_name);
-            let soldIds = new Set();
-            if (storeName) {
-                soldIds = await listSoldOutIds(storeName);
-            }
+            const [items, modifiers, comboRaw, soldIds] = await Promise.all([
+                listMenuItems({ includeInactive: false }),
+                listModifiers({ includeInactive: false }).catch((err) => {
+                    console.warn('POS modifiers skipped:', err.message);
+                    return [];
+                }),
+                getSetting('combo_base').then((raw) => {
+                    const n = Number(raw);
+                    return Number.isFinite(n) ? n : 19;
+                }).catch((err) => {
+                    console.warn('combo_base skipped:', err.message);
+                    return 19;
+                }),
+                storeName ? listSoldOutIds(storeName) : Promise.resolve(new Set()),
+            ]);
+            const combo_base = comboRaw;
             const merged = (items || []).map((item) => ({
                 ...item,
                 is_sold_out: !!(item.is_sold_out || soldIds.has(item.id)),
             }));
             return res.status(200).json({
                 items: merged,
-                modifiers,
+                modifiers: modifiers || [],
                 combo_base,
             });
         }

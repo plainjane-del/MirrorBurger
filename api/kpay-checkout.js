@@ -26,49 +26,42 @@ module.exports = async (req, res) => {
 
         if (action === 'public_menu') {
             const storeName = String(body.store_name || 'Sai Ying Pun').trim() || 'Sai Ying Pun';
-            const items = await listMenuItems({ includeInactive: false });
-            let modifiers = [];
-            let combo_base = 19;
-            try {
-                modifiers = await listModifiers({ includeInactive: false }) || [];
-            } catch (err) {
-                console.warn('public_menu modifiers skipped:', err.message);
-            }
-            try {
-                const raw = await getSetting('combo_base');
-                const n = Number(raw);
-                if (Number.isFinite(n)) combo_base = n;
-            } catch (err) {
-                console.warn('public_menu combo_base skipped:', err.message);
-            }
-            let soldIds = new Set();
-            try {
-                soldIds = await listSoldOutIds(storeName);
-            } catch (err) {
-                console.warn('public_menu sold out skipped:', err.message);
-            }
-            let is_open = true;
-            try {
-                const settings = await getStoreRow(storeName);
-                is_open = storeIsAcceptingOrders(storeName, settings || {});
-            } catch (err) {
-                console.warn('public_menu hours skipped:', err.message);
-                is_open = storeIsAcceptingOrders(storeName, {});
-            }
+            const [items, modifiers, comboRaw, soldIds, settings, table_count] = await Promise.all([
+                listMenuItems({ includeInactive: false }),
+                listModifiers({ includeInactive: false }).catch((err) => {
+                    console.warn('public_menu modifiers skipped:', err.message);
+                    return [];
+                }),
+                getSetting('combo_base').then((raw) => {
+                    const n = Number(raw);
+                    return Number.isFinite(n) ? n : 19;
+                }).catch((err) => {
+                    console.warn('public_menu combo_base skipped:', err.message);
+                    return 19;
+                }),
+                listSoldOutIds(storeName).catch((err) => {
+                    console.warn('public_menu sold out skipped:', err.message);
+                    return new Set();
+                }),
+                getStoreRow(storeName).catch((err) => {
+                    console.warn('public_menu hours skipped:', err.message);
+                    return null;
+                }),
+                getTableCount(storeName).catch((err) => {
+                    console.warn('public_menu table_count skipped:', err.message);
+                    return storeName === 'Sai Ying Pun' ? 5 : 0;
+                }),
+            ]);
+            const combo_base = comboRaw;
+            const is_open = storeIsAcceptingOrders(storeName, settings || {});
             const merged = (items || []).map((item) => ({
                 ...item,
                 is_sold_out: !!(item.is_sold_out || soldIds.has(item.id)),
             }));
-            let table_count = storeName === 'Sai Ying Pun' ? 5 : 0;
-            try {
-                table_count = await getTableCount(storeName);
-            } catch (err) {
-                console.warn('public_menu table_count skipped:', err.message);
-            }
             return res.status(200).json({
                 ok: true,
                 items: merged,
-                modifiers,
+                modifiers: modifiers || [],
                 combo_base,
                 is_open,
                 store_name: storeName,
