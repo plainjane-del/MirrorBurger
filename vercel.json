@@ -53,11 +53,17 @@
     },
     {
       "source": "/kitchen",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
     },
     {
       "source": "/kitchen.html",
-      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
     },
     {
       "source": "/t/:store/:n",
