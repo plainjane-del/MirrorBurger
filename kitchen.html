@@ -229,13 +229,14 @@
         }
         .more-sheet {
             position: fixed;
-            inset: 0;
+            top: 0; right: 0; bottom: 0; left: 0;
             z-index: 90;
             display: none;
         }
         .more-sheet.is-open { display: block; }
         .more-sheet[hidden] { display: none !important; }
         .more-sheet-panel {
+            display: none;
             position: absolute;
             left: 0; right: 0; bottom: 0;
             background: #141414;
@@ -243,6 +244,9 @@
             border-radius: 16px 16px 0 0;
             padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
         }
+        .more-sheet.is-open .more-sheet-panel,
+        .more-sheet-panel.is-open { display: block; }
+        .more-sheet-panel[hidden] { display: none !important; }
         .sold-chip {
             min-height: 72px;
             border-radius: 1rem;
@@ -273,7 +277,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k4</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k5</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -435,10 +439,10 @@
 
     <div id="more-sheet" class="more-sheet" hidden aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closeMoreMenu()"></div>
-        <div class="more-sheet-panel">
+        <div id="more-sheet-panel" class="more-sheet-panel" hidden>
             <div class="flex items-center justify-between mb-3">
                 <h2 class="text-base font-black">更多</h2>
-                <button type="button" onclick="closeMoreMenu()" class="w-9 h-9 rounded-full bg-neutral-800 font-black">✕</button>
+                <button type="button" onclick="event.stopPropagation(); closeMoreMenu();" class="w-9 h-9 rounded-full bg-neutral-800 font-black">✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <button type="button" id="push-btn" onclick="closeMoreMenu(); enableKitchenPush({ silent: false })" class="chip-btn min-h-[44px]">開啟手機推送</button>
@@ -1226,19 +1230,35 @@
             if (readyBtn) readyBtn.classList.toggle('is-active', boardFilter === 'READY');
         }
 
+        function moreSheetEls() {
+            return {
+                sheet: document.getElementById('more-sheet'),
+                panel: document.getElementById('more-sheet-panel') || document.querySelector('.more-sheet-panel'),
+            };
+        }
         function openMoreMenu() {
-            const el = document.getElementById('more-sheet');
-            if (!el) return;
-            el.hidden = false;
-            el.classList.add('is-open');
-            el.setAttribute('aria-hidden', 'false');
+            const els = moreSheetEls();
+            if (els.sheet) {
+                els.sheet.hidden = false;
+                els.sheet.classList.add('is-open');
+                els.sheet.setAttribute('aria-hidden', 'false');
+            }
+            if (els.panel) {
+                els.panel.hidden = false;
+                els.panel.classList.add('is-open');
+            }
         }
         function closeMoreMenu() {
-            const el = document.getElementById('more-sheet');
-            if (!el) return;
-            el.hidden = true;
-            el.classList.remove('is-open');
-            el.setAttribute('aria-hidden', 'true');
+            const els = moreSheetEls();
+            if (els.sheet) {
+                els.sheet.hidden = true;
+                els.sheet.classList.remove('is-open');
+                els.sheet.setAttribute('aria-hidden', 'true');
+            }
+            if (els.panel) {
+                els.panel.hidden = true;
+                els.panel.classList.remove('is-open');
+            }
         }
 
         function openPasswordPanel() {
@@ -1785,6 +1805,7 @@
         function bootKitchen() {
             if (kitchenBooted) return;
             kitchenBooted = true;
+            closeMoreMenu();
             syncBranchTabs();
             showKitchenApp();
             loadOrders();

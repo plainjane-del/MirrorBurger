@@ -1,4 +1,4 @@
-const CACHE = 'mirror-burger-v15';
+const CACHE = 'mirror-burger-v16';
 const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
         ? '/kitchen.html'
         : (isTable ? '/table.html' : (url.pathname === '/' || url.pathname === '/index.html' ? '/index.html' : null)));
     event.respondWith(
-      fetch(req, isPos ? { cache: 'no-store' } : undefined)
+      fetch(req, (isPos || isKitchen) ? { cache: 'no-store' } : undefined)
         .then((res) => {
           if (cacheKey) {
             const copy = res.clone();
