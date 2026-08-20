@@ -553,9 +553,16 @@ function applyPublicMenu(data) {
     renderMenu();
 }
 
+async function fetchPublicMenuFromDb(storeName) {
+    if (window.MBPublicDb && typeof MBPublicDb.fetchPublicMenu === 'function') {
+        return MBPublicDb.fetchPublicMenu(storeName);
+    }
+    return api({ action: 'public_menu', store_name: storeName });
+}
+
 async function refreshPublicMenu() {
     if (!tableStore) return;
-    const data = await api({ action: 'public_menu', store_name: tableStore });
+    const data = await fetchPublicMenuFromDb(tableStore);
     applyPublicMenu(data);
 }
 
@@ -571,8 +578,15 @@ async function boot() {
     const storeLabel = STORE_LABEL[tableStore] || tableStore;
     const storeEl = document.getElementById('table-store-label');
     if (storeEl) storeEl.textContent = storeLabel + '堂食 · 送到廚房後請到櫃檯付款';
+    const cached = window.MBPublicDb && MBPublicDb.readCatalog(tableStore);
+    if (cached && cached.items && cached.items.length) {
+        const cachedMax = Number(cached.table_count);
+        if (!Number.isFinite(cachedMax) || tableNo <= cachedMax || cachedMax === 0) {
+            applyPublicMenu(cached);
+        }
+    }
     try {
-        const data = await api({ action: 'public_menu', store_name: tableStore });
+        const data = await fetchPublicMenuFromDb(tableStore);
         const max = Number(data.table_count);
         if (!Number.isFinite(max) || tableNo > max) {
             document.getElementById('bad-table').classList.remove('hidden');
@@ -580,6 +594,10 @@ async function boot() {
         }
         applyPublicMenu(data);
     } catch (err) {
+        if (cached && cached.items && cached.items.length) {
+            renderCart();
+            return;
+        }
         document.getElementById('menu-grid').innerHTML =
             `<p class="col-span-2 text-center font-bold text-red-400 py-10">載入菜單失敗：${escapeHtml(err.message || err)}</p>`;
         return;

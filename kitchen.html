@@ -22,6 +22,7 @@
     <link href="./output.css?v=2.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/store-hours.js"></script>
+    <script src="js/public-db.js?v=1"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         :root {
@@ -1369,10 +1370,25 @@
         async function loadSoldOutMenu() {
             const msg = document.getElementById('soldout-msg');
             const grid = document.getElementById('soldout-grid');
-            msg.textContent = '載入菜單中…';
-            grid.innerHTML = '';
+            const cached = window.MBPublicDb && MBPublicDb.readCatalog(currentBranch);
+            if (cached && Array.isArray(cached.items) && cached.items.length) {
+                soldOutItems = cached.items;
+                renderSoldOutCats();
+                renderSoldOutGrid();
+            } else {
+                msg.textContent = '載入菜單中…';
+                grid.innerHTML = '';
+            }
             try {
-                const data = await kitchenMenuApi({ action: 'list' });
+                let data = null;
+                if (window.MBPublicDb && typeof MBPublicDb.fetchPublicMenu === 'function') {
+                    try {
+                        data = await MBPublicDb.fetchPublicMenu(currentBranch);
+                    } catch (_) {
+                        data = null;
+                    }
+                }
+                if (!data) data = await kitchenMenuApi({ action: 'list', store_name: currentBranch });
                 soldOutItems = Array.isArray(data.items) ? data.items : [];
                 msg.textContent = soldOutItems.length
                     ? `共 ${soldOutItems.length} 項 · 綠＝有貨 · 紅＝賣晒`

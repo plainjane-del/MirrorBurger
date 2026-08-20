@@ -229,6 +229,7 @@
 
     <script src="./js/sunmi-printer.umd.js"></script>
     <script src="./js/pos-print.js"></script>
+    <script src="./js/public-db.js?v=1"></script>
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
@@ -814,16 +815,38 @@
             }).join('');
         }
 
-        async function loadMenu() {
-            const data = await posApi({ action: 'list', store_name: currentStore });
+        function applyPosMenuData(data) {
+            if (!data) return;
             menuItems = data.items || [];
-            const grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
-            for (const m of data.modifiers || []) {
-                if (grouped[m.kind]) grouped[m.kind].push(m);
+            var grouped = { addon: [], sauce: [], combo_snack: [], combo_drink: [] };
+            var list = data.modifiers || [];
+            for (var i = 0; i < list.length; i++) {
+                var m = list[i];
+                if (m && grouped[m.kind]) grouped[m.kind].push(m);
             }
-            mods = grouped;
+            if (grouped.addon.length || grouped.sauce.length || grouped.combo_snack.length || grouped.combo_drink.length) {
+                mods = grouped;
+            }
             if (Number.isFinite(Number(data.combo_base))) comboBase = Number(data.combo_base);
             renderCats(); renderMenu(); renderCart();
+        }
+        async function loadMenu() {
+            var cached = window.MBPublicDb && MBPublicDb.readCatalog(currentStore);
+            if (cached && cached.items && cached.items.length) {
+                applyPosMenuData(cached);
+            }
+            try {
+                if (window.MBPublicDb && typeof MBPublicDb.fetchPublicMenu === 'function') {
+                    applyPosMenuData(await MBPublicDb.fetchPublicMenu(currentStore));
+                    return;
+                }
+            } catch (e) {}
+            try {
+                applyPosMenuData(await posApi({ action: 'list', store_name: currentStore }));
+            } catch (err) {
+                if (cached && cached.items && cached.items.length) return;
+                throw err;
+            }
         }
 
         function showTicket(data, items) {
