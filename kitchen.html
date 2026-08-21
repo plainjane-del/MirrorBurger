@@ -221,11 +221,7 @@
             gap: 8px;
             flex: 1;
             overflow-y: auto;
-        }
-        @media (max-width: 1023px) {
-            .board-col { display: none; min-height: calc(100dvh - 168px - var(--kds-sat)); }
-            .board-col.is-shown { display: flex; }
-            .board-col-h { display: none; }
+            min-height: calc(100dvh - 168px - var(--kds-sat));
         }
         .more-sheet {
             position: fixed;
@@ -277,7 +273,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.20k5</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k1</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -335,12 +331,7 @@
     </header>
 
     <section id="view-orders" class="p-2 md:p-4">
-        <div class="lg:hidden grid grid-cols-3 gap-1 mb-2">
-            <button type="button" id="filter-paid" class="board-filter is-active new" onclick="setBoardFilter('PAID')">新單 <span id="count-paid-m">0</span></button>
-            <button type="button" id="filter-prep" class="board-filter prep" onclick="setBoardFilter('PREPARING')">製作中 <span id="count-prep-m">0</span></button>
-            <button type="button" id="filter-ready" class="board-filter ready" onclick="setBoardFilter('READY')">可取 <span id="count-ready-m">0</span></button>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
             <div id="col-paid-wrap" class="board-col is-shown">
                 <div class="board-col-h new">
                     <span>新單</span>
@@ -1213,21 +1204,10 @@
             applyBoardFilter();
         }
         function applyBoardFilter() {
-            const map = {
-                PAID: 'col-paid-wrap',
-                PREPARING: 'col-prep-wrap',
-                READY: 'col-ready-wrap',
-            };
-            Object.entries(map).forEach(([status, id]) => {
+            ['col-paid-wrap', 'col-prep-wrap', 'col-ready-wrap'].forEach((id) => {
                 const col = document.getElementById(id);
-                if (col) col.classList.toggle('is-shown', status === boardFilter);
+                if (col) col.classList.add('is-shown');
             });
-            const paidBtn = document.getElementById('filter-paid');
-            const prepBtn = document.getElementById('filter-prep');
-            const readyBtn = document.getElementById('filter-ready');
-            if (paidBtn) paidBtn.classList.toggle('is-active', boardFilter === 'PAID');
-            if (prepBtn) prepBtn.classList.toggle('is-active', boardFilter === 'PREPARING');
-            if (readyBtn) readyBtn.classList.toggle('is-active', boardFilter === 'READY');
         }
 
         function moreSheetEls() {
@@ -1929,3 +1909,4 @@
     </script>
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
