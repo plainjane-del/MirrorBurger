@@ -92,7 +92,7 @@ function startTableOrdering() {
     if (menu) menu.scrollIntoView({ behavior: 'smooth' });
 }
 
-/** Cloudinary: cut studio backdrop, trim empty edges, square pad. */
+/** Cloudinary delivery: cut studio backdrop, then auto format + auto quality for speed. */
 function cloudinaryUrl(url, width) {
     if (!url || typeof url !== 'string') return '';
     const marker = '/image/upload/';
@@ -107,17 +107,26 @@ function cloudinaryUrl(url, width) {
     const assetPath = parts.slice(assetStart).join('/');
     const w = Number(width);
     const size = Number.isFinite(w) && w > 0 ? Math.round(w) : 800;
-    const tx = `e_background_removal/e_trim/c_pad,b_rgb:F8F9FA,ar_1:1,w_${size}/f_auto/q_auto`;
+    const tx = [
+        'e_background_removal',
+        'e_trim',
+        `c_pad,b_rgb:F4F9F9,ar_1:1,w_${size}`,
+        'f_auto',
+        'q_auto',
+    ].join('/');
     return `${prefix}${tx}/${assetPath}`;
 }
 
-function menuCardImgHtml(item) {
+function menuCardImgHtml(item, eager) {
     if (!item.img) {
         return '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>';
     }
     const alt = lang(item.nameEn, item.nameZh);
-    const src = cloudinaryUrl(item.img, 800);
-    return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" class="w-full h-full object-contain object-center">`;
+    const src = cloudinaryUrl(item.img, 400);
+    const src2x = cloudinaryUrl(item.img, 800);
+    const loading = eager ? 'eager' : 'lazy';
+    const prio = eager ? ' fetchpriority="high"' : '';
+    return `<img src="${src}" srcset="${src} 400w, ${src2x} 800w" sizes="(min-width: 900px) 280px, 46vw" width="800" height="800" alt="${alt}" loading="${loading}" decoding="async"${prio} class="w-full h-full object-contain object-center">`;
 }
 
 // --- 3. DATA DICTIONARY ---
@@ -640,7 +649,7 @@ function renderMenuByCategory(cat) {
     const container = document.getElementById('menu-container');
     const discountActive = isDiscountActive();
     const rate = getDiscountRate();
-    container.innerHTML = menuData[cat].map(item => {
+    container.innerHTML = menuData[cat].map((item, index) => {
         let displayPrice = '';
         if (item.sizes) {
             let p1 = item.price, p2 = item.price + item.sizes[1].upcharge;
@@ -657,7 +666,7 @@ function renderMenuByCategory(cat) {
         return `<div ${clickAction} tabindex="${item.isSoldOut ? '-1' : '0'}" role="button" onkeydown="if((event.key==='Enter'||event.key===' ') && !${item.isSoldOut ? 'true' : 'false'}){event.preventDefault(); openConfig('${cat}', '${item.id}');}" class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
             ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
-            <div class="menu-card-img relative w-full bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${menuCardImgHtml(item)}</div>
+            <div class="menu-card-img relative w-full bg-apple-bg flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${menuCardImgHtml(item, index < 4)}</div>
             <div class="menu-card-body p-3 flex-grow flex flex-col">
                 <div class="flex justify-between items-start gap-1"><h3 class="menu-card-name text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
                 ${item.desc ? `<p class="menu-card-desc text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
