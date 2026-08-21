@@ -271,7 +271,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k3</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k4</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -1587,6 +1587,10 @@
         let ordersPollTimer = null;
         let realtimeOnline = false;
 
+        function ordersPollMs() {
+            if (document.hidden) return 30000;
+            return realtimeOnline ? 10000 : 3000;
+        }
         function scheduleOrdersPoll() {
             if (ordersPollTimer) clearInterval(ordersPollTimer);
             ordersPollTimer = setInterval(() => {
@@ -1594,7 +1598,7 @@
                 if (document.getElementById('stats-panel')?.classList.contains('is-open')) {
                     loadTodayStats();
                 }
-            }, 3000);
+            }, ordersPollMs());
         }
 
         function setConn(online) {
@@ -1603,7 +1607,7 @@
             const label = document.getElementById('conn-label');
             dot.classList.toggle('online', online);
             dot.classList.toggle('offline', !online);
-            label.textContent = online ? '已連接（定時刷新訂單）' : '連線中斷（密頻刷新中）';
+            label.textContent = online ? '已連接（10秒刷新）' : '連線中斷（3秒刷新）';
             scheduleOrdersPoll();
         }
 

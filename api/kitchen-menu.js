@@ -113,6 +113,9 @@ module.exports = async (req, res) => {
                 const pendingOnline = getPendingOnline(orders);
 
                 const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
+                if (!toReconcile.length) {
+                    return res.status(200).json({ orders: orders || [], pending_online: pendingOnline });
+                }
                 const deadline = Date.now() + 8000;
                 for (const orderNo of toReconcile) {
                     if (Date.now() > deadline) break;
