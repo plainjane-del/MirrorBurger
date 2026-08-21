@@ -100,27 +100,39 @@ async function listMenuItems({ includeInactive = false } = {}) {
     return applyKnownNameFixes(items);
 }
 
-const KNOWN_NAME_FIXES = {
+const KNOWN_ITEM_FIXES = {
     v3: { name_zh: '自家製素' },
+    d2: { img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg' },
+    d3: { img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138715/170200178-1-schweppes-soda-water-330ml_tyvsww.jpg' },
+    d4: { img: '/img/menu/d4-lemon-tea.jpg' },
+    d6: { img: '/img/menu/d6-latte.jpg' },
+    d7: { img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png' },
+    d8: { img: '/img/menu/d8-chocolate.jpg' },
+    d9: { img: '/img/menu/d9-avocado-smoothie.jpg' },
+    d10: { img: '/img/menu/d10-ovaltine-smoothie.jpg' },
 };
 
 function applyKnownNameFixes(items) {
     if (!Array.isArray(items) || !items.length) return items;
     for (const item of items) {
-        const fix = KNOWN_NAME_FIXES[item && item.id];
+        const fix = KNOWN_ITEM_FIXES[item && item.id];
         if (!fix) continue;
         const patch = {};
-        for (const [key, value] of Object.entries(fix)) {
-            if (item[key] !== value) {
-                item[key] = value;
-                patch[key] = value;
-            }
+        if (fix.name_zh && item.name_zh !== fix.name_zh) {
+            item.name_zh = fix.name_zh;
+            patch.name_zh = fix.name_zh;
+        }
+        if (fix.img && !(item.img || item.image_url)) {
+            item.img = fix.img;
+            item.image_url = fix.img;
+            patch.img = fix.img;
+            patch.image_url = fix.img;
         }
         if (Object.keys(patch).length) {
-            sbFetch(`menu_items?id=eq.${encodeURIComponent(item.id)}`, {
+            sbWrite(`menu_items?id=eq.${encodeURIComponent(item.id)}`, {
                 method: 'PATCH',
                 body: JSON.stringify(patch),
-            }).catch((err) => console.warn('menu name fix skipped', item.id, err && err.message));
+            }).catch((err) => console.warn('menu item fix skipped', item.id, err && err.message));
         }
     }
     return items;

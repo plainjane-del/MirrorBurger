@@ -92,7 +92,7 @@ function startTableOrdering() {
     if (menu) menu.scrollIntoView({ behavior: 'smooth' });
 }
 
-/** Cloudinary: strip prior transforms, cap width, auto format/quality (WebP/AVIF). */
+/** Cloudinary: cut studio backdrop, trim empty edges, square pad. */
 function cloudinaryUrl(url, width) {
     if (!url || typeof url !== 'string') return '';
     const marker = '/image/upload/';
@@ -106,9 +106,8 @@ function cloudinaryUrl(url, width) {
     }
     const assetPath = parts.slice(assetStart).join('/');
     const w = Number(width);
-    const tx = Number.isFinite(w) && w > 0
-        ? `c_limit,w_${Math.round(w)}/f_auto/q_auto`
-        : 'f_auto/q_auto';
+    const size = Number.isFinite(w) && w > 0 ? Math.round(w) : 800;
+    const tx = `e_background_removal/e_trim/c_pad,b_rgb:F8F9FA,ar_1:1,w_${size}/f_auto/q_auto`;
     return `${prefix}${tx}/${assetPath}`;
 }
 
@@ -117,9 +116,8 @@ function menuCardImgHtml(item) {
         return '<div class="text-gray-300 font-bold tracking-widest text-[8px]">MIRROR</div>';
     }
     const alt = lang(item.nameEn, item.nameZh);
-    const src = cloudinaryUrl(item.img, 480);
-    const src2x = cloudinaryUrl(item.img, 800);
-    return `<img src="${src}" srcset="${src} 480w, ${src2x} 800w" sizes="(max-width: 640px) 46vw, 280px" alt="${alt}" loading="lazy" decoding="async" class="w-full h-full object-contain object-center mix-blend-multiply scale-[1.15]">`;
+    const src = cloudinaryUrl(item.img, 800);
+    return `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" class="w-full h-full object-contain object-center">`;
 }
 
 // --- 3. DATA DICTIONARY ---
@@ -152,13 +150,13 @@ let menuData = {
         { id: 'd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138703/coke_zero_jdjubx.jpg', dietary: ['🚫🍬'], isSoldOut: false },
         { id: 'd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg', isSoldOut: false },
         { id: 'd3', nameEn: 'Soda Water', nameZh: '梳打水', price: 15, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138715/170200178-1-schweppes-soda-water-330ml_tyvsww.jpg', dietary: ['🚫🍬'], isSoldOut: false },
-        { id: 'd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', price: 22, isSoldOut: false },
+        { id: 'd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', price: 22, img: '/img/menu/d4-lemon-tea.jpg', isSoldOut: false },
         { id: 'd5', nameEn: 'Americano', nameZh: '美式咖啡', price: 22, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801201/americano_fqaszt.png', hasTemp: true, isSoldOut: false },
-        { id: 'd6', nameEn: 'Latte', nameZh: '鮮奶咖啡', price: 25, hasTemp: true, isSoldOut: false },
+        { id: 'd6', nameEn: 'Latte', nameZh: '鮮奶咖啡', price: 25, img: '/img/menu/d6-latte.jpg', hasTemp: true, isSoldOut: false },
         { id: 'd7', nameEn: 'Mocha', nameZh: '朱古力咖啡', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true, isSoldOut: false },
-        { id: 'd8', nameEn: 'Chocolate', nameZh: '朱古力', price: 25, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138479/mocha_niop9r.png', hasTemp: true, isSoldOut: false },
-        { id: 'd9', nameEn: 'Avocado Smoothie with Oat', nameZh: '燕麥牛油果沙冰', price: 37, isSoldOut: false },
-        { id: 'd10', nameEn: 'Double Ovaltine Smoothie', nameZh: '雙重阿華田沙冰', price: 40, isSoldOut: false }
+        { id: 'd8', nameEn: 'Chocolate', nameZh: '朱古力', price: 25, img: '/img/menu/d8-chocolate.jpg', hasTemp: true, isSoldOut: false },
+        { id: 'd9', nameEn: 'Avocado Smoothie with Oat', nameZh: '燕麥牛油果沙冰', price: 37, img: '/img/menu/d9-avocado-smoothie.jpg', isSoldOut: false },
+        { id: 'd10', nameEn: 'Double Ovaltine Smoothie', nameZh: '雙重阿華田沙冰', price: 40, img: '/img/menu/d10-ovaltine-smoothie.jpg', isSoldOut: false }
     ],
     sauces: [
         { id: 'ss1', nameEn: 'Caramelized Garlic', nameZh: '焦糖蒜蓉醬', price: 6, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138619/garlic-mayonnaise_kg8fez.jpg', isSoldOut: false },
@@ -659,7 +657,7 @@ function renderMenuByCategory(cat) {
         return `<div ${clickAction} tabindex="${item.isSoldOut ? '-1' : '0'}" role="button" onkeydown="if((event.key==='Enter'||event.key===' ') && !${item.isSoldOut ? 'true' : 'false'}){event.preventDefault(); openConfig('${cat}', '${item.id}');}" class="menu-card relative bg-white rounded-3xl border border-gray-100 shadow-sm transition-transform cursor-pointer overflow-hidden flex flex-col ${item.isSoldOut ? 'opacity-80' : 'active:scale-95'}">
             ${soldOutOverlay}
             ${item.tag ? `<span class="menu-card-tag absolute top-2 left-2 bg-burger-gold/90 backdrop-blur text-black text-[8px] font-black px-2 py-1 rounded-full shadow-sm uppercase tracking-widest border border-yellow-400 z-10"><span class="en">${item.tag}</span><span class="zh">${item.tagZh}</span></span>` : ''}
-            <div class="menu-card-img relative w-full aspect-[4/3] bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${menuCardImgHtml(item)}</div>
+            <div class="menu-card-img relative w-full bg-[#f8f9fa] flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">${menuCardImgHtml(item)}</div>
             <div class="menu-card-body p-3 flex-grow flex flex-col">
                 <div class="flex justify-between items-start gap-1"><h3 class="menu-card-name text-[11px] font-black uppercase italic tracking-tight leading-tight line-clamp-2 pr-1.5 pb-0.5">${lang(item.nameEn, item.nameZh)}</h3></div>
                 ${item.desc ? `<p class="menu-card-desc text-[9px] text-gray-400 font-medium leading-tight line-clamp-2 mt-1">${lang(item.desc, item.descZh || item.desc)}</p>` : ''}
@@ -674,7 +672,7 @@ function openConfig(cat, id) {
     activeItem = { ...item };
     document.getElementById('config-name').innerText = lang(item.nameEn, item.nameZh);
     document.getElementById('config-desc').innerText = lang(item.desc || "", item.descZh || "");
-    document.getElementById('config-hero').src = item.img ? cloudinaryUrl(item.img, 900) : '';
+    document.getElementById('config-hero').src = item.img ? cloudinaryUrl(item.img, 800) : '';
     
     const isBurger = ['beef', 'others', 'veggie'].includes(cat), isSnack = cat === 'snacks', hasSizes = !!item.sizes, isSpicy = item.dietary && item.dietary.some(d => d.includes('🌶️')), hasTemp = !!item.hasTemp;
     document.getElementById('size-section').classList.toggle('hidden', !hasSizes);

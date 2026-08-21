@@ -353,6 +353,16 @@
         body.lang-en .zh { display: none !important; }
         body.lang-zh .en { display: none !important; }
 
+        .menu-card-img {
+            aspect-ratio: 1 / 1;
+            background: #f8f9fa;
+        }
+        .menu-card-img img {
+            object-fit: contain;
+            object-position: center;
+            mix-blend-mode: normal;
+            transform: none;
+        }
         body.page-locked { overflow: hidden; }
         .store-status {
             display: inline-flex;
@@ -792,7 +802,7 @@
                 background: #fff;
                 border-radius: 28px;
                 aspect-ratio: 1 / 1;
-                padding: 28px;
+                padding: 10px;
                 overflow: hidden;
                 transition: box-shadow 0.3s ease;
             }
@@ -1343,7 +1353,7 @@
     <div id="config-scroll-area" class="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar pb-32 pt-0">
         <div class="config-layout">
         <div class="config-hero-wrap relative h-56 -mx-6 mb-6 shrink-0 bg-[#f8f9fa] flex items-center justify-center overflow-hidden rounded-t-[2.5rem]">
-            <img id="config-hero" src="" alt="Item Image" loading="lazy" decoding="async" class="h-full w-full object-contain object-center drop-shadow-sm mix-blend-multiply scale-[1.15]">
+            <img id="config-hero" src="" alt="Item Image" loading="lazy" decoding="async" class="h-full w-full object-contain object-center drop-shadow-sm">
         </div>
                 <div class="config-product space-y-6">
                 <div>
@@ -1504,7 +1514,7 @@
 
     <!-- 腳本引入 -->
     <script src="/js/store-hours.js"></script>
-    <script src="/js/menu.js?v=3.7"></script>
+    <script src="/js/menu.js?v=3.8"></script>
     <script src="/js/order-handler.js?v=2.2"></script>
 </body>
 </html>
