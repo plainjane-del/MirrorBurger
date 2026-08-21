@@ -74,6 +74,24 @@
         return /iPad|iPhone|iPod/i.test(ua)
             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
+    // Cursor / VS Code Simple Browser is an Electron webview. Loading POS there
+    // used to inject <a href="sunmi://..."> and call WebUSB; the IDE then opens
+    // that protocol as an external app. Kitchen/admin/site do not load this SDK.
+    function isIdeWebview() {
+        try {
+            if (typeof acquireVsCodeApi === 'function') return true;
+        } catch (_) {}
+        try {
+            const origins = document.ancestorOrigins;
+            if (origins) {
+                for (let i = 0; i < origins.length; i++) {
+                    if (/vscode-webview|vscode-app|cursor/i.test(String(origins[i]))) return true;
+                }
+            }
+        } catch (_) {}
+        const ua = navigator.userAgent || '';
+        return /Electron/i.test(ua) && !/sunmi/i.test(ua);
+    }
     function hasWebUsb() {
         return !!(navigator.usb && typeof navigator.usb.requestDevice === 'function');
     }
@@ -174,8 +192,7 @@
             const list = await navigator.usb.getDevices();
             const known = list.filter(function (d) { return d.vendorId === EPSON_VID; })[0]
                 || list.filter(function (d) { return d.vendorId === GPRINTER_VID; })[0]
-                || list.filter(function (d) { return d.productId === GPRINTER_PID; })[0]
-                || list[0];
+                || list.filter(function (d) { return d.productId === GPRINTER_PID; })[0];
             if (!known) return false;
             await openUsbDevice(known);
             return true;
@@ -369,8 +386,27 @@
             sdk.printer = null;
         }
     }
+    function loadSunmiSdk() {
+        return new Promise(function (resolve, reject) {
+            if (typeof SUNMI === 'function') return resolve();
+            const s = document.createElement('script');
+            s.src = './js/sunmi-printer.umd.js';
+            s.onload = function () { resolve(); };
+            s.onerror = function () { reject(new Error('Sunmi SDK load failed')); };
+            document.head.appendChild(s);
+        });
+    }
+
     async function connectSunmi(opts) {
         const launch = !!(opts && opts.launch);
+        // Never construct the SDK in Cursor's browser — its constructor inserts
+        // sunmi:// and Electron opens that as an external app.
+        if (isIdeWebview() || !isSunmiTill()) return false;
+        try {
+            await loadSunmiSdk();
+        } catch (_) {
+            return false;
+        }
         if (typeof SUNMI !== 'function') {
             return false;
         }
@@ -381,7 +417,6 @@
             setStatus('出單機已駁', true);
             return true;
         }
-        if (!isSunmiTill() && currentDriver() !== 'sunmi') return false;
         setStatus('駁緊出單機…', false);
         if (!sdk.socketManager) sdk.init();
         if (await waitConnected(1000)) {
@@ -625,8 +660,13 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             return true;
         }
 
-        // Opening POS must not launch Sunmi/Epson apps, USB pickers, or print dialogs.
-        // Quiet boot: reuse a previously-allowed USB/serial device only.
+        // Opening POS in Cursor's internal browser must not touch USB/Sunmi.
+        if (isIdeWebview()) {
+            setStatus('出單機未駁', false);
+            return false;
+        }
+
+        // Quiet reconnect: reuse a previously-allowed USB/serial device only.
         if (!launch) {
             if (hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
                 setStatus('出單機已駁', true);
@@ -802,7 +842,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         if (el) el.classList.remove('is-open');
     }
 
-    if (navigator.usb && navigator.usb.addEventListener) {
+    if (!isIdeWebview() && navigator.usb && navigator.usb.addEventListener) {
         navigator.usb.addEventListener('disconnect', (ev) => {
             if (usb && usb.device === ev.device) {
                 usb = null;

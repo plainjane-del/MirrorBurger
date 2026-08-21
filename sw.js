@@ -1,4 +1,4 @@
-const CACHE = 'mirror-burger-v18';
+const CACHE = 'mirror-burger-v17';
 const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json', '/admin-manifest.json'];
 
 self.addEventListener('install', (event) => {
