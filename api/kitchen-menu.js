@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { requireKitchen } = require('./_kitchenAuth.js');
-const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut } = require('./_menuDb.js');
+const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut, isPermissionError } = require('./_menuDb.js');
 const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
@@ -279,6 +279,18 @@ module.exports = async (req, res) => {
     } catch (err) {
         console.error('kitchen-menu error:', err);
         const status = err.message === 'Invalid store' ? 400 : (err.status || 500);
-        return res.status(status).json({ error: err.message || 'Failed' });
+        let message = err.message || 'Failed';
+        if (err.body && typeof err.body === 'object' && err.body.message) {
+            message = err.body.message;
+        } else {
+            try {
+                const parsed = JSON.parse(String(err.message || ''));
+                if (parsed && parsed.message) message = parsed.message;
+            } catch (_) {}
+        }
+        if (isPermissionError(err)) {
+            message = '沽清寫入被拒。Vercel 要設 SUPABASE_SERVICE_ROLE_KEY（唔可以用 anon key）。';
+        }
+        return res.status(status).json({ error: message });
     }
 };

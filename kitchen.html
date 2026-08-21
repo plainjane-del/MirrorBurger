@@ -271,7 +271,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k6</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k7</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -1366,6 +1366,19 @@
                 || '';
         }
 
+        function formatKitchenApiError(error) {
+            if (!error) return '';
+            if (typeof error === 'string') {
+                try {
+                    const parsed = JSON.parse(error);
+                    if (parsed && parsed.message) return parsed.message;
+                } catch (_) {}
+                return error;
+            }
+            if (typeof error === 'object' && error.message) return error.message;
+            return String(error);
+        }
+
         async function kitchenOrdersApi(payload) {
             const headers = {
                 'Content-Type': 'application/json',
@@ -1383,7 +1396,7 @@
             const etag = res.headers.get('ETag');
             if (etag && payload && payload.action === 'board') boardEtag = etag;
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || 'Request failed');
+            if (!res.ok) throw new Error(formatKitchenApiError(data.error) || 'Request failed');
             return data;
         }
 
@@ -1394,7 +1407,7 @@
                 body: JSON.stringify({ token: getKitchenToken(), store_name: currentBranch, ...payload }),
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || 'Request failed');
+            if (!res.ok) throw new Error(formatKitchenApiError(data.error) || 'Request failed');
             return data;
         }
 

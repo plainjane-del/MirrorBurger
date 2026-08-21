@@ -1,8 +1,9 @@
 function sb() {
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_KEY;
+    // Anon can SELECT menu, but UPDATE/INSERT is revoked. Same as orders: prefer service role.
+    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
     if (!SUPABASE_URL || !SUPABASE_KEY) {
-        throw new Error('Missing SUPABASE_URL or SUPABASE_KEY');
+        throw new Error('Missing SUPABASE_URL or SUPABASE_KEY/SERVICE_ROLE_KEY');
     }
     return { SUPABASE_URL, SUPABASE_KEY };
 }
@@ -35,8 +36,19 @@ async function sbFetch(path, options = {}) {
     return data;
 }
 
+function errorText(err) {
+    if (err && err.body && typeof err.body === 'object' && err.body.message) {
+        return String(err.body.message);
+    }
+    return String(err && err.message || '');
+}
+
+function isPermissionError(err) {
+    return /42501|permission denied|row-level security/i.test(errorText(err) + JSON.stringify((err && err.body) || ''));
+}
+
 function stripMissingColumn(err, body) {
-    const msg = String(err && err.message || '');
+    const msg = errorText(err);
     const m = msg.match(/Could not find the '([^']+)' column of '([^']+)'/i);
     if (!m) return null;
     const col = m[1];
@@ -203,34 +215,41 @@ async function setStoreMenuSoldOut(storeName, itemId, isSoldOut) {
     const store = String(storeName || '').trim();
     const id = String(itemId || '').trim();
     if (!store || !id) throw new Error('Missing store or item id');
+    // Live menu_sold_out has updated_at; live menu_items does not.
     const row = {
         store_name: store,
         item_id: id,
         is_sold_out: !!isSoldOut,
+        updated_at: new Date().toISOString(),
     };
+    const patchBody = {
+        is_sold_out: !!isSoldOut,
+        updated_at: row.updated_at,
+    };
+    try {
+        const upserted = await sbWrite('menu_sold_out?on_conflict=store_name,item_id', {
+            method: 'POST',
+            prefer: 'resolution=merge-duplicates,return=representation',
+            body: JSON.stringify(row),
+        });
+        if (Array.isArray(upserted) && upserted.length) return upserted;
+        if (upserted && !Array.isArray(upserted)) return upserted;
+    } catch (err) {
+        if (isPermissionError(err)) throw err;
+    }
     const patched = await sbWrite(
         `menu_sold_out?store_name=eq.${encodeURIComponent(store)}&item_id=eq.${encodeURIComponent(id)}`,
         {
             method: 'PATCH',
             prefer: 'return=representation',
-            body: JSON.stringify({
-                is_sold_out: !!isSoldOut,
-            }),
+            body: JSON.stringify(patchBody),
         }
     );
     if (Array.isArray(patched) && patched.length) return patched;
-    try {
-        return await sbWrite('menu_sold_out?on_conflict=store_name,item_id', {
-            method: 'POST',
-            prefer: 'resolution=merge-duplicates,return=representation',
-            body: JSON.stringify(row),
-        });
-    } catch (err) {
-        return sbWrite('menu_sold_out', {
-            method: 'POST',
-            body: JSON.stringify(row),
-        });
-    }
+    return sbWrite('menu_sold_out', {
+        method: 'POST',
+        body: JSON.stringify(row),
+    });
 }
 
 module.exports = {
@@ -245,4 +264,5 @@ module.exports = {
     listSoldOutIds,
     setMenuItemSoldOut,
     setStoreMenuSoldOut,
+    isPermissionError,
 };
