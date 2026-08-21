@@ -73,15 +73,10 @@
         .store-jump:hover { border-color: #525252; }
         html.is-standalone #login-view { padding-top: calc(4rem + env(safe-area-inset-top, 0px)); }
         html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
-        .shop-link {
-            display: flex; align-items: center; justify-content: center;
-            min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.9rem;
-            background: #1a1a1a; border: 1px solid #333; font-weight: 800;
-            color: #f5f5f5; text-decoration: none;
-        }
-        .shop-link:hover { border-color: #FFD131; color: #FFD131; }
+        #login-view.hidden,
+        #app-view.hidden { display: none !important; }
         @media (min-width: 900px) {
-            .app-shell { display: flex; }
+            .app-shell:not(.hidden) { display: flex; }
             .app-nav {
                 flex-direction: column; width: 13.5rem; flex-shrink: 0;
                 border-bottom: 0; border-right: 1px solid #262626;
@@ -111,13 +106,7 @@
         <button type="submit" class="btn btn-primary w-full">登入</button>
         </form>
         <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
-        <div class="mt-8 space-y-2">
-            <p class="text-[11px] font-black tracking-widest uppercase text-neutral-600">開其他頁</p>
-            <a class="shop-link" href="/pos.html">POS 收銀</a>
-            <a class="shop-link" href="/kitchen.html">廚房 KDS</a>
-            <a class="shop-link" href="/">網站</a>
-        </div>
-        <p class="text-xs font-bold text-neutral-500 mt-6 leading-relaxed">加主畫面：Safari / 瀏覽器 → 分享／選單 →「加入主畫面」。圖示會寫住 ADMIN，方便同廚房、POS 分開。</p>
+        <p class="text-xs font-bold text-neutral-500 mt-6 leading-relaxed">加主畫面：Safari / 瀏覽器 → 分享／選單 →「加入主畫面」。圖示會寫住 ADMIN。</p>
     </div>
 
         <div id="app-view" class="hidden app-shell">
@@ -145,9 +134,6 @@
                 <p class="text-neutral-500 text-sm" id="page-sub">今日實收 · 堂食／外賣 · 客單價</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a class="btn btn-ghost" href="/pos.html">POS</a>
-                <a class="btn btn-ghost" href="/kitchen.html">廚房</a>
-                <a class="btn btn-ghost" href="/">網站</a>
                 <button type="button" class="btn btn-ghost" onclick="refreshCurrent()">重新載入</button>
                 <button type="button" class="btn btn-ghost" id="toolbar-logout" onclick="logout()">登出</button>
             </div>
