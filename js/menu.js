@@ -92,7 +92,7 @@ function startTableOrdering() {
     if (menu) menu.scrollIntoView({ behavior: 'smooth' });
 }
 
-/** Cloudinary delivery: cut studio backdrop, then auto format + auto quality for speed. */
+/** Cloudinary: fast square crop + auto format/quality. No AI bg-removal on page load. */
 function cloudinaryUrl(url, width) {
     if (!url || typeof url !== 'string') return '';
     const marker = '/image/upload/';
@@ -107,13 +107,7 @@ function cloudinaryUrl(url, width) {
     const assetPath = parts.slice(assetStart).join('/');
     const w = Number(width);
     const size = Number.isFinite(w) && w > 0 ? Math.round(w) : 800;
-    const tx = [
-        'e_background_removal',
-        'e_trim',
-        `c_pad,b_rgb:F4F9F9,ar_1:1,w_${size}`,
-        'f_auto',
-        'q_auto',
-    ].join('/');
+    const tx = `c_fill,g_auto,ar_1:1,w_${size}/f_auto/q_auto`;
     return `${prefix}${tx}/${assetPath}`;
 }
 
@@ -126,7 +120,7 @@ function menuCardImgHtml(item, eager) {
     const src2x = cloudinaryUrl(item.img, 800);
     const loading = eager ? 'eager' : 'lazy';
     const prio = eager ? ' fetchpriority="high"' : '';
-    return `<img src="${src}" srcset="${src} 400w, ${src2x} 800w" sizes="(min-width: 900px) 280px, 46vw" width="800" height="800" alt="${alt}" loading="${loading}" decoding="async"${prio} class="w-full h-full object-contain object-center">`;
+    return `<img src="${src}" srcset="${src} 400w, ${src2x} 800w" sizes="(min-width: 900px) 280px, 46vw" width="800" height="800" alt="${alt}" loading="${loading}" decoding="async"${prio} class="w-full h-full object-cover object-center">`;
 }
 
 // --- 3. DATA DICTIONARY ---
