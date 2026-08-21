@@ -271,7 +271,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k5</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k6</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -871,6 +871,7 @@
             currentBranch = btn.dataset.branch;
             kitchenBoardReady = false;
             lastBoardSig = '';
+            boardEtag = '';
             ordersMap = new Map();
             syncBranchTabs();
             loadOrders();
@@ -1052,10 +1053,18 @@
         }
 
         let pendingOnline = [];
+        let boardEtag = '';
+        let loadOrdersBusy = false;
 
         async function loadOrders() {
+            if (loadOrdersBusy) return;
+            loadOrdersBusy = true;
             try {
                 const data = await kitchenOrdersApi({ action: 'board' });
+                if (data && data.notModified) {
+                    kitchenBoardReady = true;
+                    return;
+                }
                 const rows = Array.isArray(data.orders) ? data.orders : [];
                 pendingOnline = Array.isArray(data.pending_online) ? data.pending_online : [];
                 const prevKeys = new Set(ordersMap.keys());
@@ -1084,6 +1093,8 @@
                 document.getElementById('col-paid').innerHTML = errHtml;
                 const readyCol = document.getElementById('col-ready');
                 if (readyCol) readyCol.innerHTML = '';
+            } finally {
+                loadOrdersBusy = false;
             }
         }
 
@@ -1356,14 +1367,21 @@
         }
 
         async function kitchenOrdersApi(payload) {
+            const headers = {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + getKitchenToken(),
+            };
+            if (payload && payload.action === 'board' && boardEtag) {
+                headers['If-None-Match'] = boardEtag;
+            }
             const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + getKitchenToken(),
-                },
+                headers,
                 body: JSON.stringify({ store_name: currentBranch, ...payload }),
             });
+            if (res.status === 304) return { notModified: true };
+            const etag = res.headers.get('ETag');
+            if (etag && payload && payload.action === 'board') boardEtag = etag;
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Request failed');
             return data;
@@ -1589,7 +1607,7 @@
 
         function ordersPollMs() {
             if (document.hidden) return 60000;
-            return realtimeOnline ? 15000 : 5000;
+            return realtimeOnline ? 30000 : 10000;
         }
         function scheduleOrdersPoll() {
             if (ordersPollTimer) clearInterval(ordersPollTimer);
@@ -1607,8 +1625,17 @@
             const label = document.getElementById('conn-label');
             dot.classList.toggle('online', online);
             dot.classList.toggle('offline', !online);
-            label.textContent = online ? '已連接（15秒刷新）' : '連線中斷（5秒刷新）';
+            label.textContent = online ? '已連接（30秒刷新）' : '連線中斷（10秒刷新）';
             scheduleOrdersPoll();
+        }
+
+        let boardRefreshTimer = null;
+        function requestBoardRefresh() {
+            if (boardRefreshTimer) return;
+            boardRefreshTimer = setTimeout(() => {
+                boardRefreshTimer = null;
+                loadOrders();
+            }, 400);
         }
 
         function startRealtime() {
@@ -1621,6 +1648,11 @@
                         applyStoreRow(row);
                         renderStoreStatusBtn();
                     }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+                    const row = payload.new || payload.old;
+                    if (row && (row.store_name || '') && (row.store_name || '') !== currentBranch) return;
+                    requestBoardRefresh();
                 })
                 .subscribe((status) => {
                     setConn(status === 'SUBSCRIBED');

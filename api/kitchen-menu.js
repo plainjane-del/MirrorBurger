@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut } = require('./_menuDb.js');
 const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
@@ -15,6 +16,18 @@ function isKitchenBoardOrder(order) {
     if (!paidOk) return false;
     const kitchen = active.includes(st) ? st : (pay === 'UNPAID' ? 'PAID' : pay);
     return active.includes(kitchen);
+}
+
+function sendJsonWithEtag(req, res, payload) {
+    const body = JSON.stringify(payload);
+    const etag = '"' + crypto.createHash('sha1').update(body).digest('hex') + '"';
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    if (String(req.headers['if-none-match'] || '') === etag) {
+        return res.status(304).end();
+    }
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(200).end(body);
 }
 
 function resolveStoreAccess(auth, inputStoreName) {
@@ -127,7 +140,7 @@ module.exports = async (req, res) => {
 
                 const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
                 if (!toReconcile.length) {
-                    return res.status(200).json({
+                    return sendJsonWithEtag(req, res, {
                         orders: (orders || []).filter(isKitchenBoardOrder),
                         pending_online: pendingOnline,
                     });
@@ -145,7 +158,7 @@ module.exports = async (req, res) => {
                 const orders2 = await listKitchenOrders(storeName, { since, limit: 60 });
                 const pendingOnline2 = getPendingOnline(orders2);
                 const board = (orders2 || []).filter(isKitchenBoardOrder);
-                return res.status(200).json({ orders: board, pending_online: pendingOnline2 });
+                return sendJsonWithEtag(req, res, { orders: board, pending_online: pendingOnline2 });
             }
 
             if (action === 'completed') {
