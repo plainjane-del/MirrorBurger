@@ -75,7 +75,8 @@
         html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
         #login-view.hidden,
         #app-view.hidden { display: none !important; }
-        #table-dine-controls.hidden { display: none !important; }
+        #table-count-wrap.hidden,
+        #save-tables-btn.hidden { display: none !important; }
         @media (min-width: 900px) {
             .app-shell:not(.hidden) { display: flex; }
             .app-nav {
@@ -88,28 +89,50 @@
             #nav-brand, #nav-logout { display: block !important; }
             #toolbar-logout { display: none; }
         }
+        #qr-print-root { display: none; }
         @media print {
-            body { background: #fff; color: #111; }
-            #login-view, #app-nav, #app-toolbar,
-            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #panel-printer, #ticket-modal, #toast { display: none !important; }
-            #panel-tables { display: block !important; }
-            #panel-tables .no-print, #table-msg { display: none !important; }
-            #table-qr-grid { display: grid; gap: 12px; }
-            #table-qr-grid .card {
+            @page { size: A4 portrait; margin: 8mm; }
+            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; color: #111 !important; }
+            body > *:not(#qr-print-root) { display: none !important; }
+            #qr-print-root {
+                display: block !important;
                 background: #fff;
-                border: 2px solid #111;
                 color: #111;
-                break-inside: avoid;
-                page-break-inside: avoid;
+                font-family: "PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif;
             }
-            #table-qr-grid.qr-pickup-grid {
+            #qr-print-root .sheet {
+                width: 194mm; height: 277mm;
+                page-break-after: always; break-after: page;
+                box-sizing: border-box;
+            }
+            #qr-print-root .sheet:last-child { page-break-after: auto; break-after: auto; }
+            #qr-print-root .table-sheet {
                 display: grid;
-                grid-template-columns: 1fr;
-                gap: 10mm;
-                max-width: 92mm;
-                margin: 8mm auto 0;
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                gap: 3mm;
             }
-            #table-qr-grid.qr-pickup-grid img { width: 220px; height: 220px; }
+            #qr-print-root .card {
+                border: 1.6pt solid #111;
+                border-radius: 4mm;
+                padding: 2mm;
+                text-align: center;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                overflow: hidden; break-inside: avoid;
+            }
+            #qr-print-root .card img { width: 38mm; height: 38mm; }
+            #qr-print-root .brand { font-size: 8pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+            #qr-print-root .no { font-size: 16pt; font-weight: 900; letter-spacing: -.04em; margin-top: 1mm; }
+            #qr-print-root .pay { font-size: 8pt; font-weight: 700; margin-top: 0.5mm; }
+            #qr-print-root .pickup-sheet {
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                text-align: center;
+            }
+            #qr-print-root .pickup-sheet img { width: 92mm; height: 92mm; margin: 6mm 0; }
+            #qr-print-root .pickup-sheet .brand { font-size: 12pt; }
+            #qr-print-root .pickup-sheet .no { font-size: 28pt; }
+            #qr-print-root .pickup-sheet .pay { font-size: 12pt; }
+            #qr-print-root .pickup-sheet .offer { font-size: 10pt; font-weight: 800; margin-top: 3mm; }
         }
     </style>
 </head>
@@ -224,28 +247,30 @@
         </div>
 
         <div id="panel-tables" class="hidden">
-            <p id="qr-help" class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。</p>
+            <p id="qr-help" class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。每張 A4 最多 12 個枱 QR。</p>
             <div class="flex flex-wrap gap-2 mb-4 no-print">
                 <button type="button" id="qr-mode-table" class="btn tab-on" onclick="setQrMode('table')">堂食枱</button>
                 <button type="button" id="qr-mode-pickup" class="btn tab-off" onclick="setQrMode('pickup')">外賣自取</button>
             </div>
             <div class="flex flex-wrap gap-3 items-end mb-4 no-print">
-                <div id="table-dine-controls" class="flex flex-wrap gap-3 items-end">
-                    <div>
-                        <label>分店</label>
-                        <select id="table-store" onchange="onTableStoreChange()"></select>
-                    </div>
-                    <div id="table-count-wrap">
-                        <label>枱數</label>
-                        <div class="flex gap-2">
-                            <button type="button" class="btn btn-ghost" onclick="nudgeTables(-1)">−</button>
-                            <input id="table-count" type="number" min="0" max="40" class="w-20 text-center" onchange="previewQr()">
-                            <button type="button" class="btn btn-ghost" onclick="nudgeTables(1)">＋</button>
-                        </div>
-                    </div>
-                    <button type="button" id="save-tables-btn" class="btn btn-primary" onclick="saveTableCount()">儲存枱數</button>
+                <div class="min-w-[10rem] flex-1">
+                    <label>搜尋分店</label>
+                    <input id="table-store-search" type="search" placeholder="店名／地區" oninput="filterTableStores()">
                 </div>
-                <button type="button" class="btn btn-ghost" onclick="window.print()">列印 QR</button>
+                <div class="min-w-[12rem] flex-1">
+                    <label>分店</label>
+                    <select id="table-store" onchange="onTableStoreChange()"></select>
+                </div>
+                <div id="table-count-wrap">
+                    <label>枱數</label>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost" onclick="nudgeTables(-1)">−</button>
+                        <input id="table-count" type="number" min="0" max="40" class="w-20 text-center" onchange="previewQr()">
+                        <button type="button" class="btn btn-ghost" onclick="nudgeTables(1)">＋</button>
+                    </div>
+                </div>
+                <button type="button" id="save-tables-btn" class="btn btn-primary" onclick="saveTableCount()">儲存枱數</button>
+                <button type="button" class="btn btn-ghost" onclick="printQr()">列印 QR</button>
             </div>
             <p id="table-msg" class="text-sm text-neutral-500 mb-4"></p>
             <div id="table-qr-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
@@ -404,6 +429,7 @@
     </div>
 
     <div id="toast" class="toast hidden"></div>
+    <div id="qr-print-root"></div>
 
     <script>
         const TOKEN_KEY = 'mb_admin_token';
@@ -835,19 +861,54 @@
         }
 
         async function loadTables() {
-            const sel = document.getElementById('table-store');
             const data = await api('/api/admin-menu', { token, action: 'table_counts' });
             tableStores = data.stores || [];
+            renderTableStoreSelect();
+            onTableStoreChange();
+        }
+
+        function storeSearchQuery() {
+            const el = document.getElementById('table-store-search');
+            return ((el && el.value) || '').trim().toLowerCase();
+        }
+
+        function storeMatchesFilter(store, q) {
+            if (!q) return true;
+            const hay = ((store.label || '') + ' ' + (store.store_name || '') + ' ' + (store.slug || '')).toLowerCase();
+            return hay.indexOf(q) !== -1;
+        }
+
+        function filteredTableStores() {
+            const q = storeSearchQuery();
+            const rows = tableStores.filter((s) => storeMatchesFilter(s, q));
+            return rows;
+        }
+
+        function renderTableStoreSelect() {
+            const sel = document.getElementById('table-store');
+            if (!sel) return;
             const prev = sel.value;
-            sel.innerHTML = tableStores.map((s) =>
-                `<option value="${escAttr(s.store_name)}">${esc(s.label)}（${Number(s.count)} 張）</option>`
+            const rows = filteredTableStores();
+            if (!rows.length) {
+                sel.innerHTML = '<option value="">搵唔到分店</option>';
+                return;
+            }
+            sel.innerHTML = rows.map((s) =>
+                `<option value="${escAttr(s.store_name)}">${esc(s.label)}</option>`
             ).join('');
-            if (prev && tableStores.some((s) => s.store_name === prev)) sel.value = prev;
+            if (prev && rows.some((s) => s.store_name === prev)) sel.value = prev;
+        }
+
+        function filterTableStores() {
+            renderTableStoreSelect();
             onTableStoreChange();
         }
 
         function selectedTableStore() {
-            return tableStores.find((s) => s.store_name === document.getElementById('table-store').value) || tableStores[0];
+            const sel = document.getElementById('table-store');
+            const val = sel && sel.value;
+            if (!val) return null;
+            return tableStores.find((s) => s.store_name === val) || null;
         }
 
         function onTableStoreChange() {
@@ -873,13 +934,15 @@
             const pickupBtn = document.getElementById('qr-mode-pickup');
             if (tableBtn) tableBtn.className = 'btn ' + (qrMode === 'table' ? 'tab-on' : 'tab-off');
             if (pickupBtn) pickupBtn.className = 'btn ' + (qrMode === 'pickup' ? 'tab-on' : 'tab-off');
-            const dineControls = document.getElementById('table-dine-controls');
+            const dineControls = document.getElementById('table-count-wrap');
             if (dineControls) dineControls.classList.toggle('hidden', qrMode !== 'table');
+            const saveBtn = document.getElementById('save-tables-btn');
+            if (saveBtn) saveBtn.classList.toggle('hidden', qrMode !== 'table');
             const help = document.getElementById('qr-help');
             if (help) {
                 help.textContent = qrMode === 'pickup'
-                    ? '三間店各一張門口 QR。路過人自己掃、手機落單同付款，唔使枱號、唔使同店員講。'
-                    : '揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。';
+                    ? '搜尋同揀一間店，列印嗰間店門口 QR。每張 A4 一間店；多間店就一間一間印。'
+                    : '搜尋同揀分店、設定枱數，然後列印 QR 貼枱面。每張 A4 最多 12 個枱 QR，超過會自動分頁。';
             }
             previewQr();
         }
@@ -897,28 +960,26 @@
         function previewPickupQr() {
             const grid = document.getElementById('table-qr-grid');
             const msg = document.getElementById('table-msg');
-            const stores = tableStores.length ? tableStores : [];
-            if (!stores.length) {
-                grid.innerHTML = '<p class="text-neutral-500">未載入分店。</p>';
+            const store = selectedTableStore();
+            if (!store) {
+                grid.innerHTML = '<p class="text-neutral-500">搵唔到分店。改吓搜尋再揀。</p>';
                 if (msg) msg.textContent = '';
                 return;
             }
             const origin = qrOrigin();
-            grid.className = 'qr-pickup-grid grid grid-cols-1 sm:grid-cols-3 gap-4';
-            if (msg) msg.textContent = '印出貼各店門口或櫃檯。客人掃完直接係嗰間店外賣自取落單，手機付款。';
-            grid.innerHTML = stores.map((store) => {
-                const label = store.label || store.store_name;
-                const slug = store.slug || 'syp';
-                const url = `${origin}/p/${slug}`;
-                const qr = `https://api.qrserver.com/v1/create-qr-code/?size=520x520&margin=8&data=${encodeURIComponent(url)}`;
-                return `<article class="card p-6 text-center">
+            const label = store.label || store.store_name;
+            const slug = store.slug || 'syp';
+            const url = `${origin}/p/${slug}`;
+            const qr = `https://api.qrserver.com/v1/create-qr-code/?size=520x520&margin=8&data=${encodeURIComponent(url)}`;
+            grid.className = 'qr-pickup-grid grid grid-cols-1 sm:grid-cols-2 gap-4';
+            if (msg) msg.textContent = '印出貼呢間店門口或櫃檯。一張 A4 一間店。客人掃完直接外賣自取落單，手機付款。';
+            grid.innerHTML = `<article class="card p-6 text-center">
                     <div class="text-[11px] font-black tracking-widest uppercase text-neutral-400">Mirror Burger · ${esc(label)}</div>
                     <img src="${qr}" alt="${esc(label)} 外賣自取 QR" width="220" height="220" class="mx-auto my-3">
                     <div class="text-3xl font-black">外賣自取</div>
                     <div class="text-sm font-bold text-neutral-500 mt-2">掃碼落單 · 手機付款</div>
                     <div class="text-xs font-black text-neutral-400 mt-2">${esc(pickupOfferLine(store.store_name))}</div>
                 </article>`;
-            }).join('');
         }
 
         function previewTableQr() {
@@ -948,6 +1009,102 @@
                     <div class="text-xs font-bold text-neutral-500 mt-1">掃碼點餐 · 櫃檯付款</div>
                 </article>`;
             }).join('');
+        }
+
+        function qrImageUrl(data, size) {
+            const px = size || 440;
+            return 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&margin=8&data=' + encodeURIComponent(data);
+        }
+
+        function qrPrintSheetsHtml() {
+            const store = selectedTableStore();
+            if (!store) return '';
+            if (qrMode === 'pickup') return pickupQrPageHtml(store);
+            const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
+            const cards = [];
+            for (let i = 1; i <= n; i++) cards.push(tableQrCardHtml(store, i, 440));
+            const perPage = 12;
+            let sheets = '';
+            for (let i = 0; i < cards.length; i += perPage) {
+                const chunk = cards.slice(i, i + perPage);
+                while (chunk.length < perPage) chunk.push('<article class="card" style="border-color:transparent"></article>');
+                sheets += '<section class="sheet table-sheet">' + chunk.join('') + '</section>';
+            }
+            return sheets;
+        }
+
+        function waitForPrintImages(root) {
+            return new Promise(function (resolve) {
+                const imgs = Array.prototype.slice.call((root && root.querySelectorAll('img')) || []);
+                if (!imgs.length) return resolve();
+                let left = imgs.length;
+                const tick = function () {
+                    left -= 1;
+                    if (left <= 0) resolve();
+                };
+                imgs.forEach(function (img) {
+                    if (img.complete) tick();
+                    else {
+                        img.onload = tick;
+                        img.onerror = tick;
+                    }
+                });
+                setTimeout(resolve, 4000);
+            });
+        }
+
+        function printQr() {
+            const store = selectedTableStore();
+            if (!store) {
+                toast('請先揀一間分店');
+                return;
+            }
+            if (qrMode === 'table') {
+                const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
+                if (n < 1) {
+                    toast('呢間店未有枱。撳 ＋ 加枱，或改印外賣自取。');
+                    return;
+                }
+            }
+            const root = document.getElementById('qr-print-root');
+            const html = qrPrintSheetsHtml();
+            if (!root || !html) {
+                toast('未有 QR 可印');
+                return;
+            }
+            root.innerHTML = html;
+            waitForPrintImages(root).then(function () {
+                window.print();
+            });
+        }
+
+        function tableQrCardHtml(store, num, imgSize) {
+            const origin = qrOrigin();
+            const label = store.label || store.store_name;
+            const slug = store.slug || 'syp';
+            const url = origin + '/t/' + slug + '/' + num;
+            const qr = qrImageUrl(url, imgSize || 440);
+            return '<article class="card">'
+                + '<div class="brand">Mirror Burger · ' + esc(label) + '</div>'
+                + '<img src="' + qr + '" alt="' + num + '號枱" width="152" height="152">'
+                + '<div class="no">' + num + '號枱</div>'
+                + '<div class="pay">掃碼點餐 · 櫃檯付款</div>'
+                + '</article>';
+        }
+
+        function pickupQrPageHtml(store) {
+            const origin = qrOrigin();
+            const label = store.label || store.store_name;
+            const slug = store.slug || 'syp';
+            const url = origin + '/p/' + slug;
+            const qr = qrImageUrl(url, 640);
+            return '<section class="sheet pickup-sheet">'
+                + '<div class="brand">Mirror Burger · ' + esc(label) + '</div>'
+                + '<img src="' + qr + '" alt="' + esc(label) + ' 外賣自取 QR" width="360" height="360">'
+                + '<div class="no">外賣自取</div>'
+                + '<div class="pay">掃碼落單 · 手機付款</div>'
+                + '<div class="offer">' + esc(pickupOfferLine(store.store_name)) + '</div>'
+                + '</section>';
         }
 
         async function saveTableCount() {
