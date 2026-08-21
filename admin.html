@@ -56,12 +56,6 @@
         .ticket-row { cursor: pointer; }
         .ticket-row:hover { border-color: #525252; }
         .ticket-sum { position: sticky; bottom: 0; background: #0a0a0a; border-top: 1px solid #262626; padding: 0.85rem 0; font-weight: 800; }
-        .quick-btn {
-            display: inline-flex; align-items: center; justify-content: center;
-            min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.9rem;
-            background: #1a1a1a; border: 1px solid #333; font-weight: 800;
-            color: #f5f5f5; text-decoration: none;
-        }
         .toast {
             position: fixed; left: 50%; bottom: calc(1.25rem + env(safe-area-inset-bottom));
             transform: translateX(-50%); z-index: 80;
@@ -157,7 +151,7 @@
             </div>
             <button type="button" id="tab-sales" class="nav-btn is-on" onclick="setTab('sales')">概况</button>
             <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')">菜品</button>
-            <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">枱 QR</button>
+            <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">堂食/外賣 QR Code</button>
             <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
             <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')">出單機</button>
             <a class="nav-btn" href="/pos.html">POS</a>
@@ -192,17 +186,6 @@
             </div>
             <div id="sales-summary"></div>
             <div id="sales-stores" class="space-y-3 mt-4"></div>
-            <div class="mt-6">
-                <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">常用操作</div>
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" class="quick-btn" onclick="setTab('items')">改菜／價錢</button>
-                    <button type="button" class="quick-btn" onclick="setTab('tables')">枱 QR</button>
-                    <button type="button" class="quick-btn" onclick="setTab('orders')">今日訂單</button>
-                    <a class="quick-btn" href="/pos.html">POS 收銀</a>
-                    <a class="quick-btn" href="/kitchen.html">廚房 KDS</a>
-                    <a class="quick-btn" href="/">網站</a>
-                </div>
-            </div>
         </div>
 
         <div id="panel-items" class="hidden">
@@ -475,7 +458,7 @@
         const PAGE_META = {
             sales: { title: '概况', sub: '今日實收 · 堂食／外賣 · 客單價' },
             items: { title: '菜品', sub: '改名稱、價錢、上下架' },
-            tables: { title: '枱 QR', sub: '堂食枱 · 外賣自取門口 QR' },
+            tables: { title: '堂食/外賣 QR Code', sub: '堂食枱 · 外賣自取門口 QR' },
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
             printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
         };
