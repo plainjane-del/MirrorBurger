@@ -1,6 +1,11 @@
 {
-  "name": "mirror-burger-uat",
+  "name": "mirror-burger",
   "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./input.css -o ./output.css --minify",
+    "watch:css": "tailwindcss -i ./input.css -o ./output.css --watch"
+  },
   "dependencies": {
     "node-forge": "^1.4.0",
     "stripe": "^22.5.0",

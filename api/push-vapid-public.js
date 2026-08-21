@@ -1,4 +1,4 @@
-const { getVapidConfig } = require('./_vapid');
+const { getVapidConfig } = require('./_vapid.js');
 
 module.exports = async (req, res) => {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });

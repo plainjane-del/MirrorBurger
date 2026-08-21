@@ -19,7 +19,7 @@
     { "source": "/fortress-hill", "destination": "/tin-hau", "permanent": true },
     { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true }
   ],
-    "rewrites": [
+  "rewrites": [
     { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
     { "source": "/tin-hau", "destination": "/tin-hau.html" },
     { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },

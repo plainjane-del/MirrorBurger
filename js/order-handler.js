@@ -26,7 +26,6 @@ function validateCheckout() {
 document.addEventListener('DOMContentLoaded', validateCheckout);
 
 function processKPayOrder() { return submitOrder('kpay'); }
-function processStripeOrder() { return submitOrder('stripe'); }
 
 async function insertPendingOrder(row) {
     const res = await fetch('/api/kpay-checkout', {

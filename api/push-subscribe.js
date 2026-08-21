@@ -2,8 +2,8 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     try {
-        const { upsertPushSubscription } = require('./_pushStore');
-        const { requireKitchen } = require('./_kitchenAuth');
+        const { upsertPushSubscription } = require('./_pushStore.js');
+        const { requireKitchen } = require('./_kitchenAuth.js');
         const authz = requireKitchen(req);
         const { subscription, store_name: storeName } = req.body || {};
         const endpoint = subscription?.endpoint;
