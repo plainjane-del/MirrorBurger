@@ -29,9 +29,44 @@ async function sbFetch(path, options = {}) {
     if (!resp.ok) {
         const err = new Error(typeof data === 'string' ? data : JSON.stringify(data));
         err.status = resp.status;
+        err.body = data;
         throw err;
     }
     return data;
+}
+
+function stripMissingColumn(err, body) {
+    const msg = String(err && err.message || '');
+    const m = msg.match(/Could not find the '([^']+)' column of '([^']+)'/i);
+    if (!m) return null;
+    const col = m[1];
+    const strip = (row) => {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+        if (!Object.prototype.hasOwnProperty.call(row, col)) return row;
+        const next = Object.assign({}, row);
+        delete next[col];
+        return next;
+    };
+    if (Array.isArray(body)) return body.map(strip);
+    return strip(body);
+}
+
+async function sbWrite(path, options = {}) {
+    let opts = options;
+    for (let i = 0; i < 6; i++) {
+        try {
+            return await sbFetch(path, opts);
+        } catch (err) {
+            let parsed = opts.body;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch { throw err; }
+            }
+            const next = stripMissingColumn(err, parsed);
+            if (!next || JSON.stringify(next) === JSON.stringify(parsed)) throw err;
+            opts = Object.assign({}, opts, { body: JSON.stringify(next) });
+        }
+    }
+    throw new Error('schema retry exhausted');
 }
 
 async function listMenuItems({ includeInactive = false } = {}) {
@@ -83,9 +118,8 @@ async function upsertMenuItem(item) {
         is_sold_out: !!item.is_sold_out,
         is_active: item.is_active !== false,
         sort_order: Number(item.sort_order) || 0,
-        updated_at: new Date().toISOString(),
     };
-    return sbFetch('menu_items?on_conflict=id', {
+    return sbWrite('menu_items?on_conflict=id', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=representation',
         body: JSON.stringify(row),
@@ -109,9 +143,8 @@ async function upsertModifier(mod) {
         price: Number(mod.price) || 0,
         is_active: mod.is_active !== false,
         sort_order: Number(mod.sort_order) || 0,
-        updated_at: new Date().toISOString(),
     };
-    return sbFetch('menu_modifiers?on_conflict=id', {
+    return sbWrite('menu_modifiers?on_conflict=id', {
         method: 'POST',
         prefer: 'resolution=merge-duplicates,return=representation',
         body: JSON.stringify(row),
@@ -137,7 +170,6 @@ async function setSetting(key, value) {
         body: JSON.stringify({
             key: String(key),
             value,
-            updated_at: new Date().toISOString(),
         }),
     });
 }
@@ -158,12 +190,11 @@ async function listSoldOutIds(storeName) {
 
 async function setMenuItemSoldOut(id, isSoldOut) {
     if (!id) throw new Error('Missing item id');
-    return sbFetch(`menu_items?id=eq.${encodeURIComponent(id)}`, {
+    return sbWrite(`menu_items?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         prefer: 'return=representation',
         body: JSON.stringify({
             is_sold_out: !!isSoldOut,
-            updated_at: new Date().toISOString(),
         }),
     });
 }
@@ -172,33 +203,30 @@ async function setStoreMenuSoldOut(storeName, itemId, isSoldOut) {
     const store = String(storeName || '').trim();
     const id = String(itemId || '').trim();
     if (!store || !id) throw new Error('Missing store or item id');
-    const now = new Date().toISOString();
     const row = {
         store_name: store,
         item_id: id,
         is_sold_out: !!isSoldOut,
-        updated_at: now,
     };
-    const patched = await sbFetch(
+    const patched = await sbWrite(
         `menu_sold_out?store_name=eq.${encodeURIComponent(store)}&item_id=eq.${encodeURIComponent(id)}`,
         {
             method: 'PATCH',
             prefer: 'return=representation',
             body: JSON.stringify({
                 is_sold_out: !!isSoldOut,
-                updated_at: now,
             }),
         }
     );
     if (Array.isArray(patched) && patched.length) return patched;
     try {
-        return await sbFetch('menu_sold_out?on_conflict=store_name,item_id', {
+        return await sbWrite('menu_sold_out?on_conflict=store_name,item_id', {
             method: 'POST',
             prefer: 'resolution=merge-duplicates,return=representation',
             body: JSON.stringify(row),
         });
     } catch (err) {
-        return sbFetch('menu_sold_out', {
+        return sbWrite('menu_sold_out', {
             method: 'POST',
             body: JSON.stringify(row),
         });
