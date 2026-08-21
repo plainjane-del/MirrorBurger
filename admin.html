@@ -89,12 +89,50 @@
             #nav-brand, #nav-logout { display: block !important; }
             #toolbar-logout { display: none; }
         }
+        #qr-print-root { display: none; }
         @media print {
-            body { background: #fff; color: #111; }
-            #login-view, .app-nav, #app-toolbar,
-            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #panel-printer, #ticket-modal, #toast { display: none !important; }
-            #panel-tables { display: block !important; }
-            #panel-tables .no-print, #table-msg { display: none !important; }
+            @page { size: A4 portrait; margin: 8mm; }
+            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; color: #111 !important; }
+            body > *:not(#qr-print-root) { display: none !important; }
+            #qr-print-root {
+                display: block !important;
+                background: #fff;
+                color: #111;
+                font-family: "PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif;
+            }
+            #qr-print-root .sheet {
+                width: 194mm; height: 277mm;
+                page-break-after: always; break-after: page;
+                box-sizing: border-box;
+            }
+            #qr-print-root .sheet:last-child { page-break-after: auto; break-after: auto; }
+            #qr-print-root .table-sheet {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                gap: 3mm;
+            }
+            #qr-print-root .card {
+                border: 1.6pt solid #111;
+                border-radius: 4mm;
+                padding: 2mm;
+                text-align: center;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                overflow: hidden; break-inside: avoid;
+            }
+            #qr-print-root .card img { width: 38mm; height: 38mm; }
+            #qr-print-root .brand { font-size: 8pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+            #qr-print-root .no { font-size: 16pt; font-weight: 900; letter-spacing: -.04em; margin-top: 1mm; }
+            #qr-print-root .pay { font-size: 8pt; font-weight: 700; margin-top: 0.5mm; }
+            #qr-print-root .pickup-sheet {
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                text-align: center;
+            }
+            #qr-print-root .pickup-sheet img { width: 92mm; height: 92mm; margin: 6mm 0; }
+            #qr-print-root .pickup-sheet .brand { font-size: 12pt; }
+            #qr-print-root .pickup-sheet .no { font-size: 28pt; }
+            #qr-print-root .pickup-sheet .pay { font-size: 12pt; }
+            #qr-print-root .pickup-sheet .offer { font-size: 10pt; font-weight: 800; margin-top: 3mm; }
         }
     </style>
 </head>
@@ -391,6 +429,7 @@
     </div>
 
     <div id="toast" class="toast hidden"></div>
+    <div id="qr-print-root"></div>
 
     <script>
         const TOKEN_KEY = 'mb_admin_token';
@@ -977,43 +1016,66 @@
             return 'https://api.qrserver.com/v1/create-qr-code/?size=' + px + 'x' + px + '&margin=8&data=' + encodeURIComponent(data);
         }
 
-        function qrPrintCss() {
-            return `@page { size: A4 portrait; margin: 8mm; }
-html, body { margin: 0; padding: 0; background: #fff; color: #111;
-  font-family: "PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif; }
-.sheet {
-  width: 194mm; height: 281mm;
-  page-break-after: always; break-after: page;
-  box-sizing: border-box;
-}
-.sheet:last-child { page-break-after: auto; break-after: auto; }
-.table-sheet {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  gap: 3mm;
-}
-.card {
-  border: 1.6pt solid #111;
-  border-radius: 4mm;
-  padding: 2.5mm 2mm;
-  text-align: center;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  overflow: hidden;
-}
-.card img { width: 38mm; height: 38mm; }
-.brand { font-size: 8pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.no { font-size: 16pt; font-weight: 900; letter-spacing: -.04em; margin-top: 1mm; }
-.pay { font-size: 8pt; font-weight: 700; margin-top: 0.5mm; }
-.pickup-sheet {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center;
-}
-.pickup-sheet img { width: 92mm; height: 92mm; margin: 6mm 0; }
-.pickup-sheet .brand { font-size: 12pt; }
-.pickup-sheet .no { font-size: 28pt; }
-.pickup-sheet .pay { font-size: 12pt; }
-.pickup-sheet .offer { font-size: 10pt; font-weight: 800; margin-top: 3mm; }`;
+        function qrPrintSheetsHtml() {
+            const store = selectedTableStore();
+            if (!store) return '';
+            if (qrMode === 'pickup') return pickupQrPageHtml(store);
+            const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
+            const cards = [];
+            for (let i = 1; i <= n; i++) cards.push(tableQrCardHtml(store, i, 440));
+            const perPage = 12;
+            let sheets = '';
+            for (let i = 0; i < cards.length; i += perPage) {
+                const chunk = cards.slice(i, i + perPage);
+                while (chunk.length < perPage) chunk.push('<article class="card" style="border-color:transparent"></article>');
+                sheets += '<section class="sheet table-sheet">' + chunk.join('') + '</section>';
+            }
+            return sheets;
+        }
+
+        function waitForPrintImages(root) {
+            return new Promise(function (resolve) {
+                const imgs = Array.prototype.slice.call((root && root.querySelectorAll('img')) || []);
+                if (!imgs.length) return resolve();
+                let left = imgs.length;
+                const tick = function () {
+                    left -= 1;
+                    if (left <= 0) resolve();
+                };
+                imgs.forEach(function (img) {
+                    if (img.complete) tick();
+                    else {
+                        img.onload = tick;
+                        img.onerror = tick;
+                    }
+                });
+                setTimeout(resolve, 4000);
+            });
+        }
+
+        function printQr() {
+            const store = selectedTableStore();
+            if (!store) {
+                toast('請先揀一間分店');
+                return;
+            }
+            if (qrMode === 'table') {
+                const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
+                if (n < 1) {
+                    toast('呢間店未有枱。撳 ＋ 加枱，或改印外賣自取。');
+                    return;
+                }
+            }
+            const root = document.getElementById('qr-print-root');
+            const html = qrPrintSheetsHtml();
+            if (!root || !html) {
+                toast('未有 QR 可印');
+                return;
+            }
+            root.innerHTML = html;
+            waitForPrintImages(root).then(function () {
+                window.print();
+            });
         }
 
         function tableQrCardHtml(store, num, imgSize) {
@@ -1043,95 +1105,6 @@ html, body { margin: 0; padding: 0; background: #fff; color: #111;
                 + '<div class="pay">掃碼落單 · 手機付款</div>'
                 + '<div class="offer">' + esc(pickupOfferLine(store.store_name)) + '</div>'
                 + '</section>';
-        }
-
-        function qrPrintDocument() {
-            const store = selectedTableStore();
-            if (!store) return '';
-            let sheets = '';
-            if (qrMode === 'pickup') {
-                sheets = pickupQrPageHtml(store);
-            } else {
-                const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
-                const cards = [];
-                for (let i = 1; i <= n; i++) cards.push(tableQrCardHtml(store, i, 440));
-                const perPage = 12;
-                for (let i = 0; i < cards.length; i += perPage) {
-                    const chunk = cards.slice(i, i + perPage);
-                    while (chunk.length < perPage) chunk.push('<article class="card" style="border-color:transparent"></article>');
-                    sheets += '<section class="sheet table-sheet">' + chunk.join('') + '</section>';
-                }
-            }
-            const title = qrMode === 'pickup'
-                ? ('外賣 QR · ' + (store.label || ''))
-                : ('枱 QR · ' + (store.label || ''));
-            return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>'
-                + '<style>' + qrPrintCss() + '</style></head><body>' + sheets + '</body></html>';
-        }
-
-        function printHtmlSheet(html) {
-            const iframe = document.createElement('iframe');
-            iframe.setAttribute('aria-hidden', 'true');
-            iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0';
-            document.body.appendChild(iframe);
-            const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-            if (!doc) {
-                iframe.remove();
-                toast('無法開啟列印');
-                return;
-            }
-            doc.open();
-            doc.write(html);
-            doc.close();
-            let finished = false;
-            const finish = function () {
-                if (finished) return;
-                finished = true;
-                try {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                } catch (_) {}
-                setTimeout(function () { iframe.remove(); }, 2500);
-            };
-            const imgs = Array.prototype.slice.call(doc.images || []);
-            if (!imgs.length) {
-                setTimeout(finish, 50);
-                return;
-            }
-            let left = imgs.length;
-            const tick = function () {
-                left -= 1;
-                if (left <= 0) finish();
-            };
-            imgs.forEach(function (img) {
-                if (img.complete) tick();
-                else {
-                    img.onload = tick;
-                    img.onerror = tick;
-                }
-            });
-            setTimeout(finish, 5000);
-        }
-
-        function printQr() {
-            const store = selectedTableStore();
-            if (!store) {
-                toast('請先揀一間分店');
-                return;
-            }
-            if (qrMode === 'table') {
-                const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
-                if (n < 1) {
-                    toast('呢間店未有枱。撳 ＋ 加枱，或改印外賣自取。');
-                    return;
-                }
-            }
-            const html = qrPrintDocument();
-            if (!html) {
-                toast('未有 QR 可印');
-                return;
-            }
-            printHtmlSheet(html);
         }
 
         async function saveTableCount() {
