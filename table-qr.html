@@ -53,11 +53,11 @@
     <div class="toolbar">
         <div>
             <h1>西營盤 · 1–5 號枱 QR</h1>
-            <p>列印後剪開，貼喺枱面。掃完入專用點餐頁（唔係官網），送到廚房後行去櫃檯用卡機付款。</p>
+            <p>列印後剪開，貼喺枱面。掃完入專用點餐頁，送到廚房後行去櫃檯用卡機付款。</p>
         </div>
         <button type="button" onclick="window.print()">列印</button>
     </div>
-    <p class="note">網址：mirrorburger.com/t/1 至 /t/5。客人掃完送到廚房，然後到櫃檯付款。POS 撳「枱單」收款。</p>
+    <p class="note">客人掃完送到廚房，然後到櫃檯付款。POS 撳「枱單」收款。</p>
     <div class="grid" id="grid"></div>
     <script>
         const base = 'https://mirrorburger.com';
@@ -72,7 +72,6 @@
                 <img src="${qr}" alt="${n}號枱 QR" width="220" height="220">
                 <div class="no">${n}號枱</div>
                 <div class="pay">掃碼點餐 · 櫃檯付款</div>
-                <div class="url">${url}</div>
             `;
             grid.appendChild(card);
         }

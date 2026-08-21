@@ -75,6 +75,8 @@
         html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
         #login-view.hidden,
         #app-view.hidden { display: none !important; }
+        .qr-pickup-grid { max-width: 28rem; }
+        .qr-pickup-grid img { width: 260px; height: 260px; }
         @media (min-width: 900px) {
             .app-shell:not(.hidden) { display: flex; }
             .app-nav {
@@ -93,6 +95,20 @@
             #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #panel-printer, #ticket-modal, #toast { display: none !important; }
             #panel-tables { display: block !important; }
             #panel-tables .no-print, #table-msg { display: none !important; }
+            #table-qr-grid { display: grid; gap: 12px; }
+            #table-qr-grid .card {
+                background: #fff;
+                border: 2px solid #111;
+                color: #111;
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            #table-qr-grid.qr-pickup-grid {
+                display: block;
+                max-width: 92mm;
+                margin: 12mm auto 0;
+            }
+            #table-qr-grid.qr-pickup-grid img { width: 260px; height: 260px; }
         }
     </style>
 </head>
@@ -207,21 +223,25 @@
         </div>
 
         <div id="panel-tables" class="hidden">
-            <p class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。</p>
+            <p id="qr-help" class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。</p>
+            <div class="flex flex-wrap gap-2 mb-4 no-print">
+                <button type="button" id="qr-mode-table" class="btn tab-on" onclick="setQrMode('table')">堂食枱</button>
+                <button type="button" id="qr-mode-pickup" class="btn tab-off" onclick="setQrMode('pickup')">外賣自取</button>
+            </div>
             <div class="flex flex-wrap gap-3 items-end mb-4 no-print">
                 <div>
                     <label>分店</label>
                     <select id="table-store" onchange="onTableStoreChange()"></select>
                 </div>
-                <div>
+                <div id="table-count-wrap">
                     <label>枱數</label>
                     <div class="flex gap-2">
                         <button type="button" class="btn btn-ghost" onclick="nudgeTables(-1)">−</button>
-                        <input id="table-count" type="number" min="0" max="40" class="w-20 text-center" onchange="previewTableQr()">
+                        <input id="table-count" type="number" min="0" max="40" class="w-20 text-center" onchange="previewQr()">
                         <button type="button" class="btn btn-ghost" onclick="nudgeTables(1)">＋</button>
                     </div>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="saveTableCount()">儲存枱數</button>
+                <button type="button" id="save-tables-btn" class="btn btn-primary" onclick="saveTableCount()">儲存枱數</button>
                 <button type="button" class="btn btn-ghost" onclick="window.print()">列印 QR</button>
             </div>
             <p id="table-msg" class="text-sm text-neutral-500 mb-4"></p>
@@ -403,6 +423,7 @@
 
         let tableStores = [];
         let tableDraft = 0;
+        let qrMode = 'table';
         let salesData = null;
         let salesRange = 'today';
         let currentTab = 'sales';
@@ -425,7 +446,7 @@
         const PAGE_META = {
             sales: { title: '概况', sub: '今日實收 · 堂食／外賣 · 客單價' },
             items: { title: '菜品', sub: '改名稱、價錢、上下架' },
-            tables: { title: '枱 QR', sub: '每間店加枱同印 QR' },
+            tables: { title: '枱 QR', sub: '堂食枱 · 外賣自取門口 QR' },
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
             printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
         };
@@ -830,13 +851,71 @@
             const store = selectedTableStore();
             tableDraft = Number(store && store.count) || 0;
             document.getElementById('table-count').value = tableDraft;
-            previewTableQr();
+            previewQr();
         }
 
         function nudgeTables(delta) {
             tableDraft = Math.max(0, Math.min(40, tableDraft + delta));
             document.getElementById('table-count').value = tableDraft;
+            previewQr();
+        }
+
+        function qrOrigin() {
+            return location.origin.replace(/\/$/, '') || 'https://mirrorburger.com';
+        }
+
+        function setQrMode(mode) {
+            qrMode = mode === 'pickup' ? 'pickup' : 'table';
+            const tableBtn = document.getElementById('qr-mode-table');
+            const pickupBtn = document.getElementById('qr-mode-pickup');
+            if (tableBtn) tableBtn.className = 'btn ' + (qrMode === 'table' ? 'tab-on' : 'tab-off');
+            if (pickupBtn) pickupBtn.className = 'btn ' + (qrMode === 'pickup' ? 'tab-on' : 'tab-off');
+            const countWrap = document.getElementById('table-count-wrap');
+            const saveBtn = document.getElementById('save-tables-btn');
+            if (countWrap) countWrap.classList.toggle('hidden', qrMode !== 'table');
+            if (saveBtn) saveBtn.classList.toggle('hidden', qrMode !== 'table');
+            const help = document.getElementById('qr-help');
+            if (help) {
+                help.textContent = qrMode === 'pickup'
+                    ? '揀分店，列印一張 QR 貼門口或櫃檯。路過人自己掃、手機落單同付款，唔使同店員講。'
+                    : '揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。';
+            }
+            previewQr();
+        }
+
+        function previewQr() {
+            if (qrMode === 'pickup') return previewPickupQr();
             previewTableQr();
+        }
+
+        function pickupOfferLine(storeName) {
+            if (storeName === 'Tsuen Wan (Takeaway Only)') return '荃灣外賣 85折';
+            return '滿 $120 或任何套餐 9折';
+        }
+
+        function previewPickupQr() {
+            const store = selectedTableStore();
+            const grid = document.getElementById('table-qr-grid');
+            const msg = document.getElementById('table-msg');
+            if (!store) {
+                grid.innerHTML = '<p class="text-neutral-500">揀一間分店。</p>';
+                if (msg) msg.textContent = '';
+                return;
+            }
+            const origin = qrOrigin();
+            const label = store.label || store.store_name;
+            const slug = store.slug || 'syp';
+            const url = `${origin}/p/${slug}`;
+            const qr = `https://api.qrserver.com/v1/create-qr-code/?size=520x520&margin=8&data=${encodeURIComponent(url)}`;
+            grid.className = 'qr-pickup-grid';
+            if (msg) msg.textContent = '印一張貼門口／櫃檯。客人掃完直接係呢間店外賣自取落單，手機付款。';
+            grid.innerHTML = `<article class="card p-8 text-center">
+                <div class="text-[11px] font-black tracking-widest uppercase text-neutral-400">Mirror Burger · ${esc(label)}</div>
+                <img src="${qr}" alt="${esc(label)} 外賣自取 QR" width="260" height="260" class="mx-auto my-4">
+                <div class="text-4xl font-black">外賣自取</div>
+                <div class="text-sm font-bold text-neutral-500 mt-2">掃碼落單 · 手機付款</div>
+                <div class="text-xs font-black text-neutral-400 mt-2">${esc(pickupOfferLine(store.store_name))}</div>
+            </article>`;
         }
 
         function previewTableQr() {
@@ -845,15 +924,16 @@
             tableDraft = n;
             const grid = document.getElementById('table-qr-grid');
             const msg = document.getElementById('table-msg');
+            grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
             if (!store || n < 1) {
-                grid.innerHTML = '<p class="text-neutral-500">呢間店枱數係 0。撳 ＋ 加枱，再儲存。</p>';
+                grid.innerHTML = '<p class="text-neutral-500">呢間店枱數係 0。撳 ＋ 加枱，再儲存。荃灣只限外賣就撳上面「外賣自取」印門口 QR。</p>';
                 if (msg) msg.textContent = '';
                 return;
             }
-            const origin = location.origin.replace(/\/$/, '') || 'https://mirrorburger.com';
+            const origin = qrOrigin();
             const label = store.label || store.store_name;
             const slug = store.slug || 'syp';
-            if (msg) msg.textContent = `儲存後客人掃 ${origin}/t/${slug}/1 至 /${n}`;
+            if (msg) msg.textContent = `儲存後印出貼枱面。客人掃 1 至 ${n} 號枱，送到廚房後櫃檯收款。`;
             grid.innerHTML = Array.from({ length: n }, (_, i) => {
                 const num = i + 1;
                 const url = `${origin}/t/${slug}/${num}`;
@@ -863,7 +943,6 @@
                     <img src="${qr}" alt="${num}號枱" width="200" height="200" class="mx-auto my-3">
                     <div class="text-4xl font-black">${num}號枱</div>
                     <div class="text-xs font-bold text-neutral-500 mt-1">掃碼點餐 · 櫃檯付款</div>
-                    <div class="text-[11px] font-bold text-neutral-600 break-all mt-2">${esc(url)}</div>
                 </article>`;
             }).join('');
         }

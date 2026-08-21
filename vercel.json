@@ -28,6 +28,7 @@
     { "source": "/kitchen", "destination": "/kitchen.html" },
     { "source": "/t/:store/:n", "destination": "/table.html" },
     { "source": "/t/:n", "destination": "/table.html" },
+    { "source": "/p/:store", "destination": "/index.html" },
     { "source": "/tables", "destination": "/table-qr.html" }
   ],
   "headers": [
@@ -81,6 +82,10 @@
     },
     {
       "source": "/t/:n",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/p/:store",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     },
     {

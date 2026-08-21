@@ -137,7 +137,7 @@ let menuData = {
     ],
     veggie: [
         { id: 'v1', nameEn: 'Mushroom Schnitzel', nameZh: '燕麥吉列大啡菇', price: 61, desc: 'Vegetarian chicken-style schnitzel. Soft and crispy.', descZh: '素食炸雞排，外脆內軟。', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg', dietary: ['🌱'], isSoldOut: false },
-        { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素肉', price: 64, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'], isSoldOut: false },
+        { id: 'v3', nameEn: 'Housemade Veggie', nameZh: '自家製素', price: 64, desc: 'Sweet potatoes, oats, kidney beans & chickpeas', descZh: '番薯、燕麥、腰豆及鷹嘴豆自家製成', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg', dietary: ['🌱'], isSoldOut: false },
         { id: 'v4', nameEn: 'Hottest Veggie', nameZh: '墨辣素', price: 67, desc: 'Double jalapenos: smoked and pickled. Spicy plant-based joy!', descZh: '雙重墨西哥辣椒：煙燻及醃製。惹味植物肉！', img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801210/hot_veggie_qtszvh.jpg', dietary: ['🌱', '🌶️'], isSoldOut: false }
     ],
     snacks: [
@@ -262,7 +262,7 @@ function mapDbItem(row) {
     return {
         id: row.id,
         nameEn: row.name_en || '',
-        nameZh: row.name_zh || '',
+        nameZh: row.id === 'v3' && row.name_zh === '自家製素肉' ? '自家製素' : (row.name_zh || ''),
         price: Number(row.price) || 0,
         // Live DB uses description_* / image_url; menu-full.sql uses desc_* / img
         desc: row.desc_en || row.description_en || '',
@@ -856,6 +856,7 @@ function setFlowStore(storeName) {
     }
     flowSelectedStore = storeName;
     fetchStoreSoldOut();
+    const storeObj = stores.find(s => s.name === storeName);
     const storeZh = storeObj ? storeObj.nameZh : storeName;
     document.getElementById('flow-selected-store-label').innerText = lang(`From: ${storeName}`, `取餐分店: ${storeZh}`);
     
@@ -1394,8 +1395,16 @@ const STORE_SLUGS = {
     'syp': 'Sai Ying Pun',
     'tin-hau': 'Fortress Hill',
     'fortress-hill': 'Fortress Hill',
+    'th': 'Fortress Hill',
     'tsuen-wan': 'Tsuen Wan (Takeaway Only)',
+    'tw': 'Tsuen Wan (Takeaway Only)',
 };
+
+function pickupSlugFromPath() {
+    const path = (location.pathname || '').replace(/\/+$/, '');
+    const m = path.match(/^\/p\/([a-z0-9-]+)$/i);
+    return m ? m[1].toLowerCase() : '';
+}
 
 function applyLangFromQuery() {
     const langParam = new URLSearchParams(location.search).get('lang');
@@ -1406,12 +1415,21 @@ function applyLangFromQuery() {
 
 function applyStoreFromQuery() {
     const params = new URLSearchParams(location.search);
-    const slug = (params.get('store') || '').toLowerCase();
+    const slug = (pickupSlugFromPath() || params.get('store') || '').toLowerCase();
     const storeName = STORE_SLUGS[slug];
     if (!storeName) return;
     flowSelectedStore = storeName;
+    deliveryMode = 'pickup';
     populateStoresDropdown();
     updateCartStoreUI();
+    fetchStoreSoldOut();
+    const wantPickup = Boolean(pickupSlugFromPath()) || params.get('pickup') === '1';
+    if (wantPickup) {
+        generateTimeOptions();
+        const menu = document.getElementById('menu-section');
+        if (menu) setTimeout(() => menu.scrollIntoView({ behavior: 'smooth' }), 250);
+        return;
+    }
     if (params.get('order') === '1') {
         showOrderFlow();
         setFlowStore(storeName);

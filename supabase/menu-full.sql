@@ -125,7 +125,7 @@ INSERT INTO public.menu_items (
  'Vegetarian chicken-style schnitzel. Soft and crispy.','素食炸雞排，外脆內軟。',
  'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777829653/unnamed_3_ij0fbk.jpg',
  NULL,NULL,'["🌱"]'::jsonb,NULL,false,false,false,true,10),
-('v3','veggie','Housemade Veggie','自家製素肉',64,
+('v3','veggie','Housemade Veggie','自家製素',64,
  'Sweet potatoes, oats, kidney beans & chickpeas','番薯、燕麥、腰豆及鷹嘴豆自家製成',
  'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801226/mushroom_vdx1m3.jpg',
  NULL,NULL,'["🌱"]'::jsonb,NULL,false,false,false,true,20),

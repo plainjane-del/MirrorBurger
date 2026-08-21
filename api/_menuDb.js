@@ -84,17 +84,46 @@ async function sbWrite(path, options = {}) {
 async function listMenuItems({ includeInactive = false } = {}) {
     // Prefer sort_order when column exists; fall back if schema not migrated yet
     const filters = includeInactive ? '' : '&is_active=eq.true';
+    let items;
     try {
-        return await sbFetch(
+        items = await sbFetch(
             `menu_items?select=*${filters}&order=category.asc,sort_order.asc,id.asc`
         );
     } catch (err) {
         const msg = String(err.message || '');
         if (msg.includes('sort_order') || msg.includes('is_active')) {
-            return sbFetch('menu_items?select=*&order=category.asc,id.asc');
+            items = await sbFetch('menu_items?select=*&order=category.asc,id.asc');
+        } else {
+            throw err;
         }
-        throw err;
     }
+    return applyKnownNameFixes(items);
+}
+
+const KNOWN_NAME_FIXES = {
+    v3: { name_zh: '自家製素' },
+};
+
+function applyKnownNameFixes(items) {
+    if (!Array.isArray(items) || !items.length) return items;
+    for (const item of items) {
+        const fix = KNOWN_NAME_FIXES[item && item.id];
+        if (!fix) continue;
+        const patch = {};
+        for (const [key, value] of Object.entries(fix)) {
+            if (item[key] !== value) {
+                item[key] = value;
+                patch[key] = value;
+            }
+        }
+        if (Object.keys(patch).length) {
+            sbFetch(`menu_items?id=eq.${encodeURIComponent(item.id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify(patch),
+            }).catch((err) => console.warn('menu name fix skipped', item.id, err && err.message));
+        }
+    }
+    return items;
 }
 
 async function listModifiers({ includeInactive = false } = {}) {
