@@ -894,7 +894,7 @@
                 return;
             }
             sel.innerHTML = rows.map((s) =>
-                `<option value="${escAttr(s.store_name)}">${esc(s.label)}（${Number(s.count)} 張）</option>`
+                `<option value="${escAttr(s.store_name)}">${esc(s.label)}</option>`
             ).join('');
             if (prev && rows.some((s) => s.store_name === prev)) sel.value = prev;
         }
