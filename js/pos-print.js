@@ -44,6 +44,10 @@
     function currentDriver() {
         try {
             const saved = localStorage.getItem(DRIVER_KEY);
+            // Old builds treated every Android phone as a Sunmi till and saved
+            // that driver. Ignore it off a real till so POS load/print does not
+            // inject sunmi:// and jump to the printer app.
+            if (saved === 'sunmi' && !isSunmiTill()) return 'gprinter-usb';
             if (saved) return saved;
         } catch (_) {}
         return isSunmiTill() ? 'sunmi' : 'gprinter-usb';
@@ -60,8 +64,10 @@
     function isSunmiTill() {
         const ua = navigator.userAgent || '';
         if (/sunmi/i.test(ua)) return true;
-        if (/android/i.test(ua)) return true;
-        return isFirefox() && /linux/i.test(ua) && !/windows|mac os x|iphone|ipad/i.test(ua);
+        // Old Sunmi OS Firefox: Linux Gecko, not a phone/desktop UA.
+        // Do NOT treat every Android phone as a till — that injects sunmi://
+        // on POS load and the printer app jumps in front.
+        return isFirefox() && /linux/i.test(ua) && !/windows|mac os x|iphone|ipad|android/i.test(ua);
     }
     function isIosDevice() {
         const ua = navigator.userAgent || '';
@@ -618,12 +624,25 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             setStatus('出單機已駁', true);
             return true;
         }
-        if (!isSunmiTill() && hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
+
+        // Opening POS must not launch Sunmi/Epson apps, USB pickers, or print dialogs.
+        // Quiet boot: reuse a previously-allowed USB/serial device only.
+        if (!launch) {
+            if (hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
+                setStatus('出單機已駁', true);
+                return true;
+            }
+            setStatus('出單機未駁', false);
+            return false;
+        }
+
+        if (hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
             setStatus('出單機已駁', true);
             return true;
         }
 
         // Sunmi OS (old Chrome or Firefox, no Play): print via local printer service.
+        // launch:true is required before sunmi:// is clicked (that 彈出出單機 app).
         if (isSunmiTill() || currentDriver() === 'sunmi') {
             const ok = await connectSunmi(opts);
             if (ok) {

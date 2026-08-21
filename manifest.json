@@ -5,6 +5,8 @@
   "lang": "en",
   "start_url": "/?source=pwa",
   "scope": "/",
+  "handle_links": "not-preferred",
+  "capture_links": "none",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F4F9F9",
