@@ -1083,8 +1083,8 @@
                 console.error(err);
                 const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">載入失敗：${escapeHtml(err.message || err)}</div>`;
                 document.getElementById('col-paid').innerHTML = errHtml;
-                document.getElementById('col-prep').innerHTML = '';
-                document.getElementById('col-ready').innerHTML = '';
+                const readyCol = document.getElementById('col-ready');
+                if (readyCol) readyCol.innerHTML = '';
             }
         }
 
