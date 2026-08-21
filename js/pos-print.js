@@ -4,7 +4,7 @@
  *    and selected in Sunmi printer settings.
  * 2) WebUSB / Web Serial on Chrome / Edge (computer) — any USB ESC/POS printer
  * 3) System print dialog on desktop browsers, never on Sunmi
- * iPhone/iPad Safari cannot USB-print. Network ePOS from https:// also blocked.
+ * iPhone Chrome and Safari cannot USB-print (same WebKit). Epson app pairing is not shared.
  */
 (function (global) {
     const STORE_ZH = {
@@ -63,11 +63,10 @@
         if (/android/i.test(ua)) return true;
         return isFirefox() && /linux/i.test(ua) && !/windows|mac os x|iphone|ipad/i.test(ua);
     }
-    function isIosSafari() {
+    function isIosDevice() {
         const ua = navigator.userAgent || '';
-        const iOS = /iPad|iPhone|iPod/i.test(ua)
+        return /iPad|iPhone|iPod/i.test(ua)
             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        return iOS && /WebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS|Chrome|Android/i.test(ua);
     }
     function hasWebUsb() {
         return !!(navigator.usb && typeof navigator.usb.requestDevice === 'function');
@@ -570,8 +569,8 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 
     function browserFallbackToast(kind) {
         if (typeof global.showToast !== 'function') return;
-        if (isIosSafari()) {
-            global.showToast('iPhone／iPad Safari 駁唔到 USB 出單機（佳博同 Epson 都唔得）。請用店舖 Sunmi 或電腦 Chrome 出單。');
+        if (isIosDevice()) {
+            global.showToast('iPhone Chrome 同 Safari 都駁唔到 USB。Epson App 配對只得 App 自己用。請用店舖 Sunmi 或電腦版 Chrome 出單。');
             return;
         }
         if (kind === 'pair') {
@@ -732,7 +731,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         }
 
         printBrowser(job);
-        if (isIosSafari()) {
+        if (isIosDevice()) {
             browserFallbackToast('ticket');
         } else if (typeof global.showToast === 'function') {
             global.showToast('請喺列印視窗揀出單機 · #' + job.orderNo);
@@ -741,8 +740,8 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
     }
 
     function deviceHint() {
-        if (isIosSafari()) {
-            return '呢部 iPhone／iPad Safari 駁唔到 USB。Epson TM-m30II 同佳博都要插店舖 Sunmi 或電腦 Chrome。';
+        if (isIosDevice()) {
+            return 'iPhone Chrome／Safari 都駁唔到 USB。Epson App 連機只得個 App 用，網頁 POS 用唔到。請用店舖 Sunmi 或電腦版 Chrome。';
         }
         if (isSunmiTill()) {
             return 'USB 線插呢部 Sunmi。系統設定揀 ESC/POS 出單機。佳博 GP-58 用 58mm；Epson TM-m30II 用 80mm。';
@@ -769,8 +768,8 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         }
         const usbBtn = document.getElementById('printer-usb-btn');
         if (usbBtn) {
-            usbBtn.disabled = isIosSafari();
-            usbBtn.textContent = isIosSafari() ? 'iPhone 唔支援 USB' : (isSunmiTill() ? '駁 Sunmi 出單機' : '駁 USB 出單機');
+            usbBtn.disabled = isIosDevice();
+            usbBtn.textContent = isIosDevice() ? 'iPhone 唔支援 USB' : (isSunmiTill() ? '駁 Sunmi 出單機' : '駁 USB 出單機');
         }
     }
 

@@ -53,7 +53,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.21p</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.21q</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -234,7 +234,7 @@
             <button type="button" id="printer-usb-btn" class="w-full chip-btn min-h-[48px] mb-2" onclick="PosPrint.connect({ launch: true }).then(function(){ PosPrint.refreshSheet(); })">駁 USB 出單機</button>
             <button type="button" class="w-full chip-btn min-h-[48px] mb-4" onclick="PosPrint.setDriver('browser'); PosPrint.connect({ launch: true }).then(function(){ PosPrint.refreshSheet(); })">系統列印</button>
             <div class="text-xs font-bold text-neutral-500 space-y-2 leading-relaxed">
-                <p>Epson TM-m30II：揭開底蓋，USB 插店舖 Sunmi 或電腦。紙揀 80mm。iPhone 唔可以直駁呢部機。</p>
+                <p>Epson TM-m30II：揭開底蓋，USB 插店舖 Sunmi 或電腦版 Chrome。紙揀 80mm。iPhone Chrome／Safari 都直駁唔到。</p>
                 <p>佳博 GP-58：USB 插 Sunmi，紙揀 58mm。</p>
             </div>
         </div>
@@ -252,7 +252,7 @@
     </div>
 
     <script src="./js/sunmi-printer.umd.js"></script>
-    <script src="./js/pos-print.js?v=20260821p"></script>
+    <script src="./js/pos-print.js?v=20260821q"></script>
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';
