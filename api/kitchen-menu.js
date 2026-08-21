@@ -5,6 +5,18 @@ const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 
+function isKitchenBoardOrder(order) {
+    const pay = String((order && order.payment_status) || '').toUpperCase();
+    const st = String((order && order.status) || '').toUpperCase();
+    if (pay === 'PENDING' || pay === 'CANCELLED' || st === 'CANCELLED') return false;
+    if (st === 'COMPLETED' || pay === 'COMPLETED') return false;
+    const active = ['PAID', 'PREPARING', 'READY'];
+    const paidOk = pay === 'PAID' || pay === 'UNPAID' || active.includes(pay);
+    if (!paidOk) return false;
+    const kitchen = active.includes(st) ? st : (pay === 'UNPAID' ? 'PAID' : pay);
+    return active.includes(kitchen);
+}
+
 function resolveStoreAccess(auth, inputStoreName) {
     const requested = String(inputStoreName || '').trim();
     if (auth.scope === 'all_stores') return requested;
@@ -109,12 +121,16 @@ module.exports = async (req, res) => {
 
                 // 先列出廚房畫面上會顯示嘅 pending online 訂單，
                 // 再針對呢幾張做即時 reconcile，確保「已收款」會自動跳出 pending 區。
-                const orders = await listKitchenOrders(storeName, { limit: 200 });
+                const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+                const orders = await listKitchenOrders(storeName, { since, limit: 60 });
                 const pendingOnline = getPendingOnline(orders);
 
                 const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
                 if (!toReconcile.length) {
-                    return res.status(200).json({ orders: orders || [], pending_online: pendingOnline });
+                    return res.status(200).json({
+                        orders: (orders || []).filter(isKitchenBoardOrder),
+                        pending_online: pendingOnline,
+                    });
                 }
                 const deadline = Date.now() + 8000;
                 for (const orderNo of toReconcile) {
@@ -126,9 +142,10 @@ module.exports = async (req, res) => {
                     }
                 }
 
-                const orders2 = await listKitchenOrders(storeName, { limit: 200 });
+                const orders2 = await listKitchenOrders(storeName, { since, limit: 60 });
                 const pendingOnline2 = getPendingOnline(orders2);
-                return res.status(200).json({ orders: orders2 || [], pending_online: pendingOnline2 });
+                const board = (orders2 || []).filter(isKitchenBoardOrder);
+                return res.status(200).json({ orders: board, pending_online: pendingOnline2 });
             }
 
             if (action === 'completed') {
