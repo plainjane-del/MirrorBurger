@@ -273,7 +273,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k1</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k2</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -331,7 +331,7 @@
     </header>
 
     <section id="view-orders" class="p-2 md:p-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
             <div id="col-paid-wrap" class="board-col is-shown">
                 <div class="board-col-h new">
                     <span>新單</span>
@@ -339,14 +339,7 @@
                 </div>
                 <div id="col-paid" class="board-col-body"></div>
             </div>
-            <div id="col-prep-wrap" class="board-col">
-                <div class="board-col-h prep">
-                    <span>製作中</span>
-                    <span id="count-prep" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
-                </div>
-                <div id="col-prep" class="board-col-body"></div>
-            </div>
-            <div id="col-ready-wrap" class="board-col">
+            <div id="col-ready-wrap" class="board-col is-shown">
                 <div class="board-col-h ready">
                     <span>可取餐</span>
                     <span id="count-ready" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
@@ -1170,30 +1163,30 @@
             const list = sortOrders([...ordersMap.values()]);
             document.getElementById('order-count').textContent = `${list.length} 單`;
 
-            const paid = list.filter((o) => getKitchenStatus(o) === 'PAID');
-            const prep = list.filter((o) => getKitchenStatus(o) === 'PREPARING');
+            const cooking = list.filter((o) => {
+                const st = getKitchenStatus(o);
+                return st === 'PAID' || st === 'PREPARING';
+            });
             const ready = list.filter((o) => getKitchenStatus(o) === 'READY');
 
             const setCount = (id, n) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = String(n);
             };
-            setCount('count-paid', paid.length);
-            setCount('count-prep', prep.length);
+            setCount('count-paid', cooking.length);
             setCount('count-ready', ready.length);
-            setCount('count-paid-m', paid.length);
-            setCount('count-prep-m', prep.length);
-            setCount('count-ready-m', ready.length);
 
             const empty = (msg) =>
                 `<div class="text-center py-12 px-3 text-neutral-600 font-bold">${msg}</div>`;
 
-            document.getElementById('col-paid').innerHTML =
-                paid.length ? paid.map(renderCard).join('') : empty('暫無新單');
-            document.getElementById('col-prep').innerHTML =
-                prep.length ? prep.map(renderCard).join('') : empty('暫無製作中');
-            document.getElementById('col-ready').innerHTML =
-                ready.length ? ready.map(renderCard).join('') : empty('暫無可取餐');
+            const paidEl = document.getElementById('col-paid');
+            const readyEl = document.getElementById('col-ready');
+            if (paidEl) {
+                paidEl.innerHTML = cooking.length ? cooking.map(renderCard).join('') : empty('暫無新單');
+            }
+            if (readyEl) {
+                readyEl.innerHTML = ready.length ? ready.map(renderCard).join('') : empty('暫無可取餐');
+            }
 
             applyBoardFilter();
         }
@@ -1204,7 +1197,7 @@
             applyBoardFilter();
         }
         function applyBoardFilter() {
-            ['col-paid-wrap', 'col-prep-wrap', 'col-ready-wrap'].forEach((id) => {
+            ['col-paid-wrap', 'col-ready-wrap'].forEach((id) => {
                 const col = document.getElementById(id);
                 if (col) col.classList.add('is-shown');
             });
@@ -1511,16 +1504,14 @@
                             ${itemsHtml}
                         </div>
 
-                        ${(status === 'READY' || status === 'PREPARING') ? `
+                        ${(status === 'READY' || status === 'PREPARING' || status === 'PAID') ? `
                         <button type="button" class="wa-notify-btn ${waSent ? 'is-sent' : ''} w-full rounded-lg px-3"
                             onclick="notifyCustomerWhatsApp('${orderNoJs}')">
                             ${waSent ? '✓ 已通知' : 'WhatsApp 通知'}
                         </button>` : ''}
                     </div>
 
-                    <div class="grid grid-cols-3 gap-1 p-2 bg-black/40 border-t border-neutral-800">
-                        <button type="button" class="status-btn rounded-lg bg-sky-600 text-white ${status === 'PREPARING' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'PREPARING')">製作中</button>
+                    <div class="grid grid-cols-2 gap-1 p-2 bg-black/40 border-t border-neutral-800">
                         <button type="button" class="status-btn rounded-lg bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
                             onclick="updateOrderStatus('${orderNoJs}', 'READY')">可取餐</button>
                         <button type="button" class="status-btn rounded-lg bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
