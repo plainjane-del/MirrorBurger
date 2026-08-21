@@ -53,7 +53,7 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.20i</p>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.21p</p>
                 <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
@@ -85,7 +85,7 @@
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()">掛單</button>
                 <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
-                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.connect({ launch: true })">出單機</button>
+                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.openSheet()">出單機</button>
                 <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
             </div>
             <div id="pos-queue-bar" class="hidden px-3 py-2 text-xs font-black">
@@ -218,6 +218,28 @@
         </div>
     </div>
 
+    <div id="printer-sheet" class="sheet" onclick="if(event.target===this) PosPrint.closeSheet()">
+        <div class="sheet-panel" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-black">出單機</h3>
+                <button type="button" class="chip-btn" onclick="PosPrint.closeSheet()">關閉</button>
+            </div>
+            <p id="printer-sheet-status" class="text-sm font-bold text-amber-300 mb-2">未駁出單機</p>
+            <p id="printer-hint" class="text-sm font-bold text-neutral-400 leading-relaxed mb-4"></p>
+            <p class="text-[11px] font-black tracking-widest uppercase text-neutral-500 mb-2">紙闊</p>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button type="button" id="paper-mm-58" class="chip-btn min-h-[44px]" onclick="PosPrint.setPaperMm(58)">58mm 佳博</button>
+                <button type="button" id="paper-mm-80" class="chip-btn min-h-[44px]" onclick="PosPrint.setPaperMm(80)">80mm Epson</button>
+            </div>
+            <button type="button" id="printer-usb-btn" class="w-full chip-btn min-h-[48px] mb-2" onclick="PosPrint.connect({ launch: true }).then(function(){ PosPrint.refreshSheet(); })">駁 USB 出單機</button>
+            <button type="button" class="w-full chip-btn min-h-[48px] mb-4" onclick="PosPrint.setDriver('browser'); PosPrint.connect({ launch: true }).then(function(){ PosPrint.refreshSheet(); })">系統列印</button>
+            <div class="text-xs font-bold text-neutral-500 space-y-2 leading-relaxed">
+                <p>Epson TM-m30II：揭開底蓋，USB 插店舖 Sunmi 或電腦。紙揀 80mm。iPhone 唔可以直駁呢部機。</p>
+                <p>佳博 GP-58：USB 插 Sunmi，紙揀 58mm。</p>
+            </div>
+        </div>
+    </div>
+
     <div id="hold-sheet" class="sheet" onclick="if(event.target===this) closeHolds()">
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between mb-3">
@@ -230,7 +252,7 @@
     </div>
 
     <script src="./js/sunmi-printer.umd.js"></script>
-    <script src="./js/pos-print.js?v=20260820i"></script>
+    <script src="./js/pos-print.js?v=20260821p"></script>
     <script>
         const TOKEN_KEY = 'mb_kds_token';
         const STORE_KEY = 'mb_pos_store';

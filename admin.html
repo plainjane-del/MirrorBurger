@@ -90,7 +90,7 @@
         @media print {
             body { background: #fff; color: #111; }
             #login-view, #app-nav, #app-toolbar,
-            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #ticket-modal, #toast { display: none !important; }
+            #load-err, #load-hint, #panel-sales, #panel-items, #panel-mods, #panel-orders, #panel-printer, #ticket-modal, #toast { display: none !important; }
             #panel-tables { display: block !important; }
             #panel-tables .no-print, #table-msg { display: none !important; }
         }
@@ -119,6 +119,7 @@
             <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')">菜品</button>
             <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">枱 QR</button>
             <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
+            <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')">出單機</button>
             <a class="nav-btn" href="/pos.html">POS</a>
             <a class="nav-btn" href="/kitchen.html">廚房</a>
             <a class="nav-btn" href="/">網站</a>
@@ -256,6 +257,28 @@
             <p id="orders-msg" class="text-sm text-neutral-500 mb-3"></p>
             <div id="orders-list" class="space-y-2 pb-4"></div>
             <div id="orders-sum" class="ticket-sum hidden"></div>
+        </div>
+
+        <div id="panel-printer" class="hidden space-y-4">
+            <div class="card p-5 space-y-3">
+                <h2 class="text-lg font-black">依家 POS 可以駁咩機</h2>
+                <p class="text-sm text-neutral-400 font-bold leading-relaxed">大多數市面 <span class="text-white">ESC/POS 熱敏出單機</span> 都得：佳博、Epson TM 系列、Xprinter、商米外置機。用 USB 插 <span class="text-white">店舖 Sunmi</span> 或 <span class="text-white">電腦 Chrome</span>。iPhone／iPad Safari 駁唔到 USB。</p>
+            </div>
+            <div class="card p-5 space-y-3">
+                <h2 class="text-lg font-black">Epson TM-m30II（你而家呢部）</h2>
+                <ol class="text-sm font-bold text-neutral-300 space-y-2 list-decimal pl-5 leading-relaxed">
+                    <li>揭開機底蓋，USB 線插出單機，另一頭插 <strong class="text-white">Sunmi 收銀機</strong>（唔好插 Windows 再期望 iPhone 印）。</li>
+                    <li>開電。Sunmi 系統設定 → 打印機 → 揀呢部 Epson，協議 ESC/POS。</li>
+                    <li>POS 撳右上「出單機」，紙闊揀 <strong class="text-white">80mm</strong>，再撳「駁 Sunmi 出單機」。</li>
+                    <li>如果用店舖電腦：Chrome 開 POS，USB 插電腦，紙闊 80mm，撳「駁 USB」然後揀 Epson。</li>
+                </ol>
+                <p class="text-sm font-bold text-amber-300 leading-relaxed">呢部 M362B 標準版冇 Lightning。iPhone 出單做唔到，要 Sunmi 或電腦。</p>
+            </div>
+            <div class="card p-5 space-y-3">
+                <h2 class="text-lg font-black">佳博 GP-58MBIII+</h2>
+                <p class="text-sm font-bold text-neutral-300 leading-relaxed">USB 插 Sunmi，紙闊 <strong class="text-white">58mm</strong>。Firefox 開 POS。</p>
+            </div>
+            <a class="btn btn-primary" href="/pos.html">開啟 POS 設定出單機</a>
         </div>
         </div>
     </div>
@@ -404,6 +427,7 @@
             items: { title: '菜品', sub: '改名稱、價錢、上下架' },
             tables: { title: '枱 QR', sub: '每間店加枱同印 QR' },
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
+            printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
         };
 
         async function boot() {
@@ -495,7 +519,7 @@
             const meta = PAGE_META[which] || PAGE_META.sales;
             document.getElementById('page-title').textContent = meta.title;
             document.getElementById('page-sub').textContent = meta.sub;
-            ['sales', 'items', 'tables', 'orders'].forEach((name) => {
+            ['sales', 'items', 'tables', 'orders', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);

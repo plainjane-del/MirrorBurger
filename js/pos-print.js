@@ -1,8 +1,10 @@
 /* POS kitchen tickets — pick a path from what this till can actually do:
  * 1) Sunmi JS USDK on Sunmi OS (old Chrome or Firefox, no Play Store).
- *    USB 佳博 must be plugged into the Sunmi and selected in Sunmi printer settings.
- * 2) WebUSB / Web Serial Gprinter (newer Chrome / Edge on a real computer)
- * 3) System print dialog only on desktop browsers, never on Sunmi
+ *    USB ESC/POS (佳博、Epson TM-m30II, etc.) must be plugged into the Sunmi
+ *    and selected in Sunmi printer settings.
+ * 2) WebUSB / Web Serial on Chrome / Edge (computer) — any USB ESC/POS printer
+ * 3) System print dialog on desktop browsers, never on Sunmi
+ * iPhone/iPad Safari cannot USB-print. Network ePOS from https:// also blocked.
  */
 (function (global) {
     const STORE_ZH = {
@@ -12,9 +14,10 @@
     };
     const PAY_ZH = { cash: '現金', fps: '轉數快', payme: 'PayMe', card: '卡機' };
     const DRIVER_KEY = 'mb_pos_printer_driver';
+    const PAPER_KEY = 'mb_pos_paper_mm';
     const GPRINTER_VID = 0x6868;
     const GPRINTER_PID = 0x0200;
-    const DOTS = 384;
+    const EPSON_VID = 0x04B8;
 
     let sdk = null;
     let readySunmi = false;
@@ -22,6 +25,21 @@
     let usb = null;
     let serialPort = null;
     let serialWriter = null;
+
+    function paperMm() {
+        try {
+            const n = Number(localStorage.getItem(PAPER_KEY));
+            if (n === 80) return 80;
+        } catch (_) {}
+        return 58;
+    }
+    function setPaperMm(mm) {
+        try { localStorage.setItem(PAPER_KEY, String(mm === 80 ? 80 : 58)); } catch (_) {}
+        refreshSheet();
+    }
+    function paperDots() {
+        return paperMm() === 80 ? 576 : 384;
+    }
 
     function currentDriver() {
         try {
@@ -149,8 +167,10 @@
         if (!navigator.usb || typeof navigator.usb.getDevices !== 'function') return false;
         try {
             const list = await navigator.usb.getDevices();
-            const known = list.filter(function (d) { return d.vendorId === GPRINTER_VID; })[0]
-                || list.filter(function (d) { return d.productId === GPRINTER_PID; })[0];
+            const known = list.filter(function (d) { return d.vendorId === EPSON_VID; })[0]
+                || list.filter(function (d) { return d.vendorId === GPRINTER_VID; })[0]
+                || list.filter(function (d) { return d.productId === GPRINTER_PID; })[0]
+                || list[0];
             if (!known) return false;
             await openUsbDevice(known);
             return true;
@@ -167,10 +187,10 @@
         }
         const device = await navigator.usb.requestDevice({
             filters: [
+                { vendorId: EPSON_VID },
                 { vendorId: GPRINTER_VID, productId: GPRINTER_PID },
                 { vendorId: GPRINTER_VID },
                 { classCode: 7 },
-                {},
             ],
         });
         await openUsbDevice(device);
@@ -235,7 +255,7 @@
     }
 
     function ticketCanvas(job) {
-        const W = DOTS;
+        const W = paperDots();
         const rows = [
             { text: '廚房單', size: 28, align: 'center', bold: true },
             { text: 'MIRROR BURGER', size: 22, align: 'center', bold: true },
@@ -425,11 +445,12 @@
                 ? `<div class="item">${escapeHtml(row.text)}</div>`
                 : `<div class="detail">${escapeHtml(row.text)}</div>`
         ).join('');
+        const mm = paperMm();
         return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>廚房單 #${escapeHtml(job.orderNo)}</title>
 <style>
-@page { size: 58mm auto; margin: 2mm; }
-html, body { width: 58mm; margin: 0; padding: 0; color: #000; background: #fff;
+@page { size: ${mm}mm auto; margin: 2mm; }
+html, body { width: ${mm}mm; margin: 0; padding: 0; color: #000; background: #fff;
   font-family: "PingFang HK","Noto Sans TC","Microsoft JhengHei",sans-serif; font-weight: 800; }
 h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
 .no { font-size: 28px; text-align: center; margin: 6px 0; letter-spacing: -0.04em; }
@@ -536,7 +557,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 
     async function printTestSlip() {
         await printGprinter({
-            store: '佳博 58MBIII+',
+            store: '出單機',
             orderNo: 'OK',
             fulfill: '出單機已駁',
             pay: '',
@@ -550,14 +571,14 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
     function browserFallbackToast(kind) {
         if (typeof global.showToast !== 'function') return;
         if (isIosSafari()) {
-            global.showToast('iPhone/iPad Safari 駁唔到 USB 佳博。請用店舖電腦或 Sunmi 機出單。');
+            global.showToast('iPhone／iPad Safari 駁唔到 USB 出單機（佳博同 Epson 都唔得）。請用店舖 Sunmi 或電腦 Chrome 出單。');
             return;
         }
         if (kind === 'pair') {
-            global.showToast('呢部瀏覽器唔支援直駁 USB。請喺列印視窗揀佳博 GP-58MBIII+，紙闊 58mm。');
+            global.showToast('呢部瀏覽器唔支援直駁 USB。請喺列印視窗揀出單機，紙闊 ' + paperMm() + 'mm。');
             return;
         }
-        global.showToast('請喺列印視窗揀出單機（58mm）。');
+        global.showToast('請喺列印視窗揀出單機（' + paperMm() + 'mm）。');
     }
 
     function enableBrowserPrint() {
@@ -568,14 +589,14 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 
     function printBrowserTestSlip() {
         printBrowser({
-            store: '佳博 58MBIII+',
+            store: '出單機',
             orderNo: 'OK',
             fulfill: '請揀呢部出單機',
             pay: '',
             total: '',
             guest: '',
             when: new Date().toLocaleString('zh-HK', { hour12: false }),
-            lines: [{ kind: 'item', text: '系統列印 · 紙闊 58mm' }],
+            lines: [{ kind: 'item', text: '系統列印 · 紙闊 ' + paperMm() + 'mm' }],
         });
     }
 
@@ -595,11 +616,11 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
     async function connect(opts) {
         const launch = !!(opts && opts.launch);
         if (gprinterReady()) {
-            setStatus('佳博已駁', true);
+            setStatus('出單機已駁', true);
             return true;
         }
         if (!isSunmiTill() && hasDirectUsb() && (await reconnectUsb() || await reconnectSerial())) {
-            setStatus('佳博已駁', true);
+            setStatus('出單機已駁', true);
             return true;
         }
 
@@ -614,7 +635,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
                 return true;
             }
             if (launch && typeof global.showToast === 'function') {
-                global.showToast('未駁到出單機。用 Firefox 開 POS，佳博 USB 插呢部 Sunmi，再撳一次「出單機」。');
+                global.showToast('未駁到出單機。USB 線插呢部 Sunmi（佳博或 Epson 都得），喺系統揀呢部出單機，再撳一次。');
             }
             setStatus(launch ? '未駁到出單機' : '出單機未駁', false);
             if (isSunmiTill()) return false;
@@ -624,15 +645,15 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             setStatus('揀出單機…', false);
             try {
                 await requestUsb();
-                setStatus('佳博已駁', true);
+                setStatus('出單機已駁', true);
                 try { await printTestSlip(); } catch (err) { console.warn('test print', err); }
-                if (typeof global.showToast === 'function') global.showToast('已駁佳博出單機，試咗印一張');
+                if (typeof global.showToast === 'function') global.showToast('已駁出單機，試咗印一張');
                 return true;
             } catch (err) {
                 if (err && err.name === 'NotFoundError' && hasWebSerial()) {
                     try {
                         await requestSerial();
-                        setStatus('佳博已駁', true);
+                        setStatus('出單機已駁', true);
                         try { await printTestSlip(); } catch (_) {}
                         return true;
                     } catch (err2) {
@@ -649,7 +670,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         } else if (launch && hasWebSerial()) {
             try {
                 await requestSerial();
-                setStatus('佳博已駁', true);
+                setStatus('出單機已駁', true);
                 try { await printTestSlip(); } catch (_) {}
                 return true;
             } catch (err) {
@@ -705,7 +726,7 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
 
         if (isSunmiTill()) {
             if (typeof global.showToast === 'function') {
-                global.showToast('出單失敗。撳右上「出單機」再試。佳博 USB 要插喺呢部 Sunmi。');
+                global.showToast('出單失敗。撳右上「出單機」再試。USB 要插喺呢部 Sunmi。');
             }
             return false;
         }
@@ -717,6 +738,50 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
             global.showToast('請喺列印視窗揀出單機 · #' + job.orderNo);
         }
         return true;
+    }
+
+    function deviceHint() {
+        if (isIosSafari()) {
+            return '呢部 iPhone／iPad Safari 駁唔到 USB。Epson TM-m30II 同佳博都要插店舖 Sunmi 或電腦 Chrome。';
+        }
+        if (isSunmiTill()) {
+            return 'USB 線插呢部 Sunmi。系統設定揀 ESC/POS 出單機。佳博 GP-58 用 58mm；Epson TM-m30II 用 80mm。';
+        }
+        if (hasDirectUsb()) {
+            return '用 Chrome／Edge 撳「駁 USB」。佳博、Epson TM-m30II、Xprinter 等 ESC/POS 熱敏機都得。';
+        }
+        return '呢個瀏覽器唔支援 USB。用系統列印，或改用店舖 Sunmi／電腦 Chrome。';
+    }
+
+    function refreshSheet() {
+        const hint = document.getElementById('printer-hint');
+        if (hint) hint.textContent = deviceHint();
+        const mm = paperMm();
+        const b58 = document.getElementById('paper-mm-58');
+        const b80 = document.getElementById('paper-mm-80');
+        if (b58) b58.classList.toggle('is-active', mm === 58);
+        if (b80) b80.classList.toggle('is-active', mm === 80);
+        const st = document.getElementById('printer-sheet-status');
+        if (st) {
+            if (gprinterReady() || readySunmi) st.textContent = '已駁 USB／Sunmi 出單機';
+            else if (readyBrowser || currentDriver() === 'browser') st.textContent = '用系統列印';
+            else st.textContent = '未駁出單機';
+        }
+        const usbBtn = document.getElementById('printer-usb-btn');
+        if (usbBtn) {
+            usbBtn.disabled = isIosSafari();
+            usbBtn.textContent = isIosSafari() ? 'iPhone 唔支援 USB' : (isSunmiTill() ? '駁 Sunmi 出單機' : '駁 USB 出單機');
+        }
+    }
+
+    function openSheet() {
+        const el = document.getElementById('printer-sheet');
+        if (el) el.classList.add('is-open');
+        refreshSheet();
+    }
+    function closeSheet() {
+        const el = document.getElementById('printer-sheet');
+        if (el) el.classList.remove('is-open');
     }
 
     if (navigator.usb && navigator.usb.addEventListener) {
@@ -734,5 +799,10 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         isReady: () => gprinterReady() || readySunmi || readyBrowser || currentDriver() === 'browser',
         currentDriver: currentDriver,
         setDriver: setDriver,
+        paperMm: paperMm,
+        setPaperMm: setPaperMm,
+        openSheet: openSheet,
+        closeSheet: closeSheet,
+        refreshSheet: refreshSheet,
     };
 })(window);
