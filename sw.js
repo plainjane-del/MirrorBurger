@@ -1,5 +1,5 @@
-const CACHE = 'mirror-burger-v16';
-const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json'];
+const CACHE = 'mirror-burger-v17';
+const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json', '/admin-manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -68,14 +68,16 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate' || url.pathname === '/pos.html' || url.pathname === '/pos') {
     const isKitchen = url.pathname.includes('kitchen');
     const isPos = url.pathname.includes('pos');
+    const isAdmin = url.pathname.includes('admin');
+    const isLiveOps = isKitchen || isPos || isAdmin;
     const isTable = /^\/t\/\d+\/?$/.test(url.pathname) || url.pathname === '/table.html';
-    const cacheKey = isPos
+    const cacheKey = (isPos || isAdmin)
       ? null
       : (isKitchen
         ? '/kitchen.html'
         : (isTable ? '/table.html' : (url.pathname === '/' || url.pathname === '/index.html' ? '/index.html' : null)));
     event.respondWith(
-      fetch(req, (isPos || isKitchen) ? { cache: 'no-store' } : undefined)
+      fetch(req, isLiveOps ? { cache: 'no-store' } : undefined)
         .then((res) => {
           if (cacheKey) {
             const copy = res.clone();

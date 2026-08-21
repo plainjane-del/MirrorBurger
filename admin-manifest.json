@@ -1,10 +1,10 @@
 {
-  "id": "/kitchen.html",
-  "name": "Mirror Burger Kitchen",
-  "short_name": "MB Kitchen",
-  "description": "Mirror Burger Kitchen Display System",
+  "id": "/admin.html",
+  "name": "Mirror Burger Admin",
+  "short_name": "MB Admin",
+  "description": "Mirror Burger 後台：生意、價錢、枱 QR",
   "lang": "zh-HK",
-  "start_url": "/kitchen.html?source=pwa",
+  "start_url": "/admin.html?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
@@ -12,19 +12,19 @@
   "theme_color": "#0a0a0a",
   "icons": [
     {
-      "src": "/icons/pwa-kitchen-192.png",
+      "src": "/icons/pwa-admin-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/pwa-kitchen-512.png",
+      "src": "/icons/pwa-admin-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/pwa-kitchen-512.png",
+      "src": "/icons/pwa-admin-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
