@@ -56,12 +56,6 @@
         .ticket-row { cursor: pointer; }
         .ticket-row:hover { border-color: #525252; }
         .ticket-sum { position: sticky; bottom: 0; background: #0a0a0a; border-top: 1px solid #262626; padding: 0.85rem 0; font-weight: 800; }
-        .quick-btn {
-            display: inline-flex; align-items: center; justify-content: center;
-            min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.9rem;
-            background: #1a1a1a; border: 1px solid #333; font-weight: 800;
-            color: #f5f5f5; text-decoration: none;
-        }
         .toast {
             position: fixed; left: 50%; bottom: calc(1.25rem + env(safe-area-inset-bottom));
             transform: translateX(-50%); z-index: 80;
@@ -192,17 +186,6 @@
             </div>
             <div id="sales-summary"></div>
             <div id="sales-stores" class="space-y-3 mt-4"></div>
-            <div class="mt-6">
-                <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">常用操作</div>
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" class="quick-btn" onclick="setTab('items')">改菜／價錢</button>
-                    <button type="button" class="quick-btn" onclick="setTab('tables')">堂食/外賣 QR Code</button>
-                    <button type="button" class="quick-btn" onclick="setTab('orders')">今日訂單</button>
-                    <a class="quick-btn" href="/pos.html">POS 收銀</a>
-                    <a class="quick-btn" href="/kitchen.html">廚房 KDS</a>
-                    <a class="quick-btn" href="/">網站</a>
-                </div>
-            </div>
         </div>
 
         <div id="panel-items" class="hidden">
