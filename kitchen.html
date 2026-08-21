@@ -54,10 +54,8 @@
         html.is-standalone .history-panel-sheet {
             padding-top: var(--kds-sat);
         }
-        .order-card {
-            animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-        }
         .order-card.is-new {
+            animation: popIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             box-shadow: 0 0 0 3px #FFD131, 0 12px 40px rgba(255, 209, 49, 0.25);
         }
         @keyframes popIn {
@@ -273,7 +271,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k2</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k3</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -872,6 +870,7 @@
             if (!canSwitchBranches() && btn.dataset.branch !== currentBranch) return;
             currentBranch = btn.dataset.branch;
             kitchenBoardReady = false;
+            lastBoardSig = '';
             ordersMap = new Map();
             syncBranchTabs();
             loadOrders();
@@ -1159,7 +1158,24 @@
             renderOrders();
         }
 
+        let lastBoardSig = '';
+        function boardSignature() {
+            return sortOrders([...ordersMap.values()]).map((o) => [
+                o.order_no,
+                getKitchenStatus(o),
+                o.pickup_time || '',
+                o.total_amount || '',
+                o.customer_name || '',
+                o.channel || '',
+                typeof o.items_json === 'string' ? o.items_json : JSON.stringify(o.items_json || o.items || []),
+                highlightedOrders.has(o.order_no) ? '1' : '0',
+            ].join('\t')).join('\n');
+        }
+
         function renderOrders() {
+            const sig = boardSignature();
+            if (sig === lastBoardSig) return;
+            lastBoardSig = sig;
             const list = sortOrders([...ordersMap.values()]);
             document.getElementById('order-count').textContent = `${list.length} 單`;
 
