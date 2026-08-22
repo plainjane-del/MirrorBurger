@@ -317,7 +317,8 @@
             熄芒收單未開 — 撳呢度允許 iPhone 通知（只須一次）
         </button>
 
-        <div id="branch-tabs" class="mt-2 grid grid-cols-3 gap-1 hidden" role="tablist" aria-label="分店">
+        <div id="branch-tabs" class="mt-2 grid grid-cols-4 gap-1 hidden" role="tablist" aria-label="分店">
+            <button type="button" class="branch-tab" data-branch="__all__" onclick="selectBranch(this)">全部</button>
             <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)">西營盤</button>
             <button type="button" class="branch-tab" data-branch="Fortress Hill" onclick="selectBranch(this)">天后</button>
             <button type="button" class="branch-tab" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">荃灣</button>
@@ -463,7 +464,7 @@
             COMPLETED:  { label: '已完成',   color: 'border-neutral-600', badge: 'bg-neutral-600 text-white' }
         };
 
-        let currentBranch = 'Sai Ying Pun';
+        let currentBranch = '__all__';
         let sessionScope = 'single_store';
         let sessionStore = '';
         let audioUnlocked = false;
@@ -548,7 +549,9 @@
         function applyKitchenAuth(data = {}) {
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
-            if (sessionScope !== 'all_stores' && sessionStore) {
+            if (sessionScope === 'all_stores') {
+                currentBranch = '__all__';
+            } else if (sessionStore) {
                 currentBranch = sessionStore;
             }
             syncBranchTabs();
@@ -556,6 +559,19 @@
 
         function canSwitchBranches() {
             return sessionScope === 'all_stores';
+        }
+
+        function isAllBranchesView() {
+            return canSwitchBranches() && currentBranch === '__all__';
+        }
+
+        function effectiveStoreName() {
+            if (isAllBranchesView()) return 'Sai Ying Pun';
+            return currentBranch;
+        }
+
+        function apiStoreName() {
+            return isAllBranchesView() ? '' : currentBranch;
         }
 
         function selectedKitchenLoginStore() {
@@ -569,7 +585,11 @@
             if (row) row.classList.toggle('hidden', !master);
             const title = document.getElementById('kds-title');
             if (title) {
-                title.textContent = master ? '廚房 · Master' : ('廚房 · ' + storeLabel(currentBranch));
+                if (master && isAllBranchesView()) {
+                    title.textContent = '廚房 · Master · 全部';
+                } else {
+                    title.textContent = master ? ('廚房 · Master · ' + storeLabel(currentBranch)) : ('廚房 · ' + storeLabel(currentBranch));
+                }
             }
             document.querySelectorAll('.branch-tab').forEach((el) => {
                 const active = el.dataset.branch === currentBranch;
@@ -664,7 +684,7 @@
                 alert('此單沒有有效電話號碼，無法開啟 WhatsApp。');
                 return;
             }
-            const store_name = order.store_name || currentBranch || '';
+            const store_name = storeLabel(order.store_name || effectiveStoreName() || '');
             const order_no = order.order_no;
             const msg =
                 `🍔 Mirror Burger【取餐通知】\n` +
@@ -707,6 +727,7 @@
                             <div>
                                 <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
                                 <div class="text-2xl font-black text-white">#${escapeHtml(o.order_no)}</div>
+                                ${canSwitchBranches() ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/60 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(o.store_name))}</div>` : ''}
                             </div>
                             <div class="text-right">
                                 <div class="text-xl font-black text-kds-yellow">${formatAmount(o)}</div>
@@ -895,9 +916,10 @@
         }
 
         function effectiveStoreOpen() {
+            if (isAllBranchesView()) return null;
             if (storeIsOpen === null) return null;
             if (typeof MBStoreHours !== 'undefined' && MBStoreHours.effectiveIsOpen) {
-                return MBStoreHours.effectiveIsOpen(currentBranch, storeStatusRow());
+                return MBStoreHours.effectiveIsOpen(effectiveStoreName(), storeStatusRow());
             }
             return !!storeIsOpen;
         }
@@ -936,15 +958,27 @@
 
         async function loadStoreStatus() {
             const btn = document.getElementById('store-status-btn');
+            if (isAllBranchesView()) {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.classList.remove('is-open', 'is-closed');
+                    btn.textContent = '全部';
+                }
+                storeIsOpen = null;
+                storeOverrideUntil = null;
+                return;
+            }
+
             if (btn) {
                 btn.disabled = true;
                 btn.textContent = '載入中…';
             }
 
+            const branch = effectiveStoreName();
             let query = client
                 .from('store_settings')
                 .select('is_open, override_until')
-                .eq('store_name', currentBranch)
+                .eq('store_name', branch)
                 .maybeSingle();
             let { data, error } = await query;
 
@@ -952,7 +986,7 @@
                 const fallback = await client
                     .from('store_settings')
                     .select('is_open')
-                    .eq('store_name', currentBranch)
+                    .eq('store_name', branch)
                     .maybeSingle();
                 data = fallback.data;
                 error = fallback.error;
@@ -971,6 +1005,7 @@
         }
 
         async function toggleStoreStatus() {
+            if (isAllBranchesView()) return;
             const effective = effectiveStoreOpen();
             if (effective === null) return;
             const next = !effective;
@@ -984,7 +1019,7 @@
                         'Content-Type': 'application/json',
                         Authorization: 'Bearer ' + getKitchenToken(),
                     },
-                    body: JSON.stringify({ action: 'set_store_open', store_name: currentBranch, is_open: next }),
+                    body: JSON.stringify({ action: 'set_store_open', store_name: effectiveStoreName(), is_open: next }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
@@ -1000,6 +1035,7 @@
         }
 
         async function syncScheduledHours() {
+            if (isAllBranchesView()) return;
             try {
                 const res = await fetch('/api/kitchen-menu', {
                     method: 'POST',
@@ -1007,7 +1043,7 @@
                         'Content-Type': 'application/json',
                         Authorization: 'Bearer ' + getKitchenToken(),
                     },
-                    body: JSON.stringify({ action: 'sync_store_hours', store_name: currentBranch }),
+                    body: JSON.stringify({ action: 'sync_store_hours', store_name: effectiveStoreName() }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) return;
@@ -1033,6 +1069,7 @@
         }
 
         function matchesBranch(order) {
+            if (isAllBranchesView()) return true;
             return (order.store_name || '') === currentBranch;
         }
 
@@ -1114,9 +1151,13 @@
                 ${pendingOnline.map((o) => {
                     const no = escapeHtml(o.order_no);
                     const noJs = escapeJsString(o.order_no);
+                    const branchLabel = canSwitchBranches()
+                        ? `<div class="text-[10px] font-black text-sky-300">${escapeHtml(storeLabel(o.store_name))}</div>`
+                        : '';
                     return `<div class="mt-2 flex items-center gap-2 rounded-lg bg-black/40 px-2 py-2">
                         <div class="min-w-0 flex-1">
                             <div class="font-black text-white">#${no} · ${formatAmount(o)}</div>
+                            ${branchLabel}
                             <div class="text-xs font-bold text-amber-100 truncate">${escapeHtml(o.customer_name || '—')} · ${escapeHtml(o.pickup_time || '')}</div>
                         </div>
                         <button type="button" class="chip-btn bg-amber-400 text-black border-amber-300" onclick="confirmKpayPaid('${noJs}')">入廚房</button>
@@ -1392,7 +1433,7 @@
             const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ store_name: currentBranch, ...payload }),
+                body: JSON.stringify({ store_name: apiStoreName(), ...payload }),
             });
             if (res.status === 304) return { notModified: true };
             const etag = res.headers.get('ETag');
@@ -1406,7 +1447,7 @@
             const res = await fetch('/api/kitchen-menu', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: getKitchenToken(), store_name: currentBranch, ...payload }),
+                body: JSON.stringify({ token: getKitchenToken(), store_name: effectiveStoreName(), ...payload }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(formatKitchenApiError(data.error) || 'Request failed');
@@ -1521,6 +1562,10 @@
                 }).join('')
                 : `<div class="text-neutral-500 font-bold py-4">無餐點資料</div>`;
 
+            const branchBadge = canSwitchBranches()
+                ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/70 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(order.store_name))}</div>`
+                : '';
+
             return `
                 <article class="order-card ${isNew ? 'is-new' : ''} bg-kds-card border-2 ${meta.color} rounded-2xl flex flex-col overflow-hidden" data-order="${orderNo}">
                     <div class="p-3 flex-1 flex flex-col gap-2">
@@ -1528,6 +1573,7 @@
                             <div>
                                 <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
                                 <div class="text-xl font-black text-white tracking-tight">#${orderNo}</div>
+                                ${branchBadge}
                                 ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">店內 POS</div>' : ''}
                                 ${isTableOrder(order) && tableNoFromOrder(order) ? `<div class="mt-1 text-3xl font-black text-amber-300 leading-none">${escapeHtml(tableNoFromOrder(order))}號枱</div>` : ''}
                                 ${isUnpaidTable(order) ? '<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">未收款</div>' : ''}
@@ -1659,6 +1705,7 @@
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_settings' }, (payload) => {
                     const row = payload.new;
                     if (!row) return;
+                    if (isAllBranchesView()) return;
                     if ((row.store_name || '') === currentBranch) {
                         applyStoreRow(row);
                         renderStoreStatusBtn();
@@ -1666,7 +1713,7 @@
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
                     const row = payload.new || payload.old;
-                    if (row && (row.store_name || '') && (row.store_name || '') !== currentBranch) return;
+                    if (row && (row.store_name || '') && !matchesBranch(row)) return;
                     requestBoardRefresh();
                 })
                 .subscribe((status) => {
@@ -1823,7 +1870,7 @@
                     },
                     body: JSON.stringify({
                         subscription: sub.toJSON(),
-                        store_name: currentBranch || 'all'
+                        store_name: isAllBranchesView() ? 'all' : (currentBranch || 'all')
                     })
                 });
                 const saveData = await saveRes.json().catch(() => ({}));

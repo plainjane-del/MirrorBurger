@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut, isPermissionError } = require('./_menuDb.js');
-const { listKitchenOrders, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
+const { listKitchenOrders, listKitchenOrdersAllStores, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -114,7 +114,13 @@ module.exports = async (req, res) => {
 
         if (action === 'board' || action === 'completed' || action === 'stats') {
             const storeName = resolveStoreAccess(auth, body.store_name);
-            if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
+            if (!storeName && auth.scope !== 'all_stores') {
+                return res.status(400).json({ error: 'Missing store_name' });
+            }
+
+            const fetchKitchenOrders = (opts) => (
+                storeName ? listKitchenOrders(storeName, opts) : listKitchenOrdersAllStores(opts)
+            );
 
             if (action === 'board') {
                 const getPendingOnline = (orders) => {
@@ -135,7 +141,7 @@ module.exports = async (req, res) => {
                 // 先列出廚房畫面上會顯示嘅 pending online 訂單，
                 // 再針對呢幾張做即時 reconcile，確保「已收款」會自動跳出 pending 區。
                 const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
-                const orders = await listKitchenOrders(storeName, { since, limit: 60 });
+                const orders = await fetchKitchenOrders({ since, limit: 60 });
                 const pendingOnline = getPendingOnline(orders);
 
                 const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
@@ -155,14 +161,14 @@ module.exports = async (req, res) => {
                     }
                 }
 
-                const orders2 = await listKitchenOrders(storeName, { since, limit: 60 });
+                const orders2 = await fetchKitchenOrders({ since, limit: 60 });
                 const pendingOnline2 = getPendingOnline(orders2);
                 const board = (orders2 || []).filter(isKitchenBoardOrder);
                 return sendJsonWithEtag(req, res, { orders: board, pending_online: pendingOnline2 });
             }
 
             if (action === 'completed') {
-                const rows = await listKitchenOrders(storeName, {
+                const rows = await fetchKitchenOrders({
                     since: startOfTodayHkIso(),
                     limit: 200,
                 });
@@ -174,7 +180,7 @@ module.exports = async (req, res) => {
                 return res.status(200).json({ orders });
             }
 
-            const orders = await listKitchenOrders(storeName, {
+            const orders = await fetchKitchenOrders({
                 since: startOfTodayHkIso(),
                 limit: 500,
             });

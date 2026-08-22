@@ -747,6 +747,16 @@ async function getPublicOrderStatus(orderNo) {
     return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+async function listKitchenOrdersAllStores({ since, limit = 200 } = {}) {
+    const perStoreLimit = Math.max(20, Math.ceil(Number(limit) / KNOWN_STORES.length));
+    const batches = await Promise.all(
+        KNOWN_STORES.map((store) => listKitchenOrders(store, { since, limit: perStoreLimit }))
+    );
+    const merged = batches.flat();
+    merged.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return merged.slice(0, Number(limit) || 200);
+}
+
 async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
     const store = clip(storeName, 80);
     if (!KNOWN_STORES.includes(store)) {
@@ -899,6 +909,7 @@ module.exports = {
     markTableOrderPaid,
     getPublicOrderStatus,
     listKitchenOrders,
+    listKitchenOrdersAllStores,
     saveKpayManagedNo,
     kpayManagedNoOf,
     reconcilePendingIfPaid,
