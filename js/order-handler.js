@@ -167,7 +167,7 @@ async function startKpayCheckout(orderNo, payAmount) {
 async function resumeKpayPayment(orderNo) {
     const no = String(orderNo || (readPendingPay() && readPendingPay().orderNo) || '').trim();
     if (!no) {
-        showCustomAlert(lang('No unpaid order to continue.', '冇未完成付款嘅訂單。'));
+        showCustomAlert(lang('Please try again.', '請再試一次。'));
         return;
     }
     if (checkoutInFlight) return;
