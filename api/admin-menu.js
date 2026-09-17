@@ -20,6 +20,22 @@ function isPaidSale(order) {
         || ['PAID', 'PREPARING', 'READY', 'COMPLETED'].includes(st);
 }
 
+function startOfHkMonthIso(monthsAgo = 0) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(new Date());
+    let y = Number(parts.find((p) => p.type === 'year')?.value);
+    let m = Number(parts.find((p) => p.type === 'month')?.value) - monthsAgo;
+    while (m <= 0) {
+        m += 12;
+        y -= 1;
+    }
+    return new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00+08:00`).toISOString();
+}
+
 function startOfHkDayIso(daysAgo = 0) {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Hong_Kong',
@@ -84,53 +100,33 @@ function inRange(order, fromIso, toIso) {
     return created >= from && created < to;
 }
 
-async function buildSalesOverview() {
-    const todayStart = startOfHkDayIso(0);
-    const yesterdayStart = startOfHkDayIso(1);
+async function buildSalesOverview(range = 'today') {
+    const bounds = rangeBounds(range);
     const stores = [];
-    const todayRows = [];
-    const yesterdayRows = [];
+    const periodRows = [];
 
     for (const store_name of KNOWN_STORES) {
-        const rows = await listKitchenOrders(store_name, { since: yesterdayStart, limit: 800 });
-        const paid = (rows || []).filter(isPaidSale);
-        const todaySales = paid.filter((o) => inRange(o, todayStart, '9999-12-31T00:00:00.000Z'));
-        const yesterdaySales = paid.filter((o) => inRange(o, yesterdayStart, todayStart));
-        todayRows.push(...todaySales);
-        yesterdayRows.push(...yesterdaySales);
-        const today = summarizeSales(todaySales);
+        const rows = await listKitchenOrders(store_name, { since: bounds.from, limit: 2000 });
+        const sales = (rows || []).filter(isPaidSale).filter((o) => inRange(o, bounds.from, bounds.to));
+        periodRows.push(...sales);
         stores.push({
             store_name,
             label: STORE_LABEL_ZH[store_name] || store_name,
-            ...today,
-            yesterday: summarizeSales(yesterdaySales),
+            ...summarizeSales(sales),
         });
     }
 
-    todayRows.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-    const today = summarizeSales(todayRows);
-    const yesterday = summarizeSales(yesterdayRows);
-    const recent = todayRows.slice(0, 50).map((o) => ({
-        order_no: o.order_no,
-        store_name: o.store_name,
-        label: STORE_LABEL_ZH[o.store_name] || o.store_name,
-        created_at: o.created_at,
-        total_amount: Math.round(Number(o.total_amount) || 0),
-        pickup_time: o.pickup_time || '',
-        channel: o.channel || '',
-        kind: isDineInOrder(o) ? 'dine_in' : 'takeaway',
-        pay_method: o.pay_method || '',
-    }));
-
+    const totals = summarizeSales(periodRows);
     return {
         ok: true,
-        orders: today.orders,
-        revenue: today.revenue,
-        aov: today.aov,
-        today,
-        yesterday,
+        range,
+        range_label: bounds.label,
+        orders: totals.orders,
+        revenue: totals.revenue,
+        aov: totals.aov,
+        dine_in: totals.dine_in,
+        takeaway: totals.takeaway,
         stores,
-        recent,
     };
 }
 
@@ -188,10 +184,12 @@ function toTicket(order) {
 function rangeBounds(range) {
     const todayStart = startOfHkDayIso(0);
     const yesterdayStart = startOfHkDayIso(1);
-    const weekStart = startOfHkDayIso(6);
-    if (range === 'yesterday') return { from: yesterdayStart, to: todayStart };
-    if (range === 'week') return { from: weekStart, to: '9999-12-31T00:00:00.000Z' };
-    return { from: todayStart, to: '9999-12-31T00:00:00.000Z' };
+    const far = '9999-12-31T00:00:00.000Z';
+    if (range === 'yesterday') return { from: yesterdayStart, to: todayStart, label: '昨日' };
+    if (range === 'week') return { from: startOfHkDayIso(6), to: far, label: '近 7 日' };
+    if (range === 'month') return { from: startOfHkMonthIso(0), to: far, label: '今個月' };
+    if (range === 'last_month') return { from: startOfHkMonthIso(1), to: startOfHkMonthIso(0), label: '上個月' };
+    return { from: todayStart, to: far, label: '今日' };
 }
 
 function normalizeTicketQuery(raw) {
@@ -201,7 +199,7 @@ function normalizeTicketQuery(raw) {
 async function fetchPaidSince(sinceIso) {
     const all = [];
     for (const store_name of KNOWN_STORES) {
-        const rows = await listKitchenOrders(store_name, { since: sinceIso, limit: 1000 });
+        const rows = await listKitchenOrders(store_name, { since: sinceIso, limit: 2000 });
         all.push(...(rows || []).filter(isPaidSale));
     }
     all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
@@ -224,15 +222,16 @@ async function buildSalesTickets({ range = 'today', store_name = '', q = '' } = 
         if (exact && (!store || exact.store_name === store)) rows = [exact];
     }
 
-    const tickets = rows.slice(0, 200).map(toTicket);
-    const counted = tickets.filter((t) => t.status === 'paid');
+    const tickets = rows.slice(0, 800).map(toTicket);
+    const counted = rows.filter(isPaidSale);
     return {
         ok: true,
         range,
+        range_label: bounds.label,
         store_name: store,
         q: query,
         orders: counted.length,
-        revenue: counted.reduce((sum, t) => sum + t.total_amount, 0),
+        revenue: counted.reduce((sum, o) => sum + Math.round(Number(o.total_amount) || 0), 0),
         tickets,
         stores: KNOWN_STORES.map((name) => ({
             store_name: name,
@@ -258,7 +257,7 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'sales_today' || action === 'sales_overview') {
-            return res.status(200).json(await buildSalesOverview());
+            return res.status(200).json(await buildSalesOverview(body.range));
         }
 
         if (action === 'sales_tickets') {

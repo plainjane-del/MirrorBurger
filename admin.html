@@ -166,7 +166,7 @@
         <div id="app-toolbar" class="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
                 <h1 class="text-2xl font-black" id="page-title">概况</h1>
-                <p class="text-neutral-500 text-sm" id="page-sub">今日實收 · 堂食／外賣 · 客單價</p>
+                <p class="text-neutral-500 text-sm" id="page-sub">每間舖收咗幾多錢</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button" class="btn btn-ghost" onclick="refreshCurrent()">重新載入</button>
@@ -178,9 +178,12 @@
 
         <div id="panel-sales">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
                     <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')">今日</button>
                     <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')">昨日</button>
+                    <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')">近 7 日</button>
+                    <button type="button" id="range-month" class="btn range-btn" onclick="setSalesRange('month')">今個月</button>
+                    <button type="button" id="range-last_month" class="btn range-btn" onclick="setSalesRange('last_month')">上個月</button>
                 </div>
                 <p class="text-sm text-neutral-500">已收款先計；未付／取消唔計。</p>
             </div>
@@ -263,10 +266,12 @@
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
                     <label>日期</label>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')">今日</button>
                         <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')">昨日</button>
                         <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')">近 7 日</button>
+                        <button type="button" id="tr-month" class="btn range-btn" onclick="setTicketRange('month')">今個月</button>
+                        <button type="button" id="tr-last_month" class="btn range-btn" onclick="setTicketRange('last_month')">上個月</button>
                     </div>
                     <input type="hidden" id="ticket-range" value="today">
                 </div>
@@ -455,8 +460,16 @@
             toastTimer = setTimeout(() => el.classList.add('hidden'), 1800);
         }
 
+        const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'last_month'];
+        const RANGE_ZH = {
+            today: '今日',
+            yesterday: '昨日',
+            week: '近 7 日',
+            month: '今個月',
+            last_month: '上個月',
+        };
         const PAGE_META = {
-            sales: { title: '概况', sub: '今日實收 · 堂食／外賣 · 客單價' },
+            sales: { title: '概况', sub: '每間舖收咗幾多錢' },
             items: { title: '菜品', sub: '改名稱、價錢、上下架' },
             tables: { title: '堂食/外賣 QR Code', sub: '堂食枱 · 外賣自取門口 QR' },
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
@@ -580,27 +593,44 @@
             document.getElementById('sub-mods').className = 'btn ' + (which === 'mods' ? 'tab-on' : 'tab-off');
         }
 
+        function normalizeRange(which) {
+            return SALES_RANGES.includes(which) ? which : 'today';
+        }
+
         function setTicketRange(which, opts) {
-            const next = which === 'yesterday' ? 'yesterday' : (which === 'week' ? 'week' : 'today');
+            const next = normalizeRange(which);
             document.getElementById('ticket-range').value = next;
-            document.getElementById('tr-today').classList.toggle('is-on', next === 'today');
-            document.getElementById('tr-yesterday').classList.toggle('is-on', next === 'yesterday');
-            document.getElementById('tr-week').classList.toggle('is-on', next === 'week');
+            SALES_RANGES.forEach((name) => {
+                const btn = document.getElementById('tr-' + name);
+                if (btn) btn.classList.toggle('is-on', next === name);
+            });
             if (!opts || opts.load !== false) loadTickets();
         }
 
         function openStoreOrders(storeName) {
             ticketsData = null;
             document.getElementById('ticket-store').value = storeName || '';
-            setTicketRange(salesRange === 'yesterday' ? 'yesterday' : 'today', { load: false });
+            setTicketRange(salesRange, { load: false });
             setTab('orders');
         }
 
         function setSalesRange(which) {
-            salesRange = which === 'yesterday' ? 'yesterday' : 'today';
-            document.getElementById('range-today').classList.toggle('is-on', salesRange === 'today');
-            document.getElementById('range-yesterday').classList.toggle('is-on', salesRange === 'yesterday');
-            renderSales();
+            const next = normalizeRange(which);
+            if (next === salesRange && salesData && salesData.range === next) {
+                SALES_RANGES.forEach((name) => {
+                    const btn = document.getElementById('range-' + name);
+                    if (btn) btn.classList.toggle('is-on', salesRange === name);
+                });
+                renderSales();
+                return;
+            }
+            salesRange = next;
+            SALES_RANGES.forEach((name) => {
+                const btn = document.getElementById('range-' + name);
+                if (btn) btn.classList.toggle('is-on', salesRange === name);
+            });
+            salesData = null;
+            loadSales();
         }
 
         function money(n) {
@@ -645,42 +675,35 @@
                 if (sum) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
                 return;
             }
-            const current = salesRange === 'yesterday' ? (data.yesterday || {}) : (data.today || data);
-            const compare = salesRange === 'today' ? (data.yesterday || {}) : null;
+            const current = data;
             const dine = current.dine_in || { orders: 0, revenue: 0 };
             const take = current.takeaway || { orders: 0, revenue: 0 };
             const dinePct = pctBar(dine.orders, current.orders);
             const takePct = pctBar(take.orders, current.orders);
-            const compareLine = compare
-                ? deltaHtml(current.revenue, compare.revenue)
-                : '<span class="delta-flat">昨日實收</span>';
-
+            const rangeLabel = data.range_label || RANGE_ZH[salesRange] || '今日';
             const empty = !Number(current.orders);
-            const rangeLabel = salesRange === 'yesterday' ? '昨日' : '今日';
             if (empty) {
                 sum.innerHTML = `
                     <div class="card metric-hero p-6 mb-4">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">營業實收</div>
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(rangeLabel)} 三間舖共收</div>
                         <div class="text-5xl font-black mt-2 tracking-tight">${money(0)}</div>
-                        <div class="text-sm font-bold text-neutral-400 mt-2">${rangeLabel}未有收款</div>
+                        <div class="text-sm font-bold text-neutral-400 mt-2">呢段時間未有收款</div>
                     </div>`;
             } else {
             sum.innerHTML = `
                 <div class="card metric-hero p-6 mb-4">
-                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">營業實收</div>
+                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(rangeLabel)} 三間舖共收</div>
                     <div class="text-5xl font-black mt-2 tracking-tight">${money(current.revenue)}</div>
-                    <div class="text-sm font-bold mt-2">${compareLine}</div>
+                    <div class="text-sm font-bold text-neutral-300 mt-2">${Number(current.orders || 0)} 張已收款</div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="card p-4">
                         <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">訂單總數</div>
                         <div class="text-3xl font-black mt-2">${Number(current.orders || 0)}</div>
-                        ${compare ? `<div class="text-xs font-bold mt-1">${deltaHtml(current.orders, compare.orders)}</div>` : ''}
                     </div>
                     <div class="card p-4">
                         <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">客單價</div>
                         <div class="text-3xl font-black mt-2">${money(current.aov)}</div>
-                        ${compare ? `<div class="text-xs font-bold mt-1">${deltaHtml(current.aov, compare.aov)}</div>` : ''}
                     </div>
                 </div>
                 <div class="card p-5">
@@ -699,15 +722,17 @@
             }
 
             const storeRows = (data.stores || []).map((s) => {
-                const block = salesRange === 'yesterday' ? (s.yesterday || {}) : s;
-                const sDine = block.dine_in || { orders: 0 };
-                const sTake = block.takeaway || { orders: 0 };
+                const sDine = s.dine_in || { orders: 0 };
+                const sTake = s.takeaway || { orders: 0 };
                 return `<button type="button" class="card store-jump p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openStoreOrders('${escAttr(s.store_name)}')">
                     <div>
                         <div class="font-black">${esc(s.label)}</div>
                         <div class="text-xs font-bold text-neutral-500 mt-1">堂食 ${Number(sDine.orders)} · 外賣 ${Number(sTake.orders)} · 撳入睇單</div>
                     </div>
-                    <div class="text-sm font-bold text-neutral-300">${Number(block.orders || 0)} 張 · ${money(block.revenue)}</div>
+                    <div class="text-right">
+                        <div class="text-2xl font-black">${money(s.revenue)}</div>
+                        <div class="text-xs font-bold text-neutral-400 mt-1">${Number(s.orders || 0)} 張</div>
+                    </div>
                 </button>`;
             }).join('');
             list.innerHTML = storeRows || '<p class="text-neutral-500">呢段時間未有收款</p>';
@@ -715,11 +740,14 @@
 
         async function loadSales() {
             const sum = document.getElementById('sales-summary');
+            const requested = salesRange;
             if (sum && !salesData) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
             try {
-                salesData = await api('/api/admin-menu', { token, action: 'sales_overview' });
+                salesData = await api('/api/admin-menu', { token, action: 'sales_overview', range: requested });
+                if (salesRange !== requested) return;
                 renderSales();
             } catch (e) {
+                if (salesRange !== requested) return;
                 salesData = null;
                 if (sum) sum.innerHTML = '';
                 document.getElementById('sales-stores').innerHTML =
@@ -761,7 +789,8 @@
             ticketRows = data.tickets || [];
             const q = data.q || '';
             const range = data.range || 'today';
-            const rangeZh = range === 'yesterday' ? '昨日' : (range === 'week' ? '近 7 日' : '今日');
+            const rangeZh = data.range_label || RANGE_ZH[range] || '今日';
+            const showDate = range !== 'today' && range !== 'yesterday';
             msg.textContent = q
                 ? (ticketRows.length ? `搵到 ${ticketRows.length} 張（單號含 ${q}）` : `搵唔到 ${q}`)
                 : '已收款先計入合計；撳一張睇餐。';
@@ -770,7 +799,7 @@
                     const kind = o.kind === 'dine_in' ? '堂食' : '外賣';
                     const st = STATUS_LABEL[o.status] || '';
                     const pay = payLabel(o.pay_method);
-                    const when = hkWhen(o.created_at, range === 'week' || !!q);
+                    const when = hkWhen(o.created_at, showDate || !!q);
                     return `<button type="button" class="card ticket-row p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openTicket(${i})">
                         <div>
                             <div class="font-black">#${esc(o.order_no)} · ${esc(o.label)}</div>
