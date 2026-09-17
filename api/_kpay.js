@@ -313,6 +313,10 @@ function kpayWaitingOrFailedState(state) {
     return KPAY_WAITING_STATES.has(s) || KPAY_FAILED_STATES.has(s);
 }
 
+function isKpayFailed(payload) {
+    return kpayStatesOf(payload).some((s) => KPAY_FAILED_STATES.has(s));
+}
+
 function isKpayWaitingOrFailed(payload) {
     if (isKpayPaymentSuccess(payload)) return false;
     const states = kpayStatesOf(payload);
@@ -462,6 +466,7 @@ module.exports = {
     extractKpayOrderNo,
     extractKpayManagedOrderNo,
     isKpayPaymentSuccess,
+    isKpayFailed,
     isKpayWaitingOrFailed,
     kpayStatesOf,
     hasKpayPayEvidence,

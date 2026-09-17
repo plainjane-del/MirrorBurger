@@ -306,6 +306,35 @@ async function createPendingOrder(input) {
         pickup_time: pickupTime,
     });
 
+    const reused = await findReusablePendingOrder({
+        storeName,
+        customerPhone,
+        items,
+    });
+    if (reused && reused.order_no) {
+        try {
+            await sbRest(
+                `orders?order_no=eq.${encodeURIComponent(reused.order_no)}&payment_status=eq.PENDING`,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        customer_name: customerName,
+                        pickup_time: pickupTime,
+                        items_json: items,
+                        total_amount: priced.total,
+                    }),
+                }
+            );
+        } catch (err) {
+            console.warn('reuse pending update skipped:', reused.order_no, err.message || err);
+        }
+        return {
+            orderNo: reused.order_no,
+            total: priced.total,
+            reused: true,
+        };
+    }
+
     let lastError = null;
     for (let attempt = 0; attempt < 6; attempt++) {
         const orderNo = generateOrderNo();
@@ -327,6 +356,7 @@ async function createPendingOrder(input) {
             return {
                 orderNo: (row && row.order_no) || orderNo,
                 total: priced.total,
+                reused: false,
             };
         } catch (err) {
             lastError = err;
@@ -807,6 +837,50 @@ function parseItemsJson(itemsJson) {
     return Array.isArray(items) ? items : [];
 }
 
+function normalizePhoneDigits(raw) {
+    return String(raw || '').replace(/\D/g, '');
+}
+
+function itemsFingerprint(itemsJson) {
+    return parseItemsJson(itemsJson).map((it) => {
+        const id = it && (it.menuId || it.id || it.nameZh || it.nameEn || it.name) || '';
+        const qty = Number((it && (it.qty || it.quantity)) || 1) || 1;
+        const notes = [
+            it && it.detailsZh,
+            it && it.detailsEn,
+            it && it.notes,
+            it && it.note,
+            it && it.size,
+            it && it.temp,
+        ].map((s) => String(s || '').trim()).filter(Boolean).join('|');
+        return `${String(id).trim()}x${qty}:${notes}`;
+    }).filter(Boolean).sort().join(';;');
+}
+
+const REUSE_PENDING_MS = 20 * 60 * 1000;
+
+async function findReusablePendingOrder({ storeName, customerPhone, items }) {
+    const store = clip(storeName, 80);
+    const phone = normalizePhoneDigits(customerPhone);
+    const want = itemsFingerprint(items);
+    if (!store || !phone || !want) return null;
+    const since = new Date(Date.now() - REUSE_PENDING_MS).toISOString();
+    let rows = [];
+    try {
+        rows = await listKitchenOrders(store, { since, limit: 40 });
+    } catch (err) {
+        console.warn('findReusablePendingOrder list failed:', err.message || err);
+        return null;
+    }
+    return (rows || []).find((o) => {
+        if (String(o.payment_status || '').toUpperCase() !== 'PENDING') return false;
+        const ch = String(o.channel || '').toLowerCase();
+        if (ch === 'pos' || ch === 'table') return false;
+        return normalizePhoneDigits(o.customer_phone) === phone
+            && itemsFingerprint(o.items_json) === want;
+    }) || null;
+}
+
 function kpayManagedNoOf(order) {
     const fromCol = String((order && order.kpay_managed_no) || '').trim();
     if (fromCol) return fromCol;
@@ -849,6 +923,47 @@ async function saveKpayManagedNo(orderNo, managedOrderNo) {
 
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
+}
+
+async function inspectPendingKpay(orderNo) {
+    const no = clip(orderNo, 32);
+    if (!no) return { order: null, kpay: 'missing' };
+    const existing = await getOrderByNo(no);
+    if (!existing) return { order: null, kpay: 'missing' };
+    const pay = String(existing.payment_status || '').toUpperCase();
+    if (pay !== 'PENDING') {
+        return { order: existing, kpay: 'not_pending', pay };
+    }
+
+    const kpay = require('./_kpay.js');
+    let queried = null;
+    try {
+        queried = await kpay.queryManagedOrder(no, kpayManagedNoOf(existing));
+    } catch (err) {
+        console.warn('inspectPendingKpay query failed:', no, err.message || err);
+        return { order: existing, kpay: 'query_failed', pay };
+    }
+
+    if (queried && kpay.isKpayPaymentSuccess(queried) && kpay.queryBelongsToOrder(queried, no)) {
+        try {
+            const result = await markOrderPaid(no);
+            const order = (result && result.order) || (await getOrderByNo(no)) || existing;
+            return {
+                order,
+                kpay: 'paid',
+                pay: String((order && order.payment_status) || '').toUpperCase(),
+                queried,
+            };
+        } catch (err) {
+            console.warn('inspectPendingKpay mark failed:', no, err.message || err);
+            return { order: existing, kpay: 'paid', pay: 'PENDING', queried, markFailed: true };
+        }
+    }
+    if (!queried) return { order: existing, kpay: 'query_failed', pay };
+    if (kpay.isKpayFailed(queried) || kpay.isKpayWaitingOrFailed(queried)) {
+        return { order: existing, kpay: 'unpaid', pay, queried };
+    }
+    return { order: existing, kpay: 'query_failed', pay, queried };
 }
 
 async function reconcilePendingIfPaid(orderNo, { retries = 1, delayMs = 0 } = {}) {
@@ -912,6 +1027,7 @@ module.exports = {
     listKitchenOrdersAllStores,
     saveKpayManagedNo,
     kpayManagedNoOf,
+    inspectPendingKpay,
     reconcilePendingIfPaid,
     reconcileRecentPending,
     startOfTodayHkIso,

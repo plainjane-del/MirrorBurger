@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut, isPermissionError } = require('./_menuDb.js');
-const { listKitchenOrders, listKitchenOrdersAllStores, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, reconcileRecentPending, reconcilePendingIfPaid } = require('./_orders.js');
+const { listKitchenOrders, listKitchenOrdersAllStores, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, inspectPendingKpay } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
@@ -138,33 +138,33 @@ module.exports = async (req, res) => {
                         .slice(0, 12);
                 };
 
-                // 先列出廚房畫面上會顯示嘅 pending online 訂單，
-                // 再針對呢幾張做即時 reconcile，確保「已收款」會自動跳出 pending 區。
+                // 只問 KPay 確認咗收款、但 DB 未標 PAID 嘅單。未付款／問唔到嘅 PENDING 唔上廚房。
                 const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
                 const orders = await fetchKitchenOrders({ since, limit: 60 });
                 const pendingOnline = getPendingOnline(orders);
-
-                const toReconcile = pendingOnline.slice(0, 2).map((o) => o.order_no).filter(Boolean);
-                if (!toReconcile.length) {
-                    return sendJsonWithEtag(req, res, {
-                        orders: (orders || []).filter(isKitchenBoardOrder),
-                        pending_online: pendingOnline,
-                    });
-                }
-                const deadline = Date.now() + 8000;
-                for (const orderNo of toReconcile) {
-                    if (Date.now() > deadline) break;
-                    try {
-                        await reconcilePendingIfPaid(orderNo);
-                    } catch (err) {
-                        console.warn('board targeted reconcile failed:', orderNo, err.message || err);
+                const toReconcile = pendingOnline.slice(0, 3).map((o) => o.order_no).filter(Boolean);
+                const confirmedUnmarked = [];
+                if (toReconcile.length) {
+                    const deadline = Date.now() + 8000;
+                    for (const orderNo of toReconcile) {
+                        if (Date.now() > deadline) break;
+                        try {
+                            const inspected = await inspectPendingKpay(orderNo);
+                            if (inspected && inspected.kpay === 'paid' && inspected.markFailed) {
+                                confirmedUnmarked.push(inspected.order || { order_no: orderNo });
+                            }
+                        } catch (err) {
+                            console.warn('board targeted reconcile failed:', orderNo, err.message || err);
+                        }
                     }
                 }
 
                 const orders2 = await fetchKitchenOrders({ since, limit: 60 });
-                const pendingOnline2 = getPendingOnline(orders2);
                 const board = (orders2 || []).filter(isKitchenBoardOrder);
-                return sendJsonWithEtag(req, res, { orders: board, pending_online: pendingOnline2 });
+                return sendJsonWithEtag(req, res, {
+                    orders: board,
+                    pending_online: confirmedUnmarked,
+                });
             }
 
             if (action === 'completed') {
@@ -246,11 +246,30 @@ module.exports = async (req, res) => {
             if (pay !== 'PENDING') {
                 return res.status(400).json({ error: `Cannot mark ${pay} as paid` });
             }
+            const inspected = await inspectPendingKpay(orderNo);
+            const nextPay = String((inspected.order && inspected.order.payment_status) || '').toUpperCase();
+            if (nextPay === 'PAID' || nextPay === 'COMPLETED' || nextPay === 'PREPARING' || nextPay === 'READY') {
+                return res.status(200).json({
+                    ok: true,
+                    alreadyPaid: true,
+                    order: inspected.order,
+                });
+            }
+            if (inspected.kpay === 'unpaid') {
+                const err = new Error('KPay 未確認收款。客人可能未完成付款，唔可以入廚房。');
+                err.status = 400;
+                throw err;
+            }
+            if (inspected.kpay !== 'paid') {
+                const err = new Error('而家確認唔到 KPay。請稍後再試，唔好當已收款。');
+                err.status = 400;
+                throw err;
+            }
             const result = await markOrderPaid(orderNo);
             return res.status(200).json({
                 ok: true,
                 updated: Boolean(result && result.updated),
-                order: (result && result.order) || existing,
+                order: (result && result.order) || inspected.order || existing,
             });
         }
 

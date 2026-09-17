@@ -1439,13 +1439,20 @@ function applyStoreFromQuery() {
 
 function openPaymentChecking(orderNo) {
     pendingPaymentOrderNo = orderNo;
+    if (typeof savePendingPay === 'function') savePendingPay(orderNo);
     const orderLabel = document.getElementById('payment-checking-order');
     const refreshBtn = document.getElementById('payment-refresh-btn');
+    const continueBtn = document.getElementById('payment-continue-btn');
+    const title = document.getElementById('payment-checking-title');
     const msg = document.getElementById('payment-checking-msg');
     if (orderLabel) orderLabel.textContent = `#${orderNo}`;
     if (refreshBtn) refreshBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.add('hidden');
+    if (title) {
+        title.innerHTML = `<span class="en">Confirming payment…</span><span class="zh">確認付款中…</span>`;
+    }
     if (msg) {
-        msg.innerHTML = `<span class="en">Please wait a moment while we confirm your payment.</span><span class="zh">請稍候，我們正在確認你的付款。</span>`;
+        msg.innerHTML = `<span class="en">Checking payment. Kitchen has not started.</span><span class="zh">核對付款中。廚房未開始。</span>`;
     }
     const modal = document.getElementById('payment-checking-modal');
     const content = document.getElementById('payment-checking-content');
@@ -1471,15 +1478,21 @@ function closePaymentChecking() {
 }
 
 function showPaymentStillPending() {
+    const title = document.getElementById('payment-checking-title');
+    if (title) {
+        title.innerHTML = `<span class="en">Not paid yet</span><span class="zh">未付款</span>`;
+    }
     const msg = document.getElementById('payment-checking-msg');
     if (msg) {
         msg.innerHTML = lang(
-            'Payment not confirmed yet. We are confirming it automatically. Please keep this page open.',
-            '尚未確認付款。我哋會自動確認。請保持呢個頁面打開。'
+            'Not paid. Kitchen has not started. Tap Pay now.',
+            '未付款。廚房未開始。撳下面繼續付款。'
         );
     }
     const refreshBtn = document.getElementById('payment-refresh-btn');
     if (refreshBtn) refreshBtn.classList.add('hidden');
+    const continueBtn = document.getElementById('payment-continue-btn');
+    if (continueBtn) continueBtn.classList.remove('hidden');
 }
 
 async function fetchOrderPaymentStatus(orderNo, { confirm = false, kpayReturn = null } = {}) {
@@ -1533,6 +1546,7 @@ async function refreshPaymentStatus() {
 }
 
 function finishOrderSuccess(store, time, btn, originalText, details = {}) {
+    if (typeof clearPendingPay === 'function') clearPendingPay();
     closeAllSheets(); cart = []; saveCart(); updateCartUI();
     
     const storeObj = stores.find(s => s.name === store);

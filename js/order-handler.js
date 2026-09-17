@@ -4,6 +4,40 @@
 
 const KPAY_SERVER_URL = '/api/kpay-checkout';
 const STRIPE_SERVER_URL = '/api/checkout'; // 保留作後備
+const PENDING_PAY_KEY = 'mb_pending_pay';
+let checkoutInFlight = false;
+
+function readPendingPay() {
+    try {
+        const raw = sessionStorage.getItem(PENDING_PAY_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function savePendingPay(orderNo) {
+    try {
+        sessionStorage.setItem(PENDING_PAY_KEY, JSON.stringify({
+            orderNo,
+            at: Date.now(),
+        }));
+    } catch (_) { /* ignore */ }
+}
+
+function clearPendingPay() {
+    try { sessionStorage.removeItem(PENDING_PAY_KEY); } catch (_) { /* ignore */ }
+}
+
+function hasOpenPendingPay() {
+    const pending = readPendingPay();
+    if (!pending || !pending.orderNo) return false;
+    if (Date.now() - Number(pending.at || 0) > 20 * 60 * 1000) {
+        clearPendingPay();
+        return false;
+    }
+    return true;
+}
 
 // --- 表單驗證 + 落單掣設定 (Form Validation) ---
 function validateCheckout() {
@@ -15,9 +49,15 @@ function validateCheckout() {
         if (typeof isTableMode === 'function' && isTableMode()) {
             btn.onclick = processTableOrder;
             btn.innerHTML = '<span class="en">Send to kitchen</span><span class="zh">送到廚房</span>';
+            const hint = document.getElementById('checkout-pay-hint');
+            if (hint) hint.classList.add('hidden');
         } else {
             btn.onclick = processKPayOrder;
-            btn.innerHTML = '<span class="en">Place Order Now</span><span class="zh">立即落單</span>';
+            btn.innerHTML = hasOpenPendingPay()
+                ? '<span class="en">Complete payment</span><span class="zh">完成付款</span>'
+                : '<span class="en">Pay now</span><span class="zh">前往付款</span>';
+            const hint = document.getElementById('checkout-pay-hint');
+            if (hint) hint.classList.remove('hidden');
         }
     }
 }
@@ -43,7 +83,7 @@ async function insertPendingOrder(row) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-    return { orderNo: data.orderNo, total: data.total };
+    return { orderNo: data.orderNo, total: data.total, reused: !!data.reused };
 }
 
 async function insertTableOrder(row) {
@@ -111,7 +151,53 @@ async function processTableOrder() {
     }
 }
 
+async function startKpayCheckout(orderNo, payAmount) {
+    const response = await fetch(KPAY_SERVER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: payAmount, orderNo })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok && !result.alreadyPaid && !result.paymentUrl) {
+        throw new Error(result.error || ('HTTP ' + response.status));
+    }
+    return result;
+}
+
+async function resumeKpayPayment(orderNo) {
+    const no = String(orderNo || (readPendingPay() && readPendingPay().orderNo) || '').trim();
+    if (!no) {
+        showCustomAlert(lang('No unpaid order to continue.', '冇未完成付款嘅訂單。'));
+        return;
+    }
+    if (checkoutInFlight) return;
+    checkoutInFlight = true;
+    try {
+        const result = await startKpayCheckout(no);
+        if (result.alreadyPaid) {
+            clearPendingPay();
+            const order = await fetchOrderPaymentStatus(no).catch(() => null);
+            if (typeof showPaidOrder === 'function') {
+                showPaidOrder(order || { order_no: no, payment_status: 'PAID' });
+            }
+            return;
+        }
+        if (result.paymentUrl) {
+            savePendingPay(no);
+            window.location.href = result.paymentUrl;
+            return;
+        }
+        throw new Error(result.error || 'Unknown');
+    } catch (err) {
+        console.error(err);
+        showCustomAlert(lang('Please try again.', '請再試一次。'));
+    } finally {
+        checkoutInFlight = false;
+    }
+}
+
 async function submitOrder(provider) {
+    if (checkoutInFlight) return;
     const store = getActiveStore();
     const { name, rawPhone, phone } = checkoutCustomer();
     const time = document.getElementById('cust-time').value;
@@ -124,15 +210,13 @@ async function submitOrder(provider) {
 
     const btn = document.getElementById('checkout-btn');
     const originalText = btn.innerHTML;
-    btn.innerHTML = `<span class="en">Preparing Order...</span><span class="zh">準備訂單中...</span>`;
+    btn.innerHTML = `<span class="en">Preparing payment...</span><span class="zh">準備付款中...</span>`;
     btn.disabled = true;
+    checkoutInFlight = true;
 
     const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
     const discount = isDiscountActive() ? Math.floor(subtotal * getDiscountRate()) : 0;
     const finalTotal = subtotal - discount;
-
-    const isKPay = provider === 'kpay';
-    const endpoint = isKPay ? KPAY_SERVER_URL : STRIPE_SERVER_URL;
 
     try {
         const created = await insertPendingOrder({
@@ -144,23 +228,44 @@ async function submitOrder(provider) {
         });
         const orderNo = created.orderNo;
         const payAmount = Number.isFinite(Number(created.total)) ? Number(created.total) : finalTotal;
+        savePendingPay(orderNo);
 
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: payAmount, orderNo: orderNo })
-        });
+        if (provider !== 'kpay') {
+            const response = await fetch(STRIPE_SERVER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: payAmount, orderNo })
+            });
+            const result = await response.json();
+            if (result.paymentUrl) {
+                window.location.href = result.paymentUrl;
+                return;
+            }
+            throw new Error('Stripe Error: ' + (result.error || 'Unknown'));
+        }
 
-        const result = await response.json();
+        const result = await startKpayCheckout(orderNo, payAmount);
+        if (result.alreadyPaid) {
+            clearPendingPay();
+            checkoutInFlight = false;
+            finishOrderSuccess(store, time, btn, originalText, {
+                orderNo,
+                amount: payAmount,
+            });
+            validateCheckout();
+            return;
+        }
         if (result.paymentUrl) {
             window.location.href = result.paymentUrl;
-        } else {
-            throw new Error((isKPay ? 'KPay' : 'Stripe') + " Error: " + (result.error || "Unknown"));
+            return;
         }
+        throw new Error('KPay Error: ' + (result.error || 'Unknown'));
     } catch (err) {
         console.error(err);
-        showCustomAlert("Connection Error");
+        showCustomAlert(lang('Please try again.', '請再試一次。'));
         btn.innerHTML = originalText;
         btn.disabled = false;
+        checkoutInFlight = false;
+        validateCheckout();
     }
 }

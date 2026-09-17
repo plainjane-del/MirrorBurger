@@ -1,5 +1,5 @@
 const kpay = require('./_kpay.js');
-const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, saveKpayManagedNo, reconcilePendingIfPaid } = require('./_orders.js');
+const { getOrderByNo, updateOrderTotalAmount, createPendingOrder, createTableOrder, getPublicOrderStatus, saveKpayManagedNo, reconcilePendingIfPaid, kpayManagedNoOf } = require('./_orders.js');
 const { recalculateOrderTotal } = require('./_pricing.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting } = require('./_menuDb.js');
 const { getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
@@ -124,6 +124,9 @@ module.exports = async (req, res) => {
         if (!order) return res.status(404).json({ error: 'Order not found' });
 
         const payStatus = String(order.payment_status || '').toUpperCase();
+        if (payStatus === 'PAID' || payStatus === 'PREPARING' || payStatus === 'READY' || payStatus === 'COMPLETED') {
+            return res.status(200).json({ alreadyPaid: true, orderNo });
+        }
         if (payStatus !== 'PENDING') {
             return res.status(400).json({ error: 'Order is not awaiting payment' });
         }
@@ -143,6 +146,25 @@ module.exports = async (req, res) => {
                 `Order ${orderNo}: client total ${stored} → server ${payAmount} (sub ${priced.subtotal}, disc ${priced.discount})`
             );
             await updateOrderTotalAmount(orderNo, payAmount);
+        }
+
+        const existingManaged = kpayManagedNoOf(order);
+        try {
+            const queried = await kpay.queryManagedOrder(orderNo, existingManaged);
+            if (queried && kpay.isKpayPaymentSuccess(queried) && kpay.queryBelongsToOrder(queried, orderNo)) {
+                await reconcilePendingIfPaid(orderNo);
+                return res.status(200).json({ alreadyPaid: true, orderNo });
+            }
+            const managedNo = kpay.extractKpayManagedOrderNo(queried) || existingManaged;
+            if (managedNo && (!queried || !kpay.isKpayFailed(queried))) {
+                return res.status(200).json({
+                    paymentUrl: kpay.buildCheckoutUrl(managedNo, 'web'),
+                    reusedCheckout: true,
+                    orderNo,
+                });
+            }
+        } catch (err) {
+            console.warn('existing KPay checkout lookup skipped:', err.message || err);
         }
 
         const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -168,7 +190,20 @@ module.exports = async (req, res) => {
             }]
         };
 
-        const kpayRes = await kpay.createManagedOrder(payload);
+        let kpayRes;
+        try {
+            kpayRes = await kpay.createManagedOrder(payload);
+        } catch (createErr) {
+            const msg = String(createErr.message || '');
+            if (existingManaged && /already|exist|duplicate|重复|已存在/i.test(msg)) {
+                return res.status(200).json({
+                    paymentUrl: kpay.buildCheckoutUrl(existingManaged, 'web'),
+                    reusedCheckout: true,
+                    orderNo,
+                });
+            }
+            throw createErr;
+        }
         const managedOrderNo = kpay.extractKpayManagedOrderNo(kpayRes)
             || (kpayRes.data && kpayRes.data.managedOrderNo);
         if (!managedOrderNo) {
@@ -181,7 +216,7 @@ module.exports = async (req, res) => {
         }
         const checkoutUrl = kpay.buildCheckoutUrl(managedOrderNo, 'web');
 
-        return res.status(200).json({ paymentUrl: checkoutUrl });
+        return res.status(200).json({ paymentUrl: checkoutUrl, orderNo });
     } catch (error) {
         console.error('KPay Checkout Error:', error);
         return res.status(error.status || 500).json({ error: error.message });

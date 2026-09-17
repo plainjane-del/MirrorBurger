@@ -273,7 +273,7 @@
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
                 <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
                 <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
-                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.08.21k7</p>
+                <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.09.18a</p>
                 <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
@@ -659,6 +659,37 @@
                 item.temp || ''
             ].map(s => String(s || '').trim()).filter(Boolean);
             return parts.join(' · ');
+        }
+
+        function kitchenPhoneKey(order) {
+            return String(order.customer_phone || '').replace(/\D/g, '');
+        }
+
+        function kitchenItemsKey(order) {
+            return parseItems(order).map((item) => {
+                return `${itemName(item)}x${itemQty(item)}:${itemNotes(item)}`;
+            }).sort().join('|');
+        }
+
+        function duplicateOrderNos(list) {
+            const groups = new Map();
+            (list || []).forEach((order) => {
+                const phone = kitchenPhoneKey(order);
+                if (!phone || phone === 'POS') return;
+                const amount = Math.round(Number(order.total_amount) || 0);
+                const key = `${order.store_name || ''}|${phone}|${kitchenItemsKey(order)}|${amount}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(order);
+            });
+            const flagged = new Map();
+            groups.forEach((orders) => {
+                if (orders.length < 2) return;
+                const nos = orders.map((o) => o.order_no).filter(Boolean);
+                orders.forEach((o) => {
+                    flagged.set(o.order_no, nos.filter((n) => n !== o.order_no));
+                });
+            });
+            return flagged;
         }
 
         /** 整理電話：去 +／空格／符號；純 8 位香港號補 852；已有區號則照用 */
@@ -1147,7 +1178,7 @@
             }
             box.classList.remove('hidden');
             box.innerHTML = `
-                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 可能已收款但未入廚 — 撳「入廚房」</div>
+                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 已確認收款，系統未入廚 — 撳「入廚房」</div>
                 ${pendingOnline.map((o) => {
                     const no = escapeHtml(o.order_no);
                     const noJs = escapeJsString(o.order_no);
@@ -1213,6 +1244,8 @@
         }
 
         let lastBoardSig = '';
+        let duplicateMap = new Map();
+
         function boardSignature() {
             return sortOrders([...ordersMap.values()]).map((o) => [
                 o.order_no,
@@ -1231,6 +1264,7 @@
             if (sig === lastBoardSig) return;
             lastBoardSig = sig;
             const list = sortOrders([...ordersMap.values()]);
+            duplicateMap = duplicateOrderNos(list);
             document.getElementById('order-count').textContent = `${list.length} 單`;
 
             const cooking = list.filter((o) => {
@@ -1565,10 +1599,15 @@
             const branchBadge = canSwitchBranches()
                 ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/70 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(order.store_name))}</div>`
                 : '';
+            const dupOthers = duplicateMap.get(order.order_no) || [];
+            const dupBanner = dupOthers.length
+                ? `<div class="rounded-lg border border-red-500 bg-red-950/80 px-2 py-1.5 text-[11px] font-black text-red-200 leading-snug">同一個客？先核對 ${dupOthers.map((n) => '#' + escapeHtml(n)).join(' / ')}</div>`
+                : '';
 
             return `
-                <article class="order-card ${isNew ? 'is-new' : ''} bg-kds-card border-2 ${meta.color} rounded-2xl flex flex-col overflow-hidden" data-order="${orderNo}">
+                <article class="order-card ${isNew ? 'is-new' : ''} ${dupOthers.length ? 'ring-2 ring-red-500' : ''} bg-kds-card border-2 ${meta.color} rounded-2xl flex flex-col overflow-hidden" data-order="${orderNo}">
                     <div class="p-3 flex-1 flex flex-col gap-2">
+                        ${dupBanner}
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
