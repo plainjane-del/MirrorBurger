@@ -156,6 +156,7 @@
             <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')">菜品</button>
             <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">堂食/外賣 QR Code</button>
             <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
+            <button type="button" id="tab-payroll" class="nav-btn" onclick="setTab('payroll')">出糧</button>
             <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')">出單機</button>
             <a class="nav-btn" href="/pos.html">POS</a>
             <a class="nav-btn" href="/kitchen.html">廚房</a>
@@ -320,6 +321,47 @@
             <p id="orders-msg" class="text-sm text-neutral-500 mb-3"></p>
             <div id="orders-list" class="space-y-2 pb-4"></div>
             <div id="orders-sum" class="ticket-sum hidden"></div>
+        </div>
+
+        <div id="panel-payroll" class="hidden space-y-4">
+            <div class="card p-5 space-y-3">
+                <div>
+                    <label>分店</label>
+                    <select id="payroll-store" onchange="loadPayroll()">
+                        <option value="Sai Ying Pun">西營盤</option>
+                        <option value="Fortress Hill">天后</option>
+                        <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                    </select>
+                </div>
+                <p class="text-sm text-neutral-400 font-bold">用日常說話寫出糧規則，AI 會轉成呢間舖用嘅設定。</p>
+                <div>
+                    <label>出糧規則</label>
+                    <textarea id="payroll-text" rows="4" placeholder="例如：遲到15分鐘扣錢，無飯鐘"></textarea>
+                </div>
+                <button type="button" class="btn btn-primary" id="payroll-save-btn" onclick="generatePayrollRules()">Generate &amp; Save Rules</button>
+                <p id="payroll-msg" class="text-sm font-bold text-neutral-400"></p>
+                <div id="payroll-rules" class="text-sm font-bold text-neutral-300 space-y-1"></div>
+            </div>
+            <div class="card p-5 space-y-3">
+                <h2 class="text-lg font-black">員工 PIN</h2>
+                <p class="text-sm text-neutral-400 font-bold">POS 打卡要用。每間舖 PIN 唔可以重複。</p>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                    <div class="sm:col-span-1">
+                        <label>名</label>
+                        <input id="emp-name" maxlength="40" placeholder="陳大文">
+                    </div>
+                    <div>
+                        <label>4 位 PIN</label>
+                        <input id="emp-pin" inputmode="numeric" maxlength="4" placeholder="1234">
+                    </div>
+                    <div>
+                        <label>時薪 HK$</label>
+                        <input id="emp-rate" type="number" min="0" step="1" placeholder="50">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="saveEmployee()">加員工</button>
+                </div>
+                <div id="emp-list" class="space-y-2"></div>
+            </div>
         </div>
 
         <div id="panel-printer" class="hidden space-y-4">
@@ -503,6 +545,7 @@
             tables: { title: '堂食/外賣 QR Code', sub: '堂食枱 · 外賣自取門口 QR' },
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
             printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
+            payroll: { title: '出糧', sub: '員工 PIN · AI 出糧規則' },
         };
 
         async function boot() {
@@ -586,6 +629,7 @@
             if (currentTab === 'sales') return loadSales();
             if (currentTab === 'orders') return loadTickets();
             if (currentTab === 'tables') return loadTables();
+            if (currentTab === 'payroll') return loadPayroll();
             return loadAll();
         }
 
@@ -594,7 +638,7 @@
             const meta = PAGE_META[which] || PAGE_META.sales;
             document.getElementById('page-title').textContent = meta.title;
             document.getElementById('page-sub').textContent = meta.sub;
-            ['sales', 'items', 'tables', 'orders', 'printer'].forEach((name) => {
+            ['sales', 'items', 'tables', 'orders', 'payroll', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);
@@ -613,6 +657,7 @@
                 loadTickets();
             }
             if (which === 'tables') loadTables();
+            if (which === 'payroll') loadPayroll();
         }
 
         function setMenuSub(which) {
@@ -1442,6 +1487,116 @@
             await api('/api/admin-menu', { token, action: 'delete_modifier', id });
             await loadAll();
             toast('已刪除');
+        }
+
+        function payrollStore() {
+            return document.getElementById('payroll-store').value;
+        }
+
+        function renderPayrollRules(data) {
+            const box = document.getElementById('payroll-rules');
+            const lines = (data && data.rules_zh) || [];
+            if (!lines.length) {
+                box.innerHTML = '<p class="text-neutral-500">未有規則。上面寫完再撳 Generate &amp; Save Rules。</p>';
+                return;
+            }
+            box.innerHTML = lines.map((line) => `<p>${esc(line)}</p>`).join('');
+            const src = data.rules && data.rules.source_text;
+            const textEl = document.getElementById('payroll-text');
+            if (src && textEl && !textEl.value) textEl.value = src;
+        }
+
+        function renderEmployees(employees) {
+            const list = document.getElementById('emp-list');
+            const rows = employees || [];
+            if (!rows.length) {
+                list.innerHTML = '<p class="text-neutral-500 text-sm">未有員工</p>';
+                return;
+            }
+            list.innerHTML = rows.map((e) => `
+                <div class="flex flex-wrap items-center justify-between gap-2 border border-neutral-800 rounded-xl px-3 py-2">
+                    <div class="font-black">${esc(e.name)} · PIN ${esc(e.pin_code)} · 時薪 ${money(e.hourly_rate)}</div>
+                    <button type="button" class="btn btn-ghost" onclick="deleteEmployee('${escAttr(e.id)}')">刪除</button>
+                </div>`).join('');
+        }
+
+        async function loadPayroll() {
+            const msg = document.getElementById('payroll-msg');
+            msg.textContent = '';
+            try {
+                const store_name = payrollStore();
+                const [rules, staff] = await Promise.all([
+                    api('/api/generate-payroll-rules', { token, action: 'get', store_name }),
+                    api('/api/generate-payroll-rules', { token, action: 'list_employees', store_name }),
+                ]);
+                renderPayrollRules(rules);
+                renderEmployees(staff.employees);
+            } catch (e) {
+                document.getElementById('payroll-rules').innerHTML =
+                    `<p class="text-red-400">${esc(e.message || e)}</p>`;
+                document.getElementById('emp-list').innerHTML = '';
+            }
+        }
+
+        async function generatePayrollRules() {
+            const btn = document.getElementById('payroll-save-btn');
+            const msg = document.getElementById('payroll-msg');
+            const text = document.getElementById('payroll-text').value.trim();
+            if (!text) {
+                msg.textContent = '請先寫規則，例如：遲到15分鐘扣錢，無飯鐘';
+                return;
+            }
+            btn.disabled = true;
+            msg.textContent = 'AI 產生緊…';
+            try {
+                const data = await api('/api/generate-payroll-rules', {
+                    token,
+                    store_name: payrollStore(),
+                    text,
+                });
+                renderPayrollRules(data);
+                msg.textContent = '已儲存呢間舖嘅規則';
+                toast('已儲存');
+            } catch (e) {
+                msg.textContent = e.message || '失敗';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function saveEmployee() {
+            const name = document.getElementById('emp-name').value.trim();
+            const pin_code = document.getElementById('emp-pin').value.trim();
+            const hourly_rate = document.getElementById('emp-rate').value;
+            try {
+                await api('/api/generate-payroll-rules', {
+                    token,
+                    action: 'upsert_employee',
+                    store_name: payrollStore(),
+                    name,
+                    pin_code,
+                    hourly_rate,
+                });
+                document.getElementById('emp-name').value = '';
+                document.getElementById('emp-pin').value = '';
+                document.getElementById('emp-rate').value = '';
+                toast('已加員工');
+                await loadPayroll();
+            } catch (e) {
+                alert(e.message || '儲存失敗');
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm('刪除呢個員工？')) return;
+            await api('/api/generate-payroll-rules', {
+                token,
+                action: 'delete_employee',
+                store_name: payrollStore(),
+                id,
+            });
+            toast('已刪除');
+            await loadPayroll();
         }
 
         boot();

@@ -189,10 +189,63 @@ async function notifyOrderPaid(order) {
     return results;
 }
 
+async function sendClockPush({ store_name, employee_name, total_hours, total_pay }) {
+    const { getVapidConfig } = require('./_vapid');
+    const vapid = getVapidConfig();
+    if (!vapid) {
+        console.warn('🔔 Skip clock push: VAPID keys not set');
+        return { skipped: true, reason: 'missing_vapid' };
+    }
+    let webpush;
+    try {
+        webpush = require('web-push');
+    } catch (err) {
+        console.warn('🔔 Skip clock push: web-push package missing', err.message);
+        return { skipped: true, reason: 'missing_package' };
+    }
+    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
+
+    const rows = await listPushSubscriptions(store_name || '');
+    if (!rows.length) {
+        console.log('🔔 No push subscribers for clock-out', store_name);
+        return { ok: true, sent: 0 };
+    }
+
+    const hours = Number(total_hours) || 0;
+    const pay = Number(total_pay) || 0;
+    const name = employee_name || '員工';
+    const payload = JSON.stringify({
+        title: `${name} 收工`,
+        body: `Employee ${name} clocked out. Hours: ${hours}, Pay: $${pay}`,
+        url: '/admin.html',
+    });
+
+    let sent = 0;
+    for (const row of rows) {
+        try {
+            await webpush.sendNotification(
+                {
+                    endpoint: row.endpoint,
+                    keys: { p256dh: row.p256dh, auth: row.auth },
+                },
+                payload
+            );
+            sent += 1;
+        } catch (err) {
+            console.warn('Clock push failed:', err.statusCode || err.message);
+            if (err.statusCode === 404 || err.statusCode === 410) {
+                await deletePushSubscription(row.endpoint);
+            }
+        }
+    }
+    return { ok: true, sent, total: rows.length };
+}
+
 module.exports = {
     STORE_EMAILS,
     emailRecipientsForStore,
     sendOrderEmail,
     sendOrderPush,
+    sendClockPush,
     notifyOrderPaid,
 };

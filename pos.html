@@ -82,6 +82,7 @@
                     <div class="text-[10px] font-bold text-neutral-500">購物車</div>
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
+                <button type="button" class="chip-btn" onclick="openClockSheet()">打卡</button>
                 <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
                 <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()">掛單</button>
                 <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
@@ -248,6 +249,34 @@
             </div>
             <button type="button" id="hold-save-btn" class="w-full chip-btn min-h-[48px] mb-3" onclick="holdCurrentCart()">掛起而家呢單</button>
             <div id="hold-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="clock-sheet" class="sheet" onclick="if(event.target===this) closeClockSheet()">
+        <div class="sheet-panel text-center" onclick="event.stopPropagation()">
+            <div class="flex items-start justify-between gap-3 mb-3">
+                <div class="text-left">
+                    <h3 class="text-lg font-black">打卡</h3>
+                    <p class="text-sm font-bold text-neutral-400">輸入 4 位 PIN</p>
+                </div>
+                <button type="button" class="chip-btn" onclick="closeClockSheet()">關閉</button>
+            </div>
+            <div id="clock-pin-view" class="text-4xl font-black tracking-[0.4em] text-yellow-400 my-4">••••</div>
+            <p id="clock-msg" class="text-sm font-bold text-neutral-400 min-h-[1.25rem] mb-3"></p>
+            <div class="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('1')">1</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('2')">2</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('3')">3</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('4')">4</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('5')">5</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('6')">6</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('7')">7</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('8')">8</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('9')">9</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('del')">刪</button>
+                <button type="button" class="pay-btn bg-neutral-800" onclick="clockDigit('0')">0</button>
+                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="submitClock()">確認</button>
+            </div>
         </div>
     </div>
 
@@ -1287,6 +1316,60 @@
             el.classList.add('is-on');
             clearTimeout(toastTimer);
             toastTimer = setTimeout(() => el.classList.remove('is-on'), 3200);
+        }
+
+        let clockPin = '';
+        let clockBusy = false;
+        function clockPinView() {
+            const el = document.getElementById('clock-pin-view');
+            if (!el) return;
+            el.textContent = (clockPin + '••••').slice(0, 4);
+        }
+        function openClockSheet() {
+            clockPin = '';
+            clockBusy = false;
+            const msg = document.getElementById('clock-msg');
+            if (msg) msg.textContent = '';
+            clockPinView();
+            document.getElementById('clock-sheet').classList.add('is-open');
+        }
+        function closeClockSheet() {
+            document.getElementById('clock-sheet').classList.remove('is-open');
+            clockPin = '';
+        }
+        function clockDigit(which) {
+            if (clockBusy) return;
+            if (which === 'del') clockPin = clockPin.slice(0, -1);
+            else if (clockPin.length < 4) clockPin += which;
+            clockPinView();
+            if (clockPin.length === 4) submitClock();
+        }
+        async function submitClock() {
+            if (clockBusy) return;
+            if (clockPin.length !== 4) {
+                const msg = document.getElementById('clock-msg');
+                if (msg) msg.textContent = '輸入 4 位 PIN';
+                return;
+            }
+            clockBusy = true;
+            const msg = document.getElementById('clock-msg');
+            if (msg) msg.textContent = '處理緊…';
+            try {
+                const res = await fetch('/api/clock-action', {
+                    method: 'POST',
+                    headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + getToken() },
+                    body: JSON.stringify({ pin_code: clockPin, store_name: currentStore }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+                closeClockSheet();
+                showToast(data.message || '完成');
+            } catch (e) {
+                clockBusy = false;
+                clockPin = '';
+                clockPinView();
+                if (msg) msg.textContent = e.message || '失敗';
+            }
         }
         function flashCart() {
             const el = document.getElementById('pos-cart');
