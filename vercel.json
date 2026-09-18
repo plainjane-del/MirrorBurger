@@ -2,7 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "trailingSlash": false,
   "functions": {
-    "api/*.js": {
+    "api/router.js": {
+      "maxDuration": 20
+    },
+    "api/kpay-checkout.js": {
+      "maxDuration": 20
+    },
+    "api/kpay-notify.js": {
+      "maxDuration": 20
+    },
+    "api/webhook.js": {
       "maxDuration": 20
     }
   },
@@ -20,6 +29,16 @@
     { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true }
   ],
   "rewrites": [
+    { "source": "/api/admin-login", "destination": "/api/router?route=admin-login" },
+    { "source": "/api/admin-menu", "destination": "/api/router?route=admin-menu" },
+    { "source": "/api/kitchen-login", "destination": "/api/router?route=kitchen-login" },
+    { "source": "/api/kitchen-menu", "destination": "/api/router?route=kitchen-menu" },
+    { "source": "/api/checkout", "destination": "/api/router?route=checkout" },
+    { "source": "/api/ai-parse-order", "destination": "/api/router?route=ai-parse-order" },
+    { "source": "/api/push-subscribe", "destination": "/api/router?route=push-subscribe" },
+    { "source": "/api/push-vapid-public", "destination": "/api/router?route=push-vapid-public" },
+    { "source": "/api/cleanup-pending", "destination": "/api/router?route=cleanup-pending" },
+
     { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
     { "source": "/tin-hau", "destination": "/tin-hau.html" },
     { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },
