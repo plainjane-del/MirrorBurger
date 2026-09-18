@@ -24,6 +24,7 @@
     <link href="./output.css?v=2.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/store-hours.js"></script>
+    <script src="js/order-id.js"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
         :root {
@@ -528,6 +529,12 @@
                 .replace(/'/g, '&#39;');
         }
 
+        /** Kitchen ticket: Q-001 from display_id; legacy rows keep order_no. */
+        function ticketLabel(order) {
+            if (typeof orderTicketLabel === 'function') return orderTicketLabel(order);
+            return String((order && (order.display_id || order.order_no)) || '');
+        }
+
         /** Escape for single-quoted JS string literals inside HTML onclick="...('...')" */
         function escapeJsString(str) {
             return String(str ?? '')
@@ -716,7 +723,7 @@
                 return;
             }
             const store_name = storeLabel(order.store_name || effectiveStoreName() || '');
-            const order_no = order.order_no;
+            const order_no = ticketLabel(order) || order.order_no;
             const msg =
                 `🍔 Mirror Burger【取餐通知】\n` +
                 `你好！閣下於【${store_name}】落單嘅訂單 #${order_no} 已經準備好啦！請憑此訊息前往分店取餐，多謝！`;
@@ -757,7 +764,7 @@
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
-                                <div class="text-2xl font-black text-white">#${escapeHtml(o.order_no)}</div>
+                                <div class="text-2xl font-black text-white">#${escapeHtml(ticketLabel(o))}</div>
                                 ${canSwitchBranches() ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/60 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(o.store_name))}</div>` : ''}
                             </div>
                             <div class="text-right">
@@ -1187,7 +1194,7 @@
                         : '';
                     return `<div class="mt-2 flex items-center gap-2 rounded-lg bg-black/40 px-2 py-2">
                         <div class="min-w-0 flex-1">
-                            <div class="font-black text-white">#${no} · ${formatAmount(o)}</div>
+                            <div class="font-black text-white">#${escapeHtml(ticketLabel(o))} · ${formatAmount(o)}</div>
                             ${branchLabel}
                             <div class="text-xs font-bold text-amber-100 truncate">${escapeHtml(o.customer_name || '—')} · ${escapeHtml(o.pickup_time || '')}</div>
                         </div>
@@ -1573,6 +1580,7 @@
             const isNew = highlightedOrders.has(order.order_no);
             const orderNo = escapeHtml(order.order_no);
             const orderNoJs = escapeJsString(order.order_no);
+            const shortNo = escapeHtml(ticketLabel(order));
             const name = escapeHtml(order.customer_name || '—');
             const phone = escapeHtml(order.customer_phone || '—');
             const pickup = escapeHtml(order.pickup_time || '—');
@@ -1601,7 +1609,7 @@
                 : '';
             const dupOthers = duplicateMap.get(order.order_no) || [];
             const dupBanner = dupOthers.length
-                ? `<div class="rounded-lg border border-red-500 bg-red-950/80 px-2 py-1.5 text-[11px] font-black text-red-200 leading-snug">同一個客？先核對 ${dupOthers.map((n) => '#' + escapeHtml(n)).join(' / ')}</div>`
+                ? `<div class="rounded-lg border border-red-500 bg-red-950/80 px-2 py-1.5 text-[11px] font-black text-red-200 leading-snug">同一個客？先核對 ${dupOthers.map((n) => '#' + escapeHtml(ticketLabel({ order_no: n, display_id: (ordersMap.get(n) || {}).display_id }))).join(' / ')}</div>`
                 : '';
 
             return `
@@ -1611,7 +1619,7 @@
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
-                                <div class="text-xl font-black text-white tracking-tight">#${orderNo}</div>
+                                <div class="text-xl font-black text-white tracking-tight">#${shortNo}</div>
                                 ${branchBadge}
                                 ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">店內 POS</div>' : ''}
                                 ${isTableOrder(order) && tableNoFromOrder(order) ? `<div class="mt-1 text-3xl font-black text-amber-300 leading-none">${escapeHtml(tableNoFromOrder(order))}號枱</div>` : ''}

@@ -21,6 +21,7 @@ async function getOrderByNo(orderNo) {
     // 唔 select status：舊 DB 可能未加呢欄；通知唔需要
     const baseSelect = [
         'order_no',
+        'display_id',
         'total_amount',
         'payment_status',
         'store_name',
@@ -53,8 +54,20 @@ async function getOrderByNo(orderNo) {
     try {
         return await fetchWithSelect([...baseSelect, 'kpay_managed_no'].join(','));
     } catch (err) {
-        if (!/kpay_managed_no|schema cache|column/i.test(String(err.body || err.message || ''))) throw err;
-        return fetchWithSelect(baseSelect.join(','));
+        const body = String(err.body || err.message || '');
+        if (/display_id|schema cache|column/i.test(body)) {
+            const withoutDisplay = baseSelect.filter((c) => c !== 'display_id');
+            try {
+                return await fetchWithSelect([...withoutDisplay, 'kpay_managed_no'].join(','));
+            } catch (err2) {
+                if (!/kpay_managed_no|schema cache|column/i.test(String(err2.body || err2.message || ''))) throw err2;
+                return fetchWithSelect(withoutDisplay.join(','));
+            }
+        }
+        if (/kpay_managed_no|schema cache|column/i.test(body)) {
+            return fetchWithSelect(baseSelect.join(','));
+        }
+        throw err;
     }
 }
 
@@ -214,6 +227,77 @@ function generateOrderNo() {
     return `MB${timePart}${randPart}`;
 }
 
+/** District initials for display_id e.g. TW-260919-Q-001 */
+const STORE_CODE_BY_NAME = {
+    'Sai Ying Pun': 'SYP',
+    'Fortress Hill': 'TH',
+    'Tsuen Wan (Takeaway Only)': 'TW',
+};
+const STORE_CODE_BY_SLUG = {
+    'sai-ying-pun': 'SYP',
+    'tin-hau': 'TH',
+    'fortress-hill': 'TH',
+    'tsuen-wan': 'TW',
+};
+
+function storeCodeFor(storeNameOrSlug) {
+    const raw = String(storeNameOrSlug || '').trim();
+    if (STORE_CODE_BY_NAME[raw]) return STORE_CODE_BY_NAME[raw];
+    const slug = raw.toLowerCase().replace(/\s+/g, '-');
+    if (STORE_CODE_BY_SLUG[slug]) return STORE_CODE_BY_SLUG[slug];
+    // Already a short code?
+    if (/^[A-Z]{2,4}$/i.test(raw)) return raw.toUpperCase();
+    return '';
+}
+
+/** Channel letter for display_id: P=POS, Q=QR/Web/table, D=Delivery */
+function channelCodeFor(channel) {
+    const ch = String(channel || '').toLowerCase().trim();
+    if (ch === 'pos' || ch === 'p') return 'P';
+    if (ch === 'delivery' || ch === 'd' || ch === 'platform') return 'D';
+    // online / table / qr / web / default
+    return 'Q';
+}
+
+async function generateDisplayId(storeName, channel) {
+    const storeCode = storeCodeFor(storeName);
+    if (!storeCode) {
+        const err = new Error(`Unknown store for display_id: ${storeName}`);
+        err.status = 400;
+        throw err;
+    }
+    const channelCode = channelCodeFor(channel);
+    const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/generate_order_id`, {
+        method: 'POST',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            p_store_code: storeCode,
+            p_channel: channelCode,
+        }),
+    });
+    const text = await resp.text();
+    if (!resp.ok) {
+        const err = new Error(`generate_order_id failed (${resp.status}): ${text}`);
+        err.status = resp.status;
+        throw err;
+    }
+    // PostgREST returns a JSON string, e.g. "TW-260919-Q-001"
+    let id = text;
+    try {
+        id = JSON.parse(text);
+    } catch {
+        id = String(text || '').replace(/^"|"$/g, '');
+    }
+    id = String(id || '').trim();
+    if (!id) throw new Error('generate_order_id returned empty');
+    return id;
+}
+
 function startOfTodayHkIso() {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Hong_Kong',
@@ -330,31 +414,39 @@ async function createPendingOrder(input) {
         }
         return {
             orderNo: reused.order_no,
+            displayId: reused.display_id || null,
             total: priced.total,
             reused: true,
         };
     }
 
     let lastError = null;
+    let displayId = null;
+    try {
+        displayId = await generateDisplayId(storeName, 'online');
+    } catch (err) {
+        console.warn('generateDisplayId skipped (online):', err.message || err);
+    }
     for (let attempt = 0; attempt < 6; attempt++) {
         const orderNo = generateOrderNo();
         try {
-            const saved = await sbRest('orders', {
-                method: 'POST',
-                body: JSON.stringify({
-                    order_no: orderNo,
-                    store_name: storeName,
-                    customer_name: customerName,
-                    customer_phone: customerPhone,
-                    pickup_time: pickupTime,
-                    items_json: items,
-                    total_amount: priced.total,
-                    payment_status: 'PENDING',
-                }),
-            });
+            const rowBody = {
+                order_no: orderNo,
+                store_name: storeName,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                pickup_time: pickupTime,
+                items_json: items,
+                total_amount: priced.total,
+                payment_status: 'PENDING',
+                channel: 'online',
+            };
+            if (displayId) rowBody.display_id = displayId;
+            const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             return {
                 orderNo: (row && row.order_no) || orderNo,
+                displayId: (row && row.display_id) || displayId,
                 total: priced.total,
                 reused: false,
             };
@@ -394,6 +486,10 @@ async function insertOrderWithFallback(row) {
     } catch (err) {
         const msg = String(err.message || '');
         let next = { ...row };
+        if (/display_id/i.test(msg) && next.display_id != null) {
+            delete next.display_id;
+            return insertOrderWithFallback(next);
+        }
         if (/channel|pay_method/i.test(msg)) {
             delete next.channel;
             delete next.pay_method;
@@ -436,6 +532,7 @@ function mapPosOrderResult(row, fallbackItems) {
     const items = parseItemsJson((row && row.items_json) || fallbackItems);
     return {
         orderNo: (row && row.order_no) || '',
+        displayId: (row && row.display_id) || null,
         total: Number(row && row.total_amount) || 0,
         pay_method: (row && row.pay_method) || '',
         pickup_time: (row && row.pickup_time) || '',
@@ -447,17 +544,33 @@ async function findPosOrderByClientId(storeName, clientId) {
     const id = clip(clientId, 80);
     if (!id || !storeName) return null;
     const since = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-    const select = 'order_no,items_json,total_amount,pay_method,pickup_time,customer_name,created_at';
+    const select = 'order_no,display_id,items_json,total_amount,pay_method,pickup_time,customer_name,created_at';
     let rows;
     try {
         rows = await sbRest(
             `orders?store_name=eq.${encodeURIComponent(storeName)}&channel=eq.pos&created_at=gte.${encodeURIComponent(since)}&select=${select}&order=created_at.desc&limit=120`
         );
     } catch (err) {
-        if (!/channel/i.test(String(err.message || ''))) throw err;
-        rows = await sbRest(
-            `orders?store_name=eq.${encodeURIComponent(storeName)}&customer_phone=eq.POS&created_at=gte.${encodeURIComponent(since)}&select=${select}&order=created_at.desc&limit=120`
-        );
+        const msg = String(err.message || '');
+        if (/display_id/i.test(msg)) {
+            const sel = select.replace('display_id,', '');
+            try {
+                rows = await sbRest(
+                    `orders?store_name=eq.${encodeURIComponent(storeName)}&channel=eq.pos&created_at=gte.${encodeURIComponent(since)}&select=${sel}&order=created_at.desc&limit=120`
+                );
+            } catch (err2) {
+                if (!/channel/i.test(String(err2.message || ''))) throw err2;
+                rows = await sbRest(
+                    `orders?store_name=eq.${encodeURIComponent(storeName)}&customer_phone=eq.POS&created_at=gte.${encodeURIComponent(since)}&select=${sel}&order=created_at.desc&limit=120`
+                );
+            }
+        } else if (/channel/i.test(msg)) {
+            rows = await sbRest(
+                `orders?store_name=eq.${encodeURIComponent(storeName)}&customer_phone=eq.POS&created_at=gte.${encodeURIComponent(since)}&select=${select.replace('display_id,','')}&order=created_at.desc&limit=120`
+            );
+        } else {
+            throw err;
+        }
     }
     return (Array.isArray(rows) ? rows : []).find((row) => posClientIdOf(row.items_json) === id) || null;
 }
@@ -545,10 +658,16 @@ async function createPosOrder(input) {
     });
 
     let lastError = null;
+    let displayId = null;
+    try {
+        displayId = await generateDisplayId(storeName, 'pos');
+    } catch (err) {
+        console.warn('generateDisplayId skipped (pos):', err.message || err);
+    }
     for (let attempt = 0; attempt < 6; attempt++) {
         const orderNo = generateOrderNo();
         try {
-            const saved = await insertOrderWithFallback({
+            const rowBody = {
                 order_no: orderNo,
                 store_name: storeName,
                 customer_name: customerName,
@@ -560,7 +679,9 @@ async function createPosOrder(input) {
                 status: 'PAID',
                 channel: 'pos',
                 pay_method: payMethod,
-            });
+            };
+            if (displayId) rowBody.display_id = displayId;
+            const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             const order = (await getOrderByNo(orderNo)) || row;
             await notifyOrderPaid(order).catch((err) => {
@@ -568,6 +689,7 @@ async function createPosOrder(input) {
             });
             return {
                 orderNo: (row && row.order_no) || orderNo,
+                displayId: (row && row.display_id) || displayId,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -675,10 +797,16 @@ async function createTableOrder(input) {
     });
 
     let lastError = null;
+    let displayId = null;
+    try {
+        displayId = await generateDisplayId(storeName, 'table');
+    } catch (err) {
+        console.warn('generateDisplayId skipped (table):', err.message || err);
+    }
     for (let attempt = 0; attempt < 6; attempt++) {
         const orderNo = generateOrderNo();
         try {
-            const saved = await insertOrderWithFallback({
+            const rowBody = {
                 order_no: orderNo,
                 store_name: storeName,
                 customer_name: customerName,
@@ -689,7 +817,9 @@ async function createTableOrder(input) {
                 payment_status: 'UNPAID',
                 status: 'PAID',
                 channel: 'table',
-            });
+            };
+            if (displayId) rowBody.display_id = displayId;
+            const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             const order = (await getOrderByNo(orderNo)) || row;
             await notifyOrderPaid(order).catch((err) => {
@@ -697,6 +827,7 @@ async function createTableOrder(input) {
             });
             return {
                 orderNo: (row && row.order_no) || orderNo,
+                displayId: (row && row.display_id) || displayId,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -771,10 +902,18 @@ async function markTableOrderPaid(orderNo, payMethod) {
 async function getPublicOrderStatus(orderNo) {
     const no = clip(orderNo, 32);
     if (!no) return null;
-    const rows = await sbRest(
-        `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,store_name,pickup_time,payment_status,total_amount`
-    );
-    return Array.isArray(rows) ? rows[0] || null : null;
+    try {
+        const rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,display_id,store_name,pickup_time,payment_status,total_amount`
+        );
+        return Array.isArray(rows) ? rows[0] || null : null;
+    } catch (err) {
+        if (!/display_id/i.test(String(err.message || ''))) throw err;
+        const rows = await sbRest(
+            `orders?order_no=eq.${encodeURIComponent(no)}&select=order_no,store_name,pickup_time,payment_status,total_amount`
+        );
+        return Array.isArray(rows) ? rows[0] || null : null;
+    }
 }
 
 async function listKitchenOrdersAllStores({ since, limit = 200 } = {}) {
@@ -806,6 +945,7 @@ async function listKitchenOrders(storeName, { since, until, limit = 200, offset 
     }
     const fullSelect = [
         'order_no',
+        'display_id',
         'customer_name',
         'customer_phone',
         'pickup_time',
@@ -821,6 +961,7 @@ async function listKitchenOrders(storeName, { since, until, limit = 200, offset 
     ].join(',');
     const liteSelect = [
         'order_no',
+        'display_id',
         'total_amount',
         'payment_status',
         'status',
@@ -837,13 +978,16 @@ async function listKitchenOrders(storeName, { since, until, limit = 200, offset 
     } catch (err) {
         const msg = String(err.message || '');
         let nextSelect = select;
-        if (/kpay_managed_no|schema cache|column/i.test(msg)) {
-            nextSelect = select.replace(',kpay_managed_no', '');
-        } else if (/channel|pay_method/i.test(msg)) {
-            nextSelect = select.replace(',channel,pay_method', '').replace(',kpay_managed_no', '');
-        } else {
-            throw err;
+        if (/display_id|schema cache|column/i.test(msg)) {
+            nextSelect = nextSelect.replace(/,?display_id/, '').replace(/^,/, '');
         }
+        if (/kpay_managed_no|schema cache|column/i.test(msg)) {
+            nextSelect = nextSelect.replace(',kpay_managed_no', '');
+        }
+        if (/channel|pay_method/i.test(msg)) {
+            nextSelect = nextSelect.replace(',channel,pay_method', '').replace(',kpay_managed_no', '');
+        }
+        if (nextSelect === select) throw err;
         return sbRest(kitchenOrdersPath(store, nextSelect, opts));
     }
 }
@@ -1050,5 +1194,8 @@ module.exports = {
     reconcilePendingIfPaid,
     reconcileRecentPending,
     startOfTodayHkIso,
+    storeCodeFor,
+    channelCodeFor,
+    generateDisplayId,
     KNOWN_STORES,
 };
