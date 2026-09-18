@@ -18,6 +18,22 @@ const {
     upsertEmployee,
     deleteEmployee,
 } = require('./_payroll.js');
+const {
+    listInventoryItems,
+    upsertInventoryItem,
+    deleteInventoryItem,
+    listRecipesForMenu,
+    setMenuCosting,
+    upsertRecipeLine,
+    deleteRecipeLine,
+    storeCodeFor,
+} = require('./_inventory.js');
+
+const STORE_CODE_OPTIONS = KNOWN_STORES.map((store_name) => ({
+    store_name,
+    store_code: storeCodeFor(store_name),
+    label: STORE_LABEL_ZH[store_name] || store_name,
+}));
 
 function isPaidSale(order) {
     const pay = String((order && order.payment_status) || '').toUpperCase();
@@ -468,6 +484,54 @@ module.exports = async (req, res) => {
         if (action === 'payroll_delete_employee') {
             const store_name = String(body.store_name || '').trim();
             await deleteEmployee(store_name, body.id);
+            return res.status(200).json({ ok: true });
+        }
+
+        // Inventory & recipes
+        if (action === 'inventory_list') {
+            const store_code = String(body.store_code || storeCodeFor(body.store_name) || '').trim().toUpperCase();
+            if (!store_code) return res.status(400).json({ error: 'Missing store_code' });
+            const inventory = await listInventoryItems(store_code);
+            return res.status(200).json({
+                ok: true,
+                store_code,
+                inventory: inventory || [],
+                stores: STORE_CODE_OPTIONS,
+            });
+        }
+
+        if (action === 'inventory_upsert') {
+            const item = await upsertInventoryItem(body.item || body);
+            return res.status(200).json({ ok: true, item });
+        }
+
+        if (action === 'inventory_delete') {
+            await deleteInventoryItem(body.id);
+            return res.status(200).json({ ok: true });
+        }
+
+        if (action === 'recipe_list') {
+            const menu_item_id = String(body.menu_item_id || '').trim();
+            if (!menu_item_id) return res.status(400).json({ error: 'Missing menu_item_id' });
+            const recipes = await listRecipesForMenu(menu_item_id);
+            return res.status(200).json({ ok: true, menu_item_id, recipes: recipes || [], stores: STORE_CODE_OPTIONS });
+        }
+
+        if (action === 'recipe_set_costing') {
+            const item = await setMenuCosting(body.menu_item_id || body.id, {
+                costing_method: body.costing_method,
+                direct_cost: body.direct_cost,
+            });
+            return res.status(200).json({ ok: true, item });
+        }
+
+        if (action === 'recipe_upsert_line') {
+            const line = await upsertRecipeLine(body.line || body);
+            return res.status(200).json({ ok: true, line });
+        }
+
+        if (action === 'recipe_delete_line') {
+            await deleteRecipeLine(body.id);
             return res.status(200).json({ ok: true });
         }
 

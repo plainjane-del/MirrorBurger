@@ -170,6 +170,8 @@ async function upsertMenuItem(item) {
         has_temp: !!item.has_temp,
         is_sold_out: !!item.is_sold_out,
         is_active: item.is_active !== false,
+        costing_method: String(item.costing_method || 'direct').toLowerCase() === 'recipe' ? 'recipe' : 'direct',
+        direct_cost: Math.max(0, Number(item.direct_cost) || 0),
         sort_order: Number(item.sort_order) || 0,
     };
     return sbWrite('menu_items?on_conflict=id', {

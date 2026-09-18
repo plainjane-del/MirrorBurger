@@ -4,6 +4,24 @@ const { recalculateOrderTotal } = require('./_pricing.js');
 const { KNOWN_STORES, getStoreRow, storeIsAcceptingOrders } = require('./_storeSettings.js');
 const { getTableCount } = require('./_tableSettings.js');
 
+async function deductInventoryAndAlert(order) {
+    try {
+        const { deductInventoryForOrder } = require('./_inventory.js');
+        const { notifyLowStock } = require('./_notify.js');
+        const result = await deductInventoryForOrder(order);
+        const low = (result && result.low_stock) || [];
+        if (Array.isArray(low) && low.length) {
+            await notifyLowStock(order && order.store_name, low).catch((err) => {
+                console.error('notifyLowStock failed:', err);
+            });
+        }
+        return result;
+    } catch (err) {
+        console.error('inventory deduct failed:', err.message || err);
+        return null;
+    }
+}
+
 /** Prefer service role — RLS trigger blocks anon from changing payment_status. */
 function getSupabaseConfig() {
     const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -123,6 +141,10 @@ async function markOrderPaid(orderNo) {
 
     // 再拉齊欄位（items 等）再通知
     const order = (await getOrderByNo(orderNo)) || rows[0];
+    // 庫存扣減失敗唔好令 webhook 失敗
+    await deductInventoryAndAlert(order).catch((err) => {
+        console.error('deductInventoryAndAlert failed:', err);
+    });
     // 通知失敗唔好令 webhook 失敗
     await notifyOrderPaid(order).catch((err) => {
         console.error('notifyOrderPaid failed:', err);
@@ -683,7 +705,13 @@ async function createPosOrder(input) {
             if (displayId) rowBody.display_id = displayId;
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
-            const order = (await getOrderByNo(orderNo)) || row;
+            const order = (await getOrderByNo(orderNo)) || {
+                ...row,
+                order_no: orderNo,
+                store_name: storeName,
+                items_json: items,
+            };
+            await deductInventoryAndAlert(order);
             await notifyOrderPaid(order).catch((err) => {
                 console.error('POS notifyOrderPaid failed:', err);
             });
@@ -821,7 +849,13 @@ async function createTableOrder(input) {
             if (displayId) rowBody.display_id = displayId;
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
-            const order = (await getOrderByNo(orderNo)) || row;
+            const order = (await getOrderByNo(orderNo)) || {
+                ...row,
+                order_no: orderNo,
+                store_name: storeName,
+                items_json: items,
+            };
+            await deductInventoryAndAlert(order);
             await notifyOrderPaid(order).catch((err) => {
                 console.error('table notifyOrderPaid failed:', err);
             });

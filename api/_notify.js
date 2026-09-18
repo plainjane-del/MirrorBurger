@@ -241,11 +241,73 @@ async function sendClockPush({ store_name, employee_name, total_hours, total_pay
     return { ok: true, sent, total: rows.length };
 }
 
+/** Low stock alert → kitchen/admin push subscribers for that store */
+async function notifyLowStock(storeName, lowItems) {
+    const list = Array.isArray(lowItems) ? lowItems : [];
+    if (!list.length) return { skipped: true, reason: 'empty' };
+
+    const { getVapidConfig } = require('./_vapid');
+    const vapid = getVapidConfig();
+    if (!vapid) {
+        console.warn('🔔 Skip low-stock push: VAPID keys not set');
+        return { skipped: true, reason: 'missing_vapid' };
+    }
+    let webpush;
+    try {
+        webpush = require('web-push');
+    } catch (err) {
+        console.warn('🔔 Skip low-stock push: web-push missing', err.message);
+        return { skipped: true, reason: 'missing_package' };
+    }
+    webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
+
+    const rows = await listPushSubscriptions(storeName || '');
+    if (!rows.length) {
+        console.log('🔔 No push subscribers for low stock', storeName);
+        return { ok: true, sent: 0 };
+    }
+
+    const names = list.map((i) => i && i.name).filter(Boolean);
+    const first = names[0] || '物料';
+    const extra = names.length > 1 ? ` 等 ${names.length} 項` : '';
+    const detail = list
+        .slice(0, 3)
+        .map((i) => `${i.name}（剩 ${i.current_stock}${i.unit_of_measure || ''}）`)
+        .join('、');
+    const payload = JSON.stringify({
+        title: 'Low Stock Alert',
+        body: `Low Stock Alert: ${first}${extra} is running low. ${detail}`,
+        url: '/admin.html',
+    });
+
+    let sent = 0;
+    for (const row of rows) {
+        try {
+            await webpush.sendNotification(
+                {
+                    endpoint: row.endpoint,
+                    keys: { p256dh: row.p256dh, auth: row.auth },
+                },
+                payload
+            );
+            sent += 1;
+        } catch (err) {
+            console.warn('Low-stock push failed:', err.statusCode || err.message);
+            if (err.statusCode === 404 || err.statusCode === 410) {
+                await deletePushSubscription(row.endpoint);
+            }
+        }
+    }
+    console.log(`🔔 Low-stock push ${sent}/${rows.length} for`, storeName, names.join(', '));
+    return { ok: true, sent, total: rows.length, items: names };
+}
+
 module.exports = {
     STORE_EMAILS,
     emailRecipientsForStore,
     sendOrderEmail,
     sendOrderPush,
     sendClockPush,
+    notifyLowStock,
     notifyOrderPaid,
 };

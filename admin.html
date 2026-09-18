@@ -157,6 +157,7 @@
             <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">堂食/外賣 QR Code</button>
             <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
             <button type="button" id="tab-payroll" class="nav-btn" onclick="setTab('payroll')">出糧</button>
+            <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')">庫存／配方</button>
             <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')">出單機</button>
             <a class="nav-btn" href="/pos.html">POS</a>
             <a class="nav-btn" href="/kitchen.html">廚房</a>
@@ -364,6 +365,59 @@
             </div>
         </div>
 
+        <div id="panel-inventory" class="hidden space-y-4">
+            <div class="card p-5 space-y-3">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label>分店庫存</label>
+                        <select id="inv-store" onchange="loadInventory()">
+                            <option value="SYP">西營盤 SYP</option>
+                            <option value="TH">天后 TH</option>
+                            <option value="TW">荃灣 TW</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="editInventoryItem(null)">＋ 新物料</button>
+                </div>
+                <p class="text-sm text-neutral-400 font-bold">落單完成會按配方扣庫存；低於警戒線會 push 通知。</p>
+                <div id="inv-list" class="space-y-2"></div>
+            </div>
+            <div class="card p-5 space-y-3">
+                <h2 class="text-lg font-black">餐點配方</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                        <label>揀餐點</label>
+                        <select id="recipe-menu" onchange="loadRecipeEditor()"></select>
+                    </div>
+                    <div>
+                        <label>成本方式</label>
+                        <select id="recipe-method" onchange="onRecipeMethodChange()">
+                            <option value="direct">固定成本 (direct)</option>
+                            <option value="recipe">按配方扣庫存 (recipe)</option>
+                        </select>
+                    </div>
+                    <div id="recipe-direct-wrap">
+                        <label>固定成本 HK$</label>
+                        <input id="recipe-direct-cost" type="number" min="0" step="0.01" value="0">
+                    </div>
+                    <button type="button" class="btn btn-ghost" onclick="saveMenuCosting()">儲存成本設定</button>
+                </div>
+                <div id="recipe-lines-wrap" class="hidden space-y-3 pt-2 border-t border-neutral-800">
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                        <div class="sm:col-span-2">
+                            <label>物料（用上面分店庫存）</label>
+                            <select id="recipe-inv-pick"></select>
+                        </div>
+                        <div>
+                            <label>每份用量</label>
+                            <input id="recipe-qty" type="number" min="0.0001" step="any" placeholder="e.g. 120">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="addRecipeLine()">加入配方</button>
+                    </div>
+                    <div id="recipe-lines" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="panel-printer" class="hidden space-y-4">
             <div class="card p-5 space-y-3">
                 <h2 class="text-lg font-black">依家 POS 可以駁咩機</h2>
@@ -485,6 +539,25 @@
         </div>
     </div>
 
+    <!-- Inventory item editor -->
+    <div id="inv-modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+        <div class="card w-full max-w-md p-5 space-y-3">
+            <h2 class="text-lg font-black" id="inv-modal-title">新物料</h2>
+            <input type="hidden" id="inv-id">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2"><label>名稱</label><input id="inv-name" placeholder="牛肉餅 / 紙盒"></div>
+                <div><label>單位</label><input id="inv-uom" placeholder="g / pcs / ml" value="g"></div>
+                <div><label>單位成本 HK$</label><input id="inv-cost" type="number" min="0" step="0.0001" value="0"></div>
+                <div><label>現有庫存</label><input id="inv-stock" type="number" step="any" value="0"></div>
+                <div><label>低庫存警戒</label><input id="inv-threshold" type="number" step="any" value="0"></div>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button type="button" class="btn btn-primary flex-1" onclick="saveInventoryItem()">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeInvModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
@@ -546,6 +619,7 @@
             orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
             printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
             payroll: { title: '出糧', sub: '員工 PIN · AI 出糧規則' },
+            inventory: { title: '庫存／配方', sub: '物料庫存 · 餐點配方成本' },
         };
 
         async function boot() {
@@ -630,6 +704,7 @@
             if (currentTab === 'orders') return loadTickets();
             if (currentTab === 'tables') return loadTables();
             if (currentTab === 'payroll') return loadPayroll();
+            if (currentTab === 'inventory') return loadInventory();
             return loadAll();
         }
 
@@ -638,7 +713,7 @@
             const meta = PAGE_META[which] || PAGE_META.sales;
             document.getElementById('page-title').textContent = meta.title;
             document.getElementById('page-sub').textContent = meta.sub;
-            ['sales', 'items', 'tables', 'orders', 'payroll', 'printer'].forEach((name) => {
+            ['sales', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);
@@ -658,6 +733,7 @@
             }
             if (which === 'tables') loadTables();
             if (which === 'payroll') loadPayroll();
+            if (which === 'inventory') loadInventory();
         }
 
         function setMenuSub(which) {
@@ -1598,6 +1674,238 @@
             });
             toast('已刪除');
             await loadPayroll();
+        }
+
+        // ——— Inventory & recipes ———
+        let inventoryRows = [];
+        let recipeLines = [];
+
+        function invStoreCode() {
+            return (document.getElementById('inv-store') || {}).value || 'SYP';
+        }
+
+        function fillRecipeMenuSelect() {
+            const sel = document.getElementById('recipe-menu');
+            if (!sel) return;
+            const prev = sel.value;
+            const list = (items || []).slice().sort((a, b) =>
+                String(a.name_zh || a.name_en || '').localeCompare(String(b.name_zh || b.name_en || ''), 'zh')
+            );
+            sel.innerHTML = list.map((it) =>
+                `<option value="${esc(it.id)}">${esc(it.name_zh || it.name_en || it.id)} (${esc(it.id)})</option>`
+            ).join('') || '<option value="">未有餐點</option>';
+            if (prev && list.some((it) => it.id === prev)) sel.value = prev;
+        }
+
+        async function loadInventory() {
+            const list = document.getElementById('inv-list');
+            list.innerHTML = '<p class="text-neutral-500 font-bold">載入中…</p>';
+            fillRecipeMenuSelect();
+            try {
+                const data = await api('/api/admin-menu', {
+                    token,
+                    action: 'inventory_list',
+                    store_code: invStoreCode(),
+                });
+                inventoryRows = data.inventory || [];
+                renderInventory();
+                fillRecipeInvPick();
+                await loadRecipeEditor();
+            } catch (e) {
+                list.innerHTML = `<p class="text-red-400 font-bold">${esc(e.message || e)}</p>`;
+            }
+        }
+
+        function renderInventory() {
+            const list = document.getElementById('inv-list');
+            if (!inventoryRows.length) {
+                list.innerHTML = '<p class="text-neutral-500 font-bold">呢間舖未有物料，撳上面加。</p>';
+                return;
+            }
+            list.innerHTML = inventoryRows.map((row) => {
+                const low = Number(row.current_stock) <= Number(row.low_stock_threshold);
+                return `<div class="rounded-xl border ${low ? 'border-amber-600 bg-amber-950/30' : 'border-neutral-800 bg-neutral-900'} p-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <div class="font-black">${esc(row.name)} <span class="text-neutral-500 text-xs font-bold">${esc(row.unit_of_measure)}</span>
+                          ${low ? '<span class="text-amber-300 text-xs ml-1">低庫存</span>' : ''}
+                        </div>
+                        <div class="text-sm font-bold text-neutral-400">庫存 ${esc(row.current_stock)} · 警戒 ${esc(row.low_stock_threshold)} · 成本 $${esc(row.cost_per_unit)}/${esc(row.unit_of_measure)}</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-ghost" onclick="editInventoryItem('${esc(row.id)}')">改</button>
+                        <button type="button" class="btn btn-danger" onclick="deleteInventoryItem('${esc(row.id)}')">刪</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function fillRecipeInvPick() {
+            const sel = document.getElementById('recipe-inv-pick');
+            if (!sel) return;
+            sel.innerHTML = inventoryRows.map((row) =>
+                `<option value="${esc(row.id)}">${esc(row.name)} (${esc(row.unit_of_measure)})</option>`
+            ).join('') || '<option value="">請先加物料</option>';
+        }
+
+        function editInventoryItem(id) {
+            const row = id ? inventoryRows.find((r) => r.id === id) : null;
+            document.getElementById('inv-modal-title').textContent = row ? '改物料' : '新物料';
+            document.getElementById('inv-id').value = row ? row.id : '';
+            document.getElementById('inv-name').value = row ? row.name : '';
+            document.getElementById('inv-uom').value = row ? row.unit_of_measure : 'g';
+            document.getElementById('inv-cost').value = row ? row.cost_per_unit : 0;
+            document.getElementById('inv-stock').value = row ? row.current_stock : 0;
+            document.getElementById('inv-threshold').value = row ? row.low_stock_threshold : 0;
+            document.getElementById('inv-modal').classList.remove('hidden');
+        }
+
+        function closeInvModal() {
+            document.getElementById('inv-modal').classList.add('hidden');
+        }
+
+        async function saveInventoryItem() {
+            try {
+                await api('/api/admin-menu', {
+                    token,
+                    action: 'inventory_upsert',
+                    item: {
+                        id: document.getElementById('inv-id').value || undefined,
+                        store_code: invStoreCode(),
+                        name: document.getElementById('inv-name').value.trim(),
+                        unit_of_measure: document.getElementById('inv-uom').value.trim() || 'g',
+                        cost_per_unit: document.getElementById('inv-cost').value,
+                        current_stock: document.getElementById('inv-stock').value,
+                        low_stock_threshold: document.getElementById('inv-threshold').value,
+                    },
+                });
+                closeInvModal();
+                toast('已儲存物料');
+                await loadInventory();
+            } catch (e) {
+                alert(e.message || '儲存失敗');
+            }
+        }
+
+        async function deleteInventoryItem(id) {
+            if (!confirm('刪除呢個物料？有配方引用會失敗。')) return;
+            try {
+                await api('/api/admin-menu', { token, action: 'inventory_delete', id });
+                toast('已刪除');
+                await loadInventory();
+            } catch (e) {
+                alert(e.message || '刪除失敗');
+            }
+        }
+
+        function onRecipeMethodChange() {
+            const method = document.getElementById('recipe-method').value;
+            document.getElementById('recipe-direct-wrap').classList.toggle('hidden', method === 'recipe');
+            document.getElementById('recipe-lines-wrap').classList.toggle('hidden', method !== 'recipe');
+        }
+
+        async function loadRecipeEditor() {
+            const menuId = (document.getElementById('recipe-menu') || {}).value;
+            if (!menuId) return;
+            const item = (items || []).find((it) => it.id === menuId);
+            const method = (item && item.costing_method) === 'recipe' ? 'recipe' : 'direct';
+            document.getElementById('recipe-method').value = method;
+            document.getElementById('recipe-direct-cost').value = item ? (item.direct_cost || 0) : 0;
+            onRecipeMethodChange();
+            if (method !== 'recipe') {
+                document.getElementById('recipe-lines').innerHTML = '';
+                return;
+            }
+            try {
+                const data = await api('/api/admin-menu', {
+                    token,
+                    action: 'recipe_list',
+                    menu_item_id: menuId,
+                });
+                recipeLines = (data.recipes || []).filter((line) => {
+                    const inv = line.inventory_items;
+                    const code = inv && (inv.store_code || (Array.isArray(inv) ? inv[0] && inv[0].store_code : ''));
+                    return !code || code === invStoreCode();
+                });
+                renderRecipeLines();
+            } catch (e) {
+                document.getElementById('recipe-lines').innerHTML =
+                    `<p class="text-red-400 font-bold">${esc(e.message || e)}</p>`;
+            }
+        }
+
+        function renderRecipeLines() {
+            const box = document.getElementById('recipe-lines');
+            if (!recipeLines.length) {
+                box.innerHTML = '<p class="text-neutral-500 font-bold text-sm">未有配方物料。</p>';
+                return;
+            }
+            box.innerHTML = recipeLines.map((line) => {
+                const inv = line.inventory_items || {};
+                const name = inv.name || line.inventory_item_id;
+                const uom = inv.unit_of_measure || '';
+                return `<div class="flex items-center justify-between gap-2 rounded-lg border border-neutral-800 px-3 py-2">
+                    <div class="font-bold text-sm">${esc(name)} · ${esc(line.quantity_used)} ${esc(uom)}</div>
+                    <button type="button" class="btn btn-danger" onclick="deleteRecipeLine('${esc(line.id)}')">刪</button>
+                </div>`;
+            }).join('');
+        }
+
+        async function saveMenuCosting() {
+            const menuId = document.getElementById('recipe-menu').value;
+            if (!menuId) return;
+            try {
+                const data = await api('/api/admin-menu', {
+                    token,
+                    action: 'recipe_set_costing',
+                    menu_item_id: menuId,
+                    costing_method: document.getElementById('recipe-method').value,
+                    direct_cost: document.getElementById('recipe-direct-cost').value,
+                });
+                const idx = items.findIndex((it) => it.id === menuId);
+                if (idx >= 0 && data.item) items[idx] = Object.assign({}, items[idx], data.item);
+                toast('已儲存成本設定');
+                await loadRecipeEditor();
+            } catch (e) {
+                alert(e.message || '儲存失敗');
+            }
+        }
+
+        async function addRecipeLine() {
+            const menu_item_id = document.getElementById('recipe-menu').value;
+            const inventory_item_id = document.getElementById('recipe-inv-pick').value;
+            const quantity_used = document.getElementById('recipe-qty').value;
+            if (!menu_item_id || !inventory_item_id) {
+                alert('請揀餐點同物料');
+                return;
+            }
+            try {
+                // Ensure recipe mode
+                if (document.getElementById('recipe-method').value !== 'recipe') {
+                    document.getElementById('recipe-method').value = 'recipe';
+                    await saveMenuCosting();
+                }
+                await api('/api/admin-menu', {
+                    token,
+                    action: 'recipe_upsert_line',
+                    line: { menu_item_id, inventory_item_id, quantity_used },
+                });
+                document.getElementById('recipe-qty').value = '';
+                toast('已加入配方');
+                await loadRecipeEditor();
+            } catch (e) {
+                alert(e.message || '加入失敗');
+            }
+        }
+
+        async function deleteRecipeLine(id) {
+            if (!confirm('刪除呢行配方？')) return;
+            try {
+                await api('/api/admin-menu', { token, action: 'recipe_delete_line', id });
+                toast('已刪除');
+                await loadRecipeEditor();
+            } catch (e) {
+                alert(e.message || '刪除失敗');
+            }
         }
 
         boot();
