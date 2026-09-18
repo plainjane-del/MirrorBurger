@@ -20,6 +20,57 @@ function isPaidSale(order) {
         || ['PAID', 'PREPARING', 'READY', 'COMPLETED'].includes(st);
 }
 
+function startOfHkYearIso() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(new Date());
+    const y = Number(parts.find((p) => p.type === 'year')?.value);
+    return new Date(`${y}-01-01T00:00:00+08:00`).toISOString();
+}
+
+function hkDateParts(date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Hong_Kong',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(date);
+    return {
+        y: Number(parts.find((p) => p.type === 'year')?.value),
+        m: Number(parts.find((p) => p.type === 'month')?.value),
+        d: Number(parts.find((p) => p.type === 'day')?.value),
+    };
+}
+
+function isoFromHkYmd(y, m, d) {
+    return new Date(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00+08:00`).toISOString();
+}
+
+function parseHkDateInput(raw) {
+    const match = String(raw || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const iso = isoFromHkYmd(y, m, d);
+    return Number.isFinite(Date.parse(iso)) ? iso : null;
+}
+
+function addHkDaysIso(fromIso, days) {
+    const { y, m, d } = hkDateParts(new Date(fromIso));
+    const civil = new Date(Date.UTC(y, m - 1, d + days));
+    return isoFromHkYmd(civil.getUTCFullYear(), civil.getUTCMonth() + 1, civil.getUTCDate());
+}
+
+function formatHkYmd(iso) {
+    const { y, m, d } = hkDateParts(new Date(iso));
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 function startOfHkMonthIso(monthsAgo = 0) {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Hong_Kong',
@@ -100,33 +151,52 @@ function inRange(order, fromIso, toIso) {
     return created >= from && created < to;
 }
 
-async function buildSalesOverview(range = 'today') {
-    const bounds = rangeBounds(range);
-    const stores = [];
-    const periodRows = [];
+async function listPaidSales(store_name, fromIso, toIso, { lite = true } = {}) {
+    const PAGE = 1000;
+    const all = [];
+    let offset = 0;
+    const until = toIso && !String(toIso).startsWith('9999-') ? toIso : '';
+    for (;;) {
+        const rows = await listKitchenOrders(store_name, {
+            since: fromIso,
+            until,
+            limit: PAGE,
+            offset,
+            lite,
+        });
+        const batch = rows || [];
+        all.push(...batch);
+        if (batch.length < PAGE) break;
+        offset += batch.length;
+        if (offset >= 20000) break;
+    }
+    return all.filter(isPaidSale).filter((o) => inRange(o, fromIso, toIso));
+}
 
-    for (const store_name of KNOWN_STORES) {
-        const rows = await listKitchenOrders(store_name, { since: bounds.from, limit: 2000 });
-        const sales = (rows || []).filter(isPaidSale).filter((o) => inRange(o, bounds.from, bounds.to));
-        periodRows.push(...sales);
-        stores.push({
+async function buildSalesOverview(range = 'today', custom = {}) {
+    const bounds = rangeBounds(range, custom);
+    const stores = await Promise.all(KNOWN_STORES.map(async (store_name) => {
+        const sales = await listPaidSales(store_name, bounds.from, bounds.to, { lite: true });
+        return {
             store_name,
             label: STORE_LABEL_ZH[store_name] || store_name,
             ...summarizeSales(sales),
-        });
-    }
-
-    const totals = summarizeSales(periodRows);
+            sales,
+        };
+    }));
+    const totals = summarizeSales(stores.flatMap((s) => s.sales));
     return {
         ok: true,
         range,
         range_label: bounds.label,
+        from: bounds.from,
+        to: bounds.to,
         orders: totals.orders,
         revenue: totals.revenue,
         aov: totals.aov,
         dine_in: totals.dine_in,
         takeaway: totals.takeaway,
-        stores,
+        stores: stores.map(({ sales, ...rest }) => rest),
     };
 }
 
@@ -181,14 +251,34 @@ function toTicket(order) {
     };
 }
 
-function rangeBounds(range) {
+function rangeBounds(range, custom = {}) {
     const todayStart = startOfHkDayIso(0);
     const yesterdayStart = startOfHkDayIso(1);
     const far = '9999-12-31T00:00:00.000Z';
     if (range === 'yesterday') return { from: yesterdayStart, to: todayStart, label: '昨日' };
-    if (range === 'week') return { from: startOfHkDayIso(6), to: far, label: '近 7 日' };
+    if (range === 'week') return { from: startOfHkDayIso(6), to: far, label: '一星期' };
     if (range === 'month') return { from: startOfHkMonthIso(0), to: far, label: '今個月' };
-    if (range === 'last_month') return { from: startOfHkMonthIso(1), to: startOfHkMonthIso(0), label: '上個月' };
+    if (range === 'ytd') return { from: startOfHkYearIso(), to: far, label: '年頭到而家' };
+    if (range === 'year') return { from: startOfHkDayIso(364), to: far, label: '近一年' };
+    if (range === 'custom') {
+        let from = parseHkDateInput(custom.from);
+        let toDay = parseHkDateInput(custom.to);
+        if (!from) from = startOfHkDayIso(6);
+        if (!toDay) toDay = todayStart;
+        if (Date.parse(from) > Date.parse(toDay)) {
+            const swap = from;
+            from = toDay;
+            toDay = swap;
+        }
+        const to = addHkDaysIso(toDay, 1);
+        const fromLabel = formatHkYmd(from);
+        const toLabel = formatHkYmd(toDay);
+        return {
+            from,
+            to,
+            label: fromLabel === toLabel ? fromLabel : `${fromLabel} 至 ${toLabel}`,
+        };
+    }
     return { from: todayStart, to: far, label: '今日' };
 }
 
@@ -196,22 +286,21 @@ function normalizeTicketQuery(raw) {
     return String(raw || '').trim().replace(/^#/, '').toUpperCase();
 }
 
-async function fetchPaidSince(sinceIso) {
-    const all = [];
-    for (const store_name of KNOWN_STORES) {
-        const rows = await listKitchenOrders(store_name, { since: sinceIso, limit: 2000 });
-        all.push(...(rows || []).filter(isPaidSale));
-    }
+async function fetchPaidSince(sinceIso, untilIso, { lite = false } = {}) {
+    const batches = await Promise.all(KNOWN_STORES.map((store_name) => (
+        listPaidSales(store_name, sinceIso, untilIso || '9999-12-31T00:00:00.000Z', { lite })
+    )));
+    const all = batches.flat();
     all.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     return all;
 }
 
-async function buildSalesTickets({ range = 'today', store_name = '', q = '' } = {}) {
+async function buildSalesTickets({ range = 'today', store_name = '', q = '', from = '', to = '' } = {}) {
     const query = normalizeTicketQuery(q);
     const store = KNOWN_STORES.includes(store_name) ? store_name : '';
-    const bounds = rangeBounds(range);
+    const bounds = rangeBounds(range, { from, to });
     const lookback = query ? startOfHkDayIso(13) : bounds.from;
-    let rows = await fetchPaidSince(lookback);
+    let rows = await fetchPaidSince(lookback, query ? '' : bounds.to, { lite: true });
 
     if (store) rows = rows.filter((o) => o.store_name === store);
     if (!query) rows = rows.filter((o) => inRange(o, bounds.from, bounds.to));
@@ -232,6 +321,7 @@ async function buildSalesTickets({ range = 'today', store_name = '', q = '' } = 
         q: query,
         orders: counted.length,
         revenue: counted.reduce((sum, o) => sum + Math.round(Number(o.total_amount) || 0), 0),
+        truncated: rows.length > tickets.length,
         tickets,
         stores: KNOWN_STORES.map((name) => ({
             store_name: name,
@@ -257,7 +347,10 @@ module.exports = async (req, res) => {
         }
 
         if (action === 'sales_today' || action === 'sales_overview') {
-            return res.status(200).json(await buildSalesOverview(body.range));
+            return res.status(200).json(await buildSalesOverview(body.range, {
+                from: body.from,
+                to: body.to,
+            }));
         }
 
         if (action === 'sales_tickets') {
@@ -265,7 +358,15 @@ module.exports = async (req, res) => {
                 range: body.range,
                 store_name: body.store_name,
                 q: body.q,
+                from: body.from,
+                to: body.to,
             }));
+        }
+
+        if (action === 'sales_ticket') {
+            const order = await getOrderByNo(body.order_no).catch(() => null);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+            return res.status(200).json({ ok: true, ticket: toTicket(order) });
         }
 
         if (action === 'table_counts') {

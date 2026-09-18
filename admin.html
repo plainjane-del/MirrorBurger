@@ -69,6 +69,9 @@
         html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
         #login-view.hidden,
         #app-view.hidden { display: none !important; }
+        #sales-custom.hidden,
+        #orders-custom.hidden { display: none !important; }
+        input[type="date"] { color-scheme: dark; min-width: 10.5rem; }
         #table-count-wrap.hidden,
         #save-tables-btn.hidden { display: none !important; }
         @media (min-width: 900px) {
@@ -181,11 +184,23 @@
                 <div class="flex flex-wrap gap-2">
                     <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')">今日</button>
                     <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')">昨日</button>
-                    <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')">近 7 日</button>
+                    <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')">一星期</button>
                     <button type="button" id="range-month" class="btn range-btn" onclick="setSalesRange('month')">今個月</button>
-                    <button type="button" id="range-last_month" class="btn range-btn" onclick="setSalesRange('last_month')">上個月</button>
+                    <button type="button" id="range-ytd" class="btn range-btn" onclick="setSalesRange('ytd')">年頭到而家</button>
+                    <button type="button" id="range-year" class="btn range-btn" onclick="setSalesRange('year')">一年</button>
+                    <button type="button" id="range-custom" class="btn range-btn" onclick="setSalesRange('custom')">自訂</button>
                 </div>
                 <p class="text-sm text-neutral-500">已收款先計；未付／取消唔計。</p>
+            </div>
+            <div id="sales-custom" class="hidden flex flex-wrap gap-3 items-end mb-4">
+                <div>
+                    <label>由</label>
+                    <input type="date" id="sales-from" onchange="onCustomDates('sales')">
+                </div>
+                <div>
+                    <label>至</label>
+                    <input type="date" id="sales-to" onchange="onCustomDates('sales')">
+                </div>
             </div>
             <div id="sales-summary"></div>
             <div id="sales-stores" class="space-y-3 mt-4"></div>
@@ -269,9 +284,21 @@
                     <div class="flex flex-wrap gap-2">
                         <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')">今日</button>
                         <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')">昨日</button>
-                        <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')">近 7 日</button>
+                        <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')">一星期</button>
                         <button type="button" id="tr-month" class="btn range-btn" onclick="setTicketRange('month')">今個月</button>
-                        <button type="button" id="tr-last_month" class="btn range-btn" onclick="setTicketRange('last_month')">上個月</button>
+                        <button type="button" id="tr-ytd" class="btn range-btn" onclick="setTicketRange('ytd')">年頭到而家</button>
+                        <button type="button" id="tr-year" class="btn range-btn" onclick="setTicketRange('year')">一年</button>
+                        <button type="button" id="tr-custom" class="btn range-btn" onclick="setTicketRange('custom')">自訂</button>
+                    </div>
+                    <div id="orders-custom" class="hidden flex flex-wrap gap-3 items-end mt-3">
+                        <div>
+                            <label>由</label>
+                            <input type="date" id="ticket-from" onchange="onCustomDates('orders')">
+                        </div>
+                        <div>
+                            <label>至</label>
+                            <input type="date" id="ticket-to" onchange="onCustomDates('orders')">
+                        </div>
                     </div>
                     <input type="hidden" id="ticket-range" value="today">
                 </div>
@@ -460,13 +487,15 @@
             toastTimer = setTimeout(() => el.classList.add('hidden'), 1800);
         }
 
-        const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'last_month'];
+        const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', 'year', 'custom'];
         const RANGE_ZH = {
             today: '今日',
             yesterday: '昨日',
-            week: '近 7 日',
+            week: '一星期',
             month: '今個月',
-            last_month: '上個月',
+            ytd: '年頭到而家',
+            year: '近一年',
+            custom: '自訂',
         };
         const PAGE_META = {
             sales: { title: '概况', sub: '每間舖收咗幾多錢' },
@@ -593,42 +622,121 @@
             document.getElementById('sub-mods').className = 'btn ' + (which === 'mods' ? 'tab-on' : 'tab-off');
         }
 
+        function hkYmd(daysAgo) {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Hong_Kong',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).formatToParts(new Date());
+            const y = Number(parts.find((p) => p.type === 'year')?.value);
+            const m = Number(parts.find((p) => p.type === 'month')?.value);
+            const d = Number(parts.find((p) => p.type === 'day')?.value);
+            const civil = new Date(Date.UTC(y, m - 1, d - (Number(daysAgo) || 0)));
+            const yy = civil.getUTCFullYear();
+            const mm = String(civil.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(civil.getUTCDate()).padStart(2, '0');
+            return `${yy}-${mm}-${dd}`;
+        }
+
+        function datePrefix(which) {
+            return which === 'orders' ? 'ticket' : 'sales';
+        }
+
+        function showCustomDates(which, show) {
+            const row = document.getElementById((which === 'orders' ? 'orders' : 'sales') + '-custom');
+            if (row) row.classList.toggle('hidden', !show);
+        }
+
+        function readCustomDates(which) {
+            const prefix = datePrefix(which);
+            return {
+                from: (document.getElementById(prefix + '-from') || {}).value || '',
+                to: (document.getElementById(prefix + '-to') || {}).value || '',
+            };
+        }
+
+        function writeCustomDates(which, from, to) {
+            const prefix = datePrefix(which);
+            const fromEl = document.getElementById(prefix + '-from');
+            const toEl = document.getElementById(prefix + '-to');
+            if (fromEl) fromEl.value = from || '';
+            if (toEl) toEl.value = to || '';
+        }
+
+        function ensureCustomDates(which) {
+            const today = hkYmd(0);
+            const prefix = datePrefix(which);
+            const fromEl = document.getElementById(prefix + '-from');
+            const toEl = document.getElementById(prefix + '-to');
+            if (!fromEl || !toEl) return readCustomDates(which);
+            fromEl.max = today;
+            toEl.max = today;
+            if (!fromEl.value || !toEl.value) {
+                fromEl.value = fromEl.value || hkYmd(6);
+                toEl.value = toEl.value || today;
+            }
+            if (fromEl.value > toEl.value) {
+                const swap = fromEl.value;
+                fromEl.value = toEl.value;
+                toEl.value = swap;
+            }
+            if (toEl.value > today) toEl.value = today;
+            return readCustomDates(which);
+        }
+
+        function onCustomDates(which) {
+            ensureCustomDates(which);
+            if (which === 'orders') {
+                if (document.getElementById('ticket-range').value !== 'custom') return;
+                loadTickets();
+                return;
+            }
+            if (salesRange !== 'custom') return;
+            salesData = null;
+            loadSales();
+        }
+
         function normalizeRange(which) {
             return SALES_RANGES.includes(which) ? which : 'today';
+        }
+
+        function highlightRangeButtons(prefix, next) {
+            SALES_RANGES.forEach((name) => {
+                const btn = document.getElementById(prefix + name);
+                if (btn) btn.classList.toggle('is-on', next === name);
+            });
         }
 
         function setTicketRange(which, opts) {
             const next = normalizeRange(which);
             document.getElementById('ticket-range').value = next;
-            SALES_RANGES.forEach((name) => {
-                const btn = document.getElementById('tr-' + name);
-                if (btn) btn.classList.toggle('is-on', next === name);
-            });
+            highlightRangeButtons('tr-', next);
+            showCustomDates('orders', next === 'custom');
+            if (next === 'custom') ensureCustomDates('orders');
             if (!opts || opts.load !== false) loadTickets();
         }
 
         function openStoreOrders(storeName) {
             ticketsData = null;
             document.getElementById('ticket-store').value = storeName || '';
+            if (salesRange === 'custom') writeCustomDates('orders', readCustomDates('sales').from, readCustomDates('sales').to);
             setTicketRange(salesRange, { load: false });
             setTab('orders');
         }
 
         function setSalesRange(which) {
             const next = normalizeRange(which);
-            if (next === salesRange && salesData && salesData.range === next) {
-                SALES_RANGES.forEach((name) => {
-                    const btn = document.getElementById('range-' + name);
-                    if (btn) btn.classList.toggle('is-on', salesRange === name);
-                });
+            if (next === salesRange && salesData && salesData.range === next && next !== 'custom') {
+                highlightRangeButtons('range-', salesRange);
+                showCustomDates('sales', false);
                 renderSales();
                 return;
             }
             salesRange = next;
-            SALES_RANGES.forEach((name) => {
-                const btn = document.getElementById('range-' + name);
-                if (btn) btn.classList.toggle('is-on', salesRange === name);
-            });
+            highlightRangeButtons('range-', salesRange);
+            showCustomDates('sales', salesRange === 'custom');
+            if (salesRange === 'custom') ensureCustomDates('sales');
             salesData = null;
             loadSales();
         }
@@ -741,9 +849,16 @@
         async function loadSales() {
             const sum = document.getElementById('sales-summary');
             const requested = salesRange;
+            const dates = requested === 'custom' ? ensureCustomDates('sales') : {};
             if (sum && !salesData) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
             try {
-                salesData = await api('/api/admin-menu', { token, action: 'sales_overview', range: requested });
+                salesData = await api('/api/admin-menu', {
+                    token,
+                    action: 'sales_overview',
+                    range: requested,
+                    from: dates.from || '',
+                    to: dates.to || '',
+                });
                 if (salesRange !== requested) return;
                 renderSales();
             } catch (e) {
@@ -793,7 +908,9 @@
             const showDate = range !== 'today' && range !== 'yesterday';
             msg.textContent = q
                 ? (ticketRows.length ? `搵到 ${ticketRows.length} 張（單號含 ${q}）` : `搵唔到 ${q}`)
-                : '已收款先計入合計；撳一張睇餐。';
+                : (data.truncated
+                    ? `已收款先計入合計。下面只列出最近 ${ticketRows.length} 張。`
+                    : '已收款先計入合計；撳一張睇餐。');
             list.innerHTML = ticketRows.length
                 ? ticketRows.map((o, i) => {
                     const kind = o.kind === 'dine_in' ? '堂食' : '外賣';
@@ -807,7 +924,7 @@
                         </div>
                         <div class="text-right">
                             <div class="font-black">${money(o.total_amount)}</div>
-                            <div class="text-xs font-bold text-neutral-500">${Number(o.item_count || 0)} 件</div>
+                            <div class="text-xs font-bold text-neutral-500">${Number(o.item_count || 0) ? Number(o.item_count) + ' 件' : ''}</div>
                         </div>
                     </button>`;
                 }).join('')
@@ -833,6 +950,8 @@
                     range: document.getElementById('ticket-range').value,
                     store_name: document.getElementById('ticket-store').value,
                     q: document.getElementById('ticket-q').value,
+                    from: document.getElementById('ticket-from').value,
+                    to: document.getElementById('ticket-to').value,
                 });
                 ticketsData = data;
                 renderTickets(data);
@@ -843,9 +962,18 @@
             }
         }
 
-        function openTicket(i) {
-            const o = ticketRows[i];
+        async function openTicket(i) {
+            let o = ticketRows[i];
             if (!o) return;
+            if (!o.items || !o.items.length) {
+                try {
+                    const data = await api('/api/admin-menu', { token, action: 'sales_ticket', order_no: o.order_no });
+                    if (data && data.ticket) {
+                        ticketRows[i] = data.ticket;
+                        o = data.ticket;
+                    }
+                } catch (_) { /* keep list row */ }
+            }
             document.getElementById('ticket-title').textContent = '#' + o.order_no;
             const bits = [
                 o.label,

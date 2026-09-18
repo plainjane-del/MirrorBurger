@@ -787,14 +787,24 @@ async function listKitchenOrdersAllStores({ since, limit = 200 } = {}) {
     return merged.slice(0, Number(limit) || 200);
 }
 
-async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
+function kitchenOrdersPath(store, select, { since, until, limit, offset } = {}) {
+    const lim = Math.min(Math.max(Number(limit) || 200, 1), 1000);
+    const off = Math.max(Number(offset) || 0, 0);
+    let path = `orders?store_name=eq.${encodeURIComponent(store)}&select=${select}&order=created_at.desc&limit=${lim}`;
+    if (off) path += `&offset=${off}`;
+    if (since) path += `&created_at=gte.${encodeURIComponent(since)}`;
+    if (until) path += `&created_at=lt.${encodeURIComponent(until)}`;
+    return path;
+}
+
+async function listKitchenOrders(storeName, { since, until, limit = 200, offset = 0, lite = false } = {}) {
     const store = clip(storeName, 80);
     if (!KNOWN_STORES.includes(store)) {
         const err = new Error('Invalid store');
         err.status = 400;
         throw err;
     }
-    const select = [
+    const fullSelect = [
         'order_no',
         'customer_name',
         'customer_phone',
@@ -809,10 +819,21 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
         'kpay_managed_no',
         'created_at',
     ].join(',');
-    let path = `orders?store_name=eq.${encodeURIComponent(store)}&select=${select}&order=created_at.desc&limit=${Number(limit) || 200}`;
-    if (since) path += `&created_at=gte.${encodeURIComponent(since)}`;
+    const liteSelect = [
+        'order_no',
+        'total_amount',
+        'payment_status',
+        'status',
+        'store_name',
+        'channel',
+        'pickup_time',
+        'pay_method',
+        'created_at',
+    ].join(',');
+    const select = lite ? liteSelect : fullSelect;
+    const opts = { since, until, limit, offset };
     try {
-        return await sbRest(path);
+        return await sbRest(kitchenOrdersPath(store, select, opts));
     } catch (err) {
         const msg = String(err.message || '');
         let nextSelect = select;
@@ -823,9 +844,7 @@ async function listKitchenOrders(storeName, { since, limit = 200 } = {}) {
         } else {
             throw err;
         }
-        let fallback = `orders?store_name=eq.${encodeURIComponent(store)}&select=${nextSelect}&order=created_at.desc&limit=${Number(limit) || 200}`;
-        if (since) fallback += `&created_at=gte.${encodeURIComponent(since)}`;
-        return sbRest(fallback);
+        return sbRest(kitchenOrdersPath(store, nextSelect, opts));
     }
 }
 
