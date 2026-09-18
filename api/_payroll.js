@@ -335,6 +335,189 @@ async function clockOut(openRow, employee, rules) {
     return { row, calc };
 }
 
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_MODELS = [
+    process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    'gemini-3.7-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+].filter(Boolean);
+
+const PAYROLL_AI_INSTRUCTION = `You convert Hong Kong restaurant payroll policy (Cantonese or English) into JSON.
+
+Return ONLY this JSON shape:
+{
+  "rounding_minutes": 15,
+  "rounding_mode": "nearest",
+  "late_penalty": { "enabled": true, "grace_minutes": 15, "deduct_minutes": 15, "deduct_amount": 0 },
+  "meal_break_deduction": { "enabled": false, "minutes": 0, "unpaid": true },
+  "overtime": { "enabled": false, "after_hours": 8, "multiplier": 1.5 },
+  "notes": "one-line Chinese summary"
+}
+
+Rules:
+- rounding_mode must be nearest, down, or up.
+- 無飯鐘 / 冇飯鐘 = meal_break_deduction.enabled false, minutes 0.
+- 有飯鐘 / 扣飯鐘 / 扣一小時 = meal_break_deduction.enabled true, minutes 60 unless another duration is said.
+- 遲到15分鐘扣錢 = late_penalty.enabled true, grace_minutes 15, deduct_minutes 15.
+- If the owner does not mention overtime, overtime.enabled false.
+- Do not invent extra keys.`;
+
+function extractJson(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch (_) {}
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) {
+        try { return JSON.parse(fenced[1].trim()); } catch (_) {}
+    }
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+        try { return JSON.parse(text.slice(start, end + 1)); } catch (_) {}
+    }
+    return null;
+}
+
+async function callPayrollGemini(policyText) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+        const err = new Error('Server missing GEMINI_API_KEY');
+        err.status = 500;
+        throw err;
+    }
+    const body = JSON.stringify({
+        system_instruction: { parts: [{ text: PAYROLL_AI_INSTRUCTION }] },
+        contents: [{
+            role: 'user',
+            parts: [{ text: `Payroll policy:\n${policyText}` }],
+        }],
+        generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 400,
+            responseMimeType: 'application/json',
+        },
+    });
+
+    let lastErr = null;
+    const tried = new Set();
+    for (const model of GEMINI_MODELS) {
+        if (tried.has(model)) continue;
+        tried.add(model);
+        if (tried.size > 2) break;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        let resp;
+        try {
+            resp = await fetch(
+                `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctrl.signal }
+            );
+        } catch (err) {
+            clearTimeout(timer);
+            lastErr = err;
+            if (err && err.name === 'AbortError') continue;
+            throw err;
+        }
+        clearTimeout(timer);
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            const msg = (data && data.error && data.error.message) || `Gemini HTTP ${resp.status}`;
+            lastErr = new Error(msg);
+            lastErr.status = 502;
+            if (resp.status === 404 || /no longer available|not found|quota|rate limit|429|503|high demand/i.test(msg)) {
+                continue;
+            }
+            throw lastErr;
+        }
+        const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content
+            && data.candidates[0].content.parts;
+        const raw = Array.isArray(parts) ? parts.map((p) => p.text || '').join('\n') : '';
+        const parsed = extractJson(raw);
+        if (!parsed) {
+            lastErr = new Error('AI 冇產出規則');
+            lastErr.status = 502;
+            continue;
+        }
+        return parsed;
+    }
+    throw lastErr || new Error('Gemini model unavailable');
+}
+
+function rulesPayload(store, rules) {
+    return {
+        ok: true,
+        store_name: store,
+        label: store,
+        rules,
+        rules_zh: describeRules(rules),
+        stores: KNOWN_STORES.map((store_name) => ({ store_name, label: store_name })),
+    };
+}
+
+async function generateAndSavePayrollRules(storeName, text) {
+    const store = normalizeStoreName(storeName);
+    const policy = String(text || '').trim();
+    if (!policy) {
+        const err = new Error('請寫出糧規則');
+        err.status = 400;
+        throw err;
+    }
+    const generated = await callPayrollGemini(policy);
+    const rules = sanitizePayrollRules(generated, policy);
+    const saved = await savePayrollRules(store, rules);
+    return rulesPayload(store, saved);
+}
+
+async function handleClockAction({ store_name, pin_code }) {
+    const store = normalizeStoreName(store_name);
+    const pin = clipPin(pin_code);
+    if (pin.length !== 4) {
+        const err = new Error('PIN 要 4 位數字');
+        err.status = 400;
+        throw err;
+    }
+    const employee = await findEmployeeByPin(store, pin);
+    if (!employee) {
+        const err = new Error('搵唔到呢個 PIN');
+        err.status = 404;
+        throw err;
+    }
+    const open = await findOpenTimecard(employee.id);
+    if (!open) {
+        const row = await clockIn(employee);
+        return {
+            ok: true,
+            action: 'clock_in',
+            employee_name: employee.name,
+            store_name: store,
+            clock_in_time: row && row.clock_in_time,
+            message: `${employee.name} 已開工`,
+        };
+    }
+    const rules = await getPayrollRules(store);
+    const { row, calc } = await clockOut(open, employee, rules);
+    return {
+        ok: true,
+        action: 'clock_out',
+        employee_name: employee.name,
+        store_name: store,
+        clock_in_time: open.clock_in_time,
+        clock_out_time: row && row.clock_out_time,
+        total_hours: calc.total_hours,
+        total_pay: calc.total_pay,
+        message: `${employee.name} 收工。工時 ${calc.total_hours}，人工 HK$${calc.total_pay}`,
+        _push: {
+            store_name: store,
+            employee_name: employee.name,
+            total_hours: calc.total_hours,
+            total_pay: calc.total_pay,
+        },
+    };
+}
+
 module.exports = {
     KNOWN_STORES,
     normalizeStoreName,
@@ -352,4 +535,7 @@ module.exports = {
     findOpenTimecard,
     clockIn,
     clockOut,
+    rulesPayload,
+    generateAndSavePayrollRules,
+    handleClockAction,
 };

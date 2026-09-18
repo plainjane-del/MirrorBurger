@@ -1355,10 +1355,10 @@
             const msg = document.getElementById('clock-msg');
             if (msg) msg.textContent = '處理緊…';
             try {
-                const res = await fetch('/api/clock-action', {
+                const res = await fetch('/api/kitchen-menu', {
                     method: 'POST',
                     headers: { 'Content-Type':'application/json', Authorization:'Bearer ' + getToken() },
-                    body: JSON.stringify({ pin_code: clockPin, store_name: currentStore }),
+                    body: JSON.stringify({ action: 'clock_action', pin_code: clockPin, store_name: currentStore }),
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));

@@ -1526,8 +1526,8 @@
             try {
                 const store_name = payrollStore();
                 const [rules, staff] = await Promise.all([
-                    api('/api/generate-payroll-rules', { token, action: 'get', store_name }),
-                    api('/api/generate-payroll-rules', { token, action: 'list_employees', store_name }),
+                    api('/api/admin-menu', { token, action: 'payroll_get', store_name }),
+                    api('/api/admin-menu', { token, action: 'payroll_list_employees', store_name }),
                 ]);
                 renderPayrollRules(rules);
                 renderEmployees(staff.employees);
@@ -1549,8 +1549,9 @@
             btn.disabled = true;
             msg.textContent = 'AI 產生緊…';
             try {
-                const data = await api('/api/generate-payroll-rules', {
+                const data = await api('/api/admin-menu', {
                     token,
+                    action: 'payroll_generate',
                     store_name: payrollStore(),
                     text,
                 });
@@ -1569,9 +1570,9 @@
             const pin_code = document.getElementById('emp-pin').value.trim();
             const hourly_rate = document.getElementById('emp-rate').value;
             try {
-                await api('/api/generate-payroll-rules', {
+                await api('/api/admin-menu', {
                     token,
-                    action: 'upsert_employee',
+                    action: 'payroll_upsert_employee',
                     store_name: payrollStore(),
                     name,
                     pin_code,
@@ -1589,9 +1590,9 @@
 
         async function deleteEmployee(id) {
             if (!confirm('刪除呢個員工？')) return;
-            await api('/api/generate-payroll-rules', {
+            await api('/api/admin-menu', {
                 token,
-                action: 'delete_employee',
+                action: 'payroll_delete_employee',
                 store_name: payrollStore(),
                 id,
             });

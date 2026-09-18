@@ -3,6 +3,8 @@ const { requireKitchen } = require('./_kitchenAuth.js');
 const { listMenuItems, listModifiers, listSoldOutIds, getSetting, setMenuItemSoldOut, setStoreMenuSoldOut, isPermissionError } = require('./_menuDb.js');
 const { listKitchenOrders, listKitchenOrdersAllStores, startOfTodayHkIso, updateKitchenOrderStatus, createPosOrder, cancelPosOrder, markTableOrderPaid, getOrderByNo, markOrderPaid, inspectPendingKpay } = require('./_orders.js');
 const { setStoreOpen, syncStoreToSchedule } = require('./_storeSettings.js');
+const { handleClockAction } = require('./_payroll.js');
+const { sendClockPush } = require('./_notify.js');
 
 const ALLOWED_STATUS = new Set(['PREPARING', 'READY', 'COMPLETED']);
 
@@ -44,7 +46,7 @@ function resolveStoreAccess(auth, inputStoreName) {
 /**
  * Single kitchen function (Vercel Hobby = 12 functions max).
  * POST /api/kitchen-menu
- * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order, mark_table_paid, mark_order_paid
+ * Actions: list, set_sold_out, board, completed, stats, set_order_status, set_store_open, sync_store_hours, create_pos_order, cancel_pos_order, mark_table_paid, mark_order_paid, clock_action
  */
 module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -298,6 +300,24 @@ module.exports = async (req, res) => {
                 is_open: !!(row && row.is_open),
                 override_until: (row && row.override_until) || null,
             });
+        }
+
+        if (action === 'clock_action') {
+            const storeName = resolveStoreAccess(auth, body.store_name || body.store_id);
+            if (!storeName) return res.status(400).json({ error: 'Missing store_name' });
+            const result = await handleClockAction({
+                store_name: storeName,
+                pin_code: body.pin_code || body.pin,
+            });
+            if (result._push) {
+                try {
+                    await sendClockPush(result._push);
+                } catch (err) {
+                    console.warn('clock-out push failed:', err.message || err);
+                }
+                delete result._push;
+            }
+            return res.status(200).json(result);
         }
 
         return res.status(400).json({ error: 'Unknown action' });

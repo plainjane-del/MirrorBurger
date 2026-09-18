@@ -10,6 +10,14 @@ const {
 const { listKitchenOrders, getOrderByNo } = require('./_orders.js');
 const { KNOWN_STORES } = require('./_storeSettings.js');
 const { getTableCounts, setTableCount, STORE_LABEL_ZH, slugForStore } = require('./_tableSettings.js');
+const {
+    rulesPayload,
+    getPayrollRules,
+    generateAndSavePayrollRules,
+    listEmployees,
+    upsertEmployee,
+    deleteEmployee,
+} = require('./_payroll.js');
 
 function isPaidSale(order) {
     const pay = String((order && order.payment_status) || '').toUpperCase();
@@ -409,6 +417,57 @@ module.exports = async (req, res) => {
         if (action === 'delete_modifier') {
             if (!body.id) return res.status(400).json({ error: 'Missing id' });
             await deleteModifier(body.id);
+            return res.status(200).json({ ok: true });
+        }
+
+        // Payroll / staff (folded in to stay under Hobby's 12-function limit)
+        if (action === 'payroll_get') {
+            const store_name = String(body.store_name || '').trim();
+            if (!store_name) return res.status(400).json({ error: 'Missing store' });
+            const rules = await getPayrollRules(store_name);
+            const payload = rulesPayload(store_name, rules);
+            payload.label = STORE_LABEL_ZH[store_name] || store_name;
+            payload.stores = KNOWN_STORES.map((name) => ({
+                store_name: name,
+                label: STORE_LABEL_ZH[name] || name,
+            }));
+            return res.status(200).json(payload);
+        }
+
+        if (action === 'payroll_generate') {
+            const store_name = String(body.store_name || '').trim();
+            if (!store_name) return res.status(400).json({ error: 'Missing store' });
+            const saved = await generateAndSavePayrollRules(store_name, body.text || body.policy);
+            saved.label = STORE_LABEL_ZH[store_name] || store_name;
+            saved.stores = KNOWN_STORES.map((name) => ({
+                store_name: name,
+                label: STORE_LABEL_ZH[name] || name,
+            }));
+            return res.status(200).json(saved);
+        }
+
+        if (action === 'payroll_list_employees') {
+            const store_name = String(body.store_name || '').trim();
+            if (!store_name) return res.status(400).json({ error: 'Missing store' });
+            const employees = await listEmployees(store_name);
+            return res.status(200).json({ ok: true, store_name, employees });
+        }
+
+        if (action === 'payroll_upsert_employee') {
+            const store_name = String(body.store_name || '').trim();
+            const employee = await upsertEmployee({
+                id: body.id,
+                store_name,
+                name: body.name,
+                pin_code: body.pin_code,
+                hourly_rate: body.hourly_rate,
+            });
+            return res.status(200).json({ ok: true, employee });
+        }
+
+        if (action === 'payroll_delete_employee') {
+            const store_name = String(body.store_name || '').trim();
+            await deleteEmployee(store_name, body.id);
             return res.status(200).json({ ok: true });
         }
 
