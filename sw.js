@@ -1,4 +1,4 @@
-const CACHE = 'mirror-burger-v18';
+const CACHE = 'mirror-burger-v19-expense';
 const APP_SHELL = ['/', '/index.html', '/table.html', '/manifest.json', '/kitchen-manifest.json', '/pos-manifest.json', '/admin-manifest.json'];
 
 self.addEventListener('install', (event) => {
@@ -65,11 +65,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (req.mode === 'navigate' || url.pathname === '/pos.html' || url.pathname === '/pos') {
+  if (req.mode === 'navigate' || url.pathname === '/pos.html' || url.pathname === '/pos' || url.pathname === '/expense.html' || url.pathname === '/expense') {
     const isKitchen = url.pathname.includes('kitchen');
     const isPos = url.pathname.includes('pos');
     const isAdmin = url.pathname.includes('admin');
-    const isLiveOps = isKitchen || isPos || isAdmin;
+    const isExpense = url.pathname.includes('expense');
+    const isLiveOps = isKitchen || isPos || isAdmin || isExpense;
     const isTable = /^\/t\/\d+\/?$/.test(url.pathname) || url.pathname === '/table.html';
     const cacheKey = (isPos || isAdmin)
       ? null

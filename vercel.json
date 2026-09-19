@@ -3,7 +3,7 @@
   "trailingSlash": false,
   "functions": {
     "api/router.js": {
-      "maxDuration": 20
+      "maxDuration": 60
     },
     "api/kpay-checkout.js": {
       "maxDuration": 20
@@ -36,6 +36,7 @@
     { "source": "/api/kitchen-menu", "destination": "/api/router?route=kitchen-menu" },
     { "source": "/api/checkout", "destination": "/api/router?route=checkout" },
     { "source": "/api/ai-parse-order", "destination": "/api/router?route=ai-parse-order" },
+    { "source": "/api/upload-expense", "destination": "/api/router?route=upload-expense" },
     { "source": "/api/push-subscribe", "destination": "/api/router?route=push-subscribe" },
     { "source": "/api/push-vapid-public", "destination": "/api/router?route=push-vapid-public" },
     { "source": "/api/cleanup-pending", "destination": "/api/router?route=cleanup-pending" },
@@ -47,6 +48,8 @@
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/pos", "destination": "/pos.html" },
     { "source": "/kitchen", "destination": "/kitchen.html" },
+    { "source": "/expense", "destination": "/expense.html" },
+    { "source": "/acc-scan", "destination": "/acc-scan.html" },
     { "source": "/t/:store/:n", "destination": "/table.html" },
     { "source": "/t/:n", "destination": "/table.html" },
     { "source": "/p/:store", "destination": "/index.html" },
@@ -95,6 +98,38 @@
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/expense",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
+      ]
+    },
+    {
+      "source": "/expense.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
+      ]
+    },
+    {
+      "source": "/acc-scan",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
+      ]
+    },
+    {
+      "source": "/acc-scan.html",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
       ]
     },
     {
