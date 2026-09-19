@@ -470,12 +470,28 @@
     </div>
     </div><!-- /#kitchen-app -->
 
-    <script src="./js/i18n.js?v=20260919f"></script>
+    <script src="./js/i18n.js?v=20260919g"></script>
     <script>
         const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const KITCHEN_TOKEN_KEY = 'mb_kds_token';
+        const SB_ACCESS_KEY = 'mb_kds_sb_jwt';
+        let supabaseAccessToken = localStorage.getItem(SB_ACCESS_KEY) || sessionStorage.getItem(SB_ACCESS_KEY) || '';
+
+        function createKitchenClient() {
+            const jwt = supabaseAccessToken || '';
+            const opts = {
+                auth: { persistSession: false, autoRefreshToken: false },
+            };
+            // Prefer accessToken so REST + Realtime both use kitchen JWT (RLS).
+            if (jwt) {
+                opts.accessToken = async () => jwt;
+            }
+            return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, opts);
+        }
+
+        let client = createKitchenClient();
+        let kitchenChannel = null;
         let kitchenBooted = false;
         // 資料庫未必已有 status 欄；偵測到唔存在就自動退回只用 payment_status
         let hasStatusColumn = true;
@@ -500,6 +516,7 @@
         let currentBranch = '__all__';
         let sessionScope = 'single_store';
         let sessionStore = '';
+        let sessionStoreId = '';
         let audioUnlocked = false;
         let audioCtx = null;
         const WA_NOTIFIED_KEY = 'mb_kds_wa_notified';
@@ -588,12 +605,50 @@
         function applyKitchenAuth(data = {}) {
             sessionScope = data.scope === 'all_stores' ? 'all_stores' : 'single_store';
             sessionStore = data.store_name || '';
+            sessionStoreId = data.store_id || (sessionScope === 'all_stores' ? '*' : '');
+            if (data.supabase_access_token) {
+                saveSupabaseAccessToken(data.supabase_access_token);
+            }
             if (sessionScope === 'all_stores') {
                 currentBranch = '__all__';
             } else if (sessionStore) {
                 currentBranch = sessionStore;
             }
             syncBranchTabs();
+        }
+
+        function saveSupabaseAccessToken(jwt) {
+            supabaseAccessToken = String(jwt || '');
+            try {
+                if (supabaseAccessToken) {
+                    localStorage.setItem(SB_ACCESS_KEY, supabaseAccessToken);
+                    sessionStorage.setItem(SB_ACCESS_KEY, supabaseAccessToken);
+                } else {
+                    localStorage.removeItem(SB_ACCESS_KEY);
+                    sessionStorage.removeItem(SB_ACCESS_KEY);
+                }
+            } catch (_) { /* ignore */ }
+            if (kitchenChannel) {
+                try { client.removeChannel(kitchenChannel); } catch (_) { /* ignore */ }
+                kitchenChannel = null;
+            }
+            client = createKitchenClient();
+            try {
+                if (supabaseAccessToken && client.realtime && typeof client.realtime.setAuth === 'function') {
+                    client.realtime.setAuth(supabaseAccessToken);
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        function clearSupabaseAccessToken() {
+            saveSupabaseAccessToken('');
+        }
+
+        function getSupabaseAccessToken() {
+            return supabaseAccessToken
+                || localStorage.getItem(SB_ACCESS_KEY)
+                || sessionStorage.getItem(SB_ACCESS_KEY)
+                || '';
         }
 
         function canSwitchBranches() {
@@ -969,6 +1024,7 @@
             boardEtag = '';
             ordersMap = new Map();
             syncBranchTabs();
+            startRealtime();
             loadOrders();
             loadStoreStatus();
             syncScheduledHours();
@@ -1171,6 +1227,23 @@
             if (loadOrdersBusy) return;
             loadOrdersBusy = true;
             try {
+                // Prefer direct Supabase (JWT + RLS). Fallback to Vercel API.
+                const direct = await fetchBoardFromSupabase();
+                if (direct) {
+                    applyBoardRows(direct);
+                    // Pending KPay reconcile still needs the API (server-side KPay query).
+                    try {
+                        const data = await kitchenOrdersApi({ action: 'board' });
+                        if (data && !data.notModified) {
+                            pendingOnline = Array.isArray(data.pending_online) ? data.pending_online : [];
+                            renderPendingOnline();
+                        }
+                    } catch (err) {
+                        console.warn('pending_online via API skipped:', err.message || err);
+                    }
+                    return;
+                }
+
                 const data = await kitchenOrdersApi({ action: 'board' });
                 if (data && data.notModified) {
                     kitchenBoardReady = true;
@@ -1178,26 +1251,8 @@
                 }
                 const rows = Array.isArray(data.orders) ? data.orders : [];
                 pendingOnline = Array.isArray(data.pending_online) ? data.pending_online : [];
-                const prevKeys = new Set(ordersMap.keys());
-                const next = new Map();
-                rows.forEach(o => {
-                    if (isActiveKitchenOrder(o)) next.set(o.order_no, o);
-                });
-                const newcomers = [...next.keys()].filter((k) => !prevKeys.has(k));
-                ordersMap = next;
-                if (kitchenBoardReady && newcomers.length) {
-                    newcomers.forEach((k) => {
-                        highlightedOrders.add(k);
-                        setTimeout(() => {
-                            highlightedOrders.delete(k);
-                            renderOrders();
-                        }, 8000);
-                    });
-                    ringNewOrder();
-                }
-                kitchenBoardReady = true;
+                applyBoardRows(rows);
                 renderPendingOnline();
-                renderOrders();
             } catch (err) {
                 console.error(err);
                 const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">${escapeHtml(t('kitchen.alert.load_fail', { msg: err.message || err }))}</div>`;
@@ -1746,8 +1801,9 @@
         let realtimeOnline = false;
 
         function ordersPollMs() {
-            if (document.hidden) return 60000;
-            return realtimeOnline ? 30000 : 10000;
+            if (document.hidden) return 5 * 60 * 1000;
+            // Realtime is primary; slow safety net only.
+            return realtimeOnline ? 5 * 60 * 1000 : 20000;
         }
         function scheduleOrdersPoll() {
             if (ordersPollTimer) clearInterval(ordersPollTimer);
@@ -1778,9 +1834,57 @@
             }, 400);
         }
 
+        function handleOrdersRealtime(payload) {
+            const event = String(payload.eventType || payload.event || '').toUpperCase();
+            if (event === 'DELETE') {
+                const old = payload.old;
+                if (old && old.order_no && ordersMap.has(old.order_no)) {
+                    ordersMap.delete(old.order_no);
+                    renderOrders();
+                }
+                return;
+            }
+            const row = payload.new;
+            if (!row) {
+                requestBoardRefresh();
+                return;
+            }
+            if ((row.store_name || '') && !matchesBranch(row)) return;
+            const pay = String(row.payment_status || '').toUpperCase();
+            if (pay === 'PENDING') {
+                // Online unpaid — keep off board; API reconcile path still handles kpay banner.
+                if (ordersMap.has(row.order_no)) {
+                    ordersMap.delete(row.order_no);
+                    renderOrders();
+                }
+                return;
+            }
+            const wasNew = !ordersMap.has(row.order_no);
+            upsertOrder(row, {
+                ring: wasNew && kitchenBoardReady && isActiveKitchenOrder(row),
+                highlight: wasNew && kitchenBoardReady && isActiveKitchenOrder(row),
+            });
+        }
+
         function startRealtime() {
-            client
-                .channel('kitchen-kds')
+            if (kitchenChannel) {
+                try { client.removeChannel(kitchenChannel); } catch (_) { /* ignore */ }
+                kitchenChannel = null;
+            }
+            const jwt = getSupabaseAccessToken();
+            try {
+                if (jwt && client.realtime && typeof client.realtime.setAuth === 'function') {
+                    client.realtime.setAuth(jwt);
+                }
+            } catch (_) { /* ignore */ }
+            const filter = (!isAllBranchesView() && currentBranch)
+                ? `store_name=eq.${currentBranch}`
+                : undefined;
+            const ordersOpts = { event: '*', schema: 'public', table: 'orders' };
+            if (filter) ordersOpts.filter = filter;
+
+            kitchenChannel = client
+                .channel('kitchen-kds-' + (filter || 'all'))
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_settings' }, (payload) => {
                     const row = payload.new;
                     if (!row) return;
@@ -1790,13 +1894,14 @@
                         renderStoreStatusBtn();
                     }
                 })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                    const row = payload.new || payload.old;
-                    if (row && (row.store_name || '') && !matchesBranch(row)) return;
-                    requestBoardRefresh();
+                .on('postgres_changes', ordersOpts, (payload) => {
+                    handleOrdersRealtime(payload);
                 })
                 .subscribe((status) => {
                     setConn(status === 'SUBSCRIBED');
+                    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        setConn(false);
+                    }
                 });
         }
 
@@ -1845,6 +1950,56 @@
         function clearKitchenToken() {
             sessionStorage.removeItem(KITCHEN_TOKEN_KEY);
             localStorage.removeItem(KITCHEN_TOKEN_KEY);
+            clearSupabaseAccessToken();
+        }
+
+        const BOARD_COLUMNS = [
+            'order_no', 'display_id', 'store_name', 'customer_name', 'customer_phone',
+            'pickup_time', 'items_json', 'total_amount', 'payment_status', 'status',
+            'channel', 'pay_method', 'created_at',
+        ].join(',');
+
+        async function fetchBoardFromSupabase() {
+            const jwt = getSupabaseAccessToken();
+            if (!jwt) return null;
+            const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+            let q = client
+                .from('orders')
+                .select(BOARD_COLUMNS)
+                .gte('created_at', since)
+                .order('created_at', { ascending: false })
+                .limit(80);
+            if (!isAllBranchesView()) {
+                q = q.eq('store_name', currentBranch);
+            }
+            const { data, error } = await q;
+            if (error) {
+                console.warn('direct board select failed, fallback API:', error.message || error);
+                return null;
+            }
+            return Array.isArray(data) ? data : [];
+        }
+
+        function applyBoardRows(rows, { ringNewcomers = true } = {}) {
+            const prevKeys = new Set(ordersMap.keys());
+            const next = new Map();
+            (rows || []).forEach((o) => {
+                if (isActiveKitchenOrder(o)) next.set(o.order_no, o);
+            });
+            const newcomers = [...next.keys()].filter((k) => !prevKeys.has(k));
+            ordersMap = next;
+            if (ringNewcomers && kitchenBoardReady && newcomers.length) {
+                newcomers.forEach((k) => {
+                    highlightedOrders.add(k);
+                    setTimeout(() => {
+                        highlightedOrders.delete(k);
+                        renderOrders();
+                    }, 8000);
+                });
+                ringNewOrder();
+            }
+            kitchenBoardReady = true;
+            renderOrders();
         }
 
         function updatePushNudge() {
@@ -2015,6 +2170,9 @@
                 token: data.token || '',
                 scope: data.scope || 'single_store',
                 store_name: data.store_name || '',
+                store_id: data.store_id || '',
+                supabase_access_token: data.supabase_access_token || '',
+                supabase_jwt_ready: !!data.supabase_jwt_ready,
             };
         }
 

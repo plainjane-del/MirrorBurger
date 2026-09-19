@@ -35,6 +35,36 @@ function base64url(input) {
     return Buffer.from(String(input)).toString('base64url');
 }
 
+function storeIdFromName(storeName) {
+    const raw = String(storeName || '').trim();
+    if (!raw) return '';
+    if (raw === 'Sai Ying Pun') return 'SYP';
+    if (raw === 'Fortress Hill') return 'TH';
+    if (raw === 'Tsuen Wan (Takeaway Only)') return 'TW';
+    const map = {
+        'SAI_YING_PUN': 'SYP',
+        'FORTRESS_HILL': 'TH',
+        'TIN_HAU': 'TH',
+        'TSUEN_WAN_TAKEAWAY_ONLY': 'TW',
+        'TSUEN_WAN': 'TW',
+        SYP: 'SYP',
+        TH: 'TH',
+        TW: 'TW',
+    };
+    const slug = slugifyStore(raw);
+    return map[slug] || map[raw.toUpperCase()] || '';
+}
+
+function enrichAuthClaims(auth) {
+    if (!auth || typeof auth !== 'object') return auth;
+    const scope = auth.scope === 'all_stores' ? 'all_stores' : 'single_store';
+    const store_name = auth.store_name ? String(auth.store_name) : '';
+    const store_id = scope === 'all_stores'
+        ? '*'
+        : (auth.store_id || storeIdFromName(store_name) || '');
+    return { ...auth, scope, store_name, store_id };
+}
+
 function parseKitchenToken(token, secret) {
     if (!token || typeof token !== 'string' || !token.includes('.')) return null;
     const [payloadPart, sig] = token.split('.');
@@ -52,12 +82,12 @@ function parseKitchenToken(token, secret) {
     // Legacy iPad tokens: "<expMs>.<hmac>"
     const legacyExp = Number(payloadPart);
     if (Number.isFinite(legacyExp) && Date.now() <= legacyExp && signatureMatches(payloadPart)) {
-        return {
+        return enrichAuthClaims({
             exp: legacyExp,
             scope: 'all_stores',
             store_name: '',
             legacy: true,
-        };
+        });
     }
 
     const payload = Buffer.from(payloadPart, 'base64url').toString('utf8');
@@ -66,18 +96,21 @@ function parseKitchenToken(token, secret) {
         const parsed = JSON.parse(payload);
         if (!parsed || typeof parsed !== 'object') return null;
         if (!Number.isFinite(Number(parsed.exp)) || Date.now() > Number(parsed.exp)) return null;
-        return {
+        return enrichAuthClaims({
             exp: Number(parsed.exp),
             scope: parsed.scope === 'all_stores' ? 'all_stores' : 'single_store',
             store_name: parsed.store_name ? String(parsed.store_name) : '',
-        };
+            store_id: parsed.store_id ? String(parsed.store_id) : '',
+        });
     } catch {
         return null;
     }
 }
 
 function makeKitchenToken(secretOrAuth, maybeAuth) {
-    const auth = maybeAuth || (secretOrAuth && typeof secretOrAuth === 'object' ? secretOrAuth : {});
+    const auth = enrichAuthClaims(
+        maybeAuth || (secretOrAuth && typeof secretOrAuth === 'object' ? secretOrAuth : {})
+    );
     const secret = typeof secretOrAuth === 'string' && maybeAuth
         ? secretOrAuth
         : getTokenSecret();
@@ -87,6 +120,7 @@ function makeKitchenToken(secretOrAuth, maybeAuth) {
         exp,
         scope: auth.scope === 'all_stores' ? 'all_stores' : 'single_store',
         store_name: auth.store_name ? String(auth.store_name) : '',
+        store_id: auth.store_id || (auth.scope === 'all_stores' ? '*' : ''),
     });
     const payloadB64 = base64url(payload);
     const sig = signPayload(payload, secret);
@@ -139,4 +173,6 @@ module.exports = {
     verifyKitchenToken,
     verifyKitchenTokenAny,
     requireKitchen,
+    storeIdFromName,
+    enrichAuthClaims,
 };
