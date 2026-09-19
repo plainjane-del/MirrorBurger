@@ -354,11 +354,11 @@
             'admin.printer.open_pos': '開啟 POS 設定出單機',
 
             // —— Kitchen ——
-            'kitchen.login.title': 'Kitchen Login',
+            'kitchen.login.title': '廚房登入',
             'kitchen.login.hint': '用分店密碼登入；Master 可以切換所有分店。',
             'kitchen.login.pwa': 'iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。',
             'kitchen.login.submit': '進入廚房',
-            'kitchen.login.password': 'Password',
+            'kitchen.login.password': '廚房密碼',
             'kitchen.store.syp': '西營盤',
             'kitchen.store.th': '天后',
             'kitchen.store.tw': '荃灣',
