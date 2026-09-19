@@ -47,6 +47,17 @@
         .nav-btn.is-on { background: #fafafa; color: #0a0a0a; }
         .range-btn { background: #262626; color: #d4d4d4; }
         .range-btn.is-on { background: #fafafa; color: #0a0a0a; }
+        #sales-range-select {
+            width: auto; min-width: 11rem; max-width: 100%;
+            font-weight: 800; padding: 0.6rem 0.9rem;
+        }
+        @media (min-width: 768px) {
+            #sales-range-select { display: none !important; }
+            #sales-range-btns { display: flex !important; }
+        }
+        @media (max-width: 767px) {
+            #sales-range-btns { display: none !important; }
+        }
         .metric-hero { background: linear-gradient(180deg, #1a1a1a, #141414); }
         .bar-track { height: 8px; background: #262626; border-radius: 999px; overflow: hidden; }
         .bar-fill { height: 100%; border-radius: 999px; }
@@ -185,8 +196,8 @@
         <div class="app-main max-w-5xl mx-auto px-4 py-6 w-full">
         <div id="app-toolbar" class="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div>
-                <h1 class="text-2xl font-black" id="page-title">概况</h1>
-                <p class="text-neutral-500 text-sm" id="page-sub">每間舖收咗幾多錢</p>
+                <h1 class="text-2xl font-black" id="page-title">銷售概況</h1>
+                <p class="text-neutral-500 text-sm hidden" id="page-sub"></p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
                 <button type="button" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
@@ -198,8 +209,17 @@
         <p id="load-hint" class="hidden mb-4 text-sm text-neutral-400"></p>
 
         <div id="panel-sales">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+                <select id="sales-range-select" aria-label="Date range" onchange="setSalesRange(this.value)">
+                    <option value="today" data-i18n="admin.range.today">今日</option>
+                    <option value="yesterday" data-i18n="admin.range.yesterday">昨日</option>
+                    <option value="week" data-i18n="admin.range.week">一星期</option>
+                    <option value="month" data-i18n="admin.range.month">今個月</option>
+                    <option value="ytd" data-i18n="admin.range.ytd">年頭到而家</option>
+                    <option value="year" data-i18n="admin.range.year">一年</option>
+                    <option value="custom" data-i18n="admin.range.custom">自訂</option>
+                </select>
+                <div id="sales-range-btns" class="flex flex-wrap gap-2" style="display:none">
                     <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')" data-i18n="admin.range.today">今日</button>
                     <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')" data-i18n="admin.range.yesterday">昨日</button>
                     <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')" data-i18n="admin.range.week">一星期</button>
@@ -208,7 +228,6 @@
                     <button type="button" id="range-year" class="btn range-btn" onclick="setSalesRange('year')" data-i18n="admin.range.year">一年</button>
                     <button type="button" id="range-custom" class="btn range-btn" onclick="setSalesRange('custom')" data-i18n="admin.range.custom">自訂</button>
                 </div>
-                <p class="text-sm text-neutral-500" data-i18n="admin.sales.paid_only">已收款先計；未付／取消唔計。</p>
             </div>
             <div id="sales-custom" class="hidden flex flex-wrap gap-3 items-end mb-4">
                 <div>
@@ -577,7 +596,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919f"></script>
+    <script src="./js/i18n.js?v=20260919h"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -629,7 +648,7 @@
 
         const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', 'year', 'custom'];
         const PAGE_KEYS = {
-            sales: { title: 'admin.page.sales.title', sub: 'admin.page.sales.sub' },
+            sales: { title: 'admin.page.sales.title', sub: '' },
             items: { title: 'admin.page.items.title', sub: 'admin.page.items.sub' },
             tables: { title: 'admin.page.tables.title', sub: 'admin.page.tables.sub' },
             orders: { title: 'admin.page.orders.title', sub: 'admin.page.orders.sub' },
@@ -639,7 +658,10 @@
         };
         function pageMeta(which) {
             const keys = PAGE_KEYS[which] || PAGE_KEYS.sales;
-            return { title: t(keys.title), sub: t(keys.sub) };
+            return {
+                title: t(keys.title),
+                sub: keys.sub ? t(keys.sub) : '',
+            };
         }
 
         async function boot() {
@@ -730,7 +752,10 @@
             currentTab = which;
             const meta = pageMeta(which);
             document.getElementById('page-title').textContent = meta.title;
-            document.getElementById('page-sub').textContent = meta.sub;
+            const subEl = document.getElementById('page-sub');
+            const sub = String(meta.sub || '').trim();
+            subEl.textContent = sub;
+            subEl.classList.toggle('hidden', !sub);
             ['sales', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
@@ -845,6 +870,10 @@
                 const btn = document.getElementById(prefix + name);
                 if (btn) btn.classList.toggle('is-on', next === name);
             });
+            if (prefix === 'range-') {
+                const sel = document.getElementById('sales-range-select');
+                if (sel && sel.value !== next) sel.value = next;
+            }
         }
 
         function setTicketRange(which, opts) {
@@ -1944,7 +1973,11 @@
                 const titleEl = document.getElementById('page-title');
                 const subEl = document.getElementById('page-sub');
                 if (titleEl) titleEl.textContent = meta.title;
-                if (subEl) subEl.textContent = meta.sub;
+                if (subEl) {
+                    const sub = String(meta.sub || '').trim();
+                    subEl.textContent = sub;
+                    subEl.classList.toggle('hidden', !sub);
+                }
                 if (salesData) renderSales();
                 if (ticketsData) renderTickets(ticketsData);
                 renderItems();
