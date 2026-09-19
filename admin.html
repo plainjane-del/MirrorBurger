@@ -47,12 +47,25 @@
         }
         .nav-btn.is-on { background: #fafafa; color: #0a0a0a; }
         .nav-primary { display: contents; }
-        .nav-more { display: contents; }
-        .nav-section-label { display: none; }
-        .nav-btn-soft {
-            font-weight: 700; font-size: 0.8rem; padding: 0.4rem 0.75rem; color: #737373;
+        .nav-more {
+            display: flex; flex-direction: column; gap: 0.25rem;
+            flex: 0 0 auto; position: relative;
         }
-        .nav-btn-soft.is-on { background: #262626; color: #f5f5f5; }
+        #nav-more-btn {
+            display: inline-flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+        }
+        .nav-more-caret { font-size: 0.75em; opacity: 0.7; transition: transform .15s ease; }
+        #nav-more-btn[aria-expanded="true"] .nav-more-caret { transform: rotate(180deg); }
+        .nav-more-panel {
+            display: none; flex-direction: column; gap: 0.25rem;
+            padding: 0.35rem; border-radius: 0.85rem;
+            background: #111; border: 1px solid #262626;
+        }
+        .nav-more.is-open .nav-more-panel { display: flex; }
+        .nav-more-panel .nav-btn {
+            font-weight: 700; color: #a3a3a3;
+        }
+        .nav-more-panel .nav-btn.is-on { background: #262626; color: #f5f5f5; }
         .range-btn { background: #262626; color: #d4d4d4; }
         .range-btn.is-on { background: #fafafa; color: #0a0a0a; }
         .inline-name {
@@ -150,13 +163,9 @@
             .nav-more {
                 display: flex; flex-direction: column; gap: 0.25rem; width: 100%;
             }
-            .nav-more { margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid #262626; }
-            .nav-section-label {
-                display: block;
-                font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em;
-                text-transform: uppercase; color: #525252;
-                padding: 0 0.35rem 0.35rem;
-            }
+            .nav-more { margin-top: 0.35rem; }
+            #nav-more-btn { width: 100%; }
+            .nav-more-panel { width: 100%; }
             .app-main { flex: 1; min-width: 0; }
             #nav-brand, #nav-logout { display: block !important; }
             #toolbar-logout { display: none; }
@@ -235,13 +244,18 @@
                 <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')" data-i18n="admin.nav.tables">枱 QR</button>
                 <button type="button" id="tab-payroll" class="nav-btn" onclick="setTab('payroll')" data-i18n="admin.nav.payroll">出糧</button>
             </div>
-            <div class="nav-more">
-                <div class="nav-section-label" data-i18n="admin.nav.more">更多</div>
-                <button type="button" id="tab-inventory" class="nav-btn nav-btn-soft" onclick="setTab('inventory')" data-i18n="admin.nav.inventory">庫存</button>
-                <button type="button" id="tab-printer" class="nav-btn nav-btn-soft" onclick="setTab('printer')" data-i18n="admin.nav.printer">出單機</button>
-                <a class="nav-btn nav-btn-soft" href="/pos.html" data-i18n="admin.nav.pos">POS</a>
-                <a class="nav-btn nav-btn-soft" href="/kitchen.html" data-i18n="admin.nav.kitchen">廚房</a>
-                <a class="nav-btn nav-btn-soft" href="/" data-i18n="admin.nav.site">網站</a>
+            <div class="nav-more" id="nav-more">
+                <button type="button" id="nav-more-btn" class="nav-btn" onclick="toggleNavMore()" aria-expanded="false" aria-controls="nav-more-panel">
+                    <span data-i18n="admin.nav.more">更多</span>
+                    <span class="nav-more-caret" aria-hidden="true">▾</span>
+                </button>
+                <div id="nav-more-panel" class="nav-more-panel" role="group" aria-label="More">
+                    <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')" data-i18n="admin.nav.inventory">庫存</button>
+                    <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')" data-i18n="admin.nav.printer">出單機</button>
+                    <a class="nav-btn" href="/pos.html" data-i18n="admin.nav.pos">POS</a>
+                    <a class="nav-btn" href="/kitchen.html" data-i18n="admin.nav.kitchen">廚房</a>
+                    <a class="nav-btn" href="/" data-i18n="admin.nav.site">網站</a>
+                </div>
             </div>
             <div class="mt-auto hidden" id="nav-logout" style="padding-top:1rem">
                 <button type="button" class="btn btn-ghost w-full" onclick="logout()" data-i18n="common.logout">登出</button>
