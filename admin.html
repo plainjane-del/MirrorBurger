@@ -1714,13 +1714,20 @@
         async function toggleSold(id) {
             const i = items.find((x) => x.id === id);
             if (!i) return;
-            await api('/api/admin-menu', {
-                token,
-                action: 'upsert_item',
-                item: { ...i, is_sold_out: !i.is_sold_out },
-            });
-            await loadAll();
-            toast(i.is_sold_out ? t('admin.toast.restocked') : t('admin.toast.marked_sold'));
+            const nextSold = !i.is_sold_out;
+            try {
+                await api('/api/admin-menu', {
+                    token,
+                    action: 'set_sold_out',
+                    id,
+                    is_sold_out: nextSold,
+                });
+                i.is_sold_out = nextSold;
+                renderItems();
+                toast(nextSold ? t('admin.toast.marked_sold') : t('admin.toast.restocked'));
+            } catch (e) {
+                alert(e.message || t('admin.payroll.fail'));
+            }
         }
 
         async function removeItem(id) {

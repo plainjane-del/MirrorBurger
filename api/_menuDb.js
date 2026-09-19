@@ -65,7 +65,7 @@ function stripMissingColumn(err, body) {
 
 async function sbWrite(path, options = {}) {
     let opts = options;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 16; i++) {
         try {
             return await sbFetch(path, opts);
         } catch (err) {
@@ -153,15 +153,23 @@ async function listModifiers({ includeInactive = false } = {}) {
 
 async function upsertMenuItem(item) {
     if (!item || !item.id) throw new Error('Missing item id');
+    const descEn = item.desc_en ?? item.description_en ?? null;
+    const descZh = item.desc_zh ?? item.description_zh ?? null;
+    const img = item.img ?? item.image_url ?? null;
+    // Live schema is lean (id/category/names/price/descriptions/image/is_sold_out/costing).
+    // Extra fields are stripped by sbWrite when columns are missing.
     const row = {
         id: String(item.id).trim(),
         category: item.category,
         name_en: item.name_en,
         name_zh: item.name_zh,
         price: Number(item.price),
-        desc_en: item.desc_en ?? null,
-        desc_zh: item.desc_zh ?? null,
-        img: item.img ?? null,
+        description_en: descEn,
+        description_zh: descZh,
+        image_url: img,
+        desc_en: descEn,
+        desc_zh: descZh,
+        img,
         tag_en: item.tag_en ?? null,
         tag_zh: item.tag_zh ?? null,
         dietary: item.dietary ?? [],
