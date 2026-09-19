@@ -7,13 +7,28 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   merchant_name text,
   amount numeric(12,2),
   expense_date date,
+  category text NOT NULL DEFAULT 'other',
+  notes text,
   receipt_url text,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT expenses_category_chk CHECK (category IN (
+    'cost_of_sales',
+    'packaging',
+    'rent_utilities',
+    'repairs',
+    'marketing',
+    'admin',
+    'other'
+  ))
 );
 
 CREATE INDEX IF NOT EXISTS expenses_store_id_idx ON public.expenses (store_id);
 CREATE INDEX IF NOT EXISTS expenses_expense_date_idx ON public.expenses (expense_date DESC);
 CREATE INDEX IF NOT EXISTS expenses_created_at_idx ON public.expenses (created_at DESC);
+CREATE INDEX IF NOT EXISTS expenses_category_idx ON public.expenses (category);
+
+COMMENT ON COLUMN public.expenses.category IS
+  'SME-FRS nature: cost_of_sales (食材) vs operating expense classes';
 
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 

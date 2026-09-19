@@ -343,6 +343,7 @@
                 <h2 class="text-lg font-black mb-2" data-i18n="admin.acc.expenses_title">開支明細</h2>
                 <div id="acc-expenses" class="space-y-2"></div>
             </div>
+            <p id="acc-disclaimer" class="text-xs font-bold text-amber-200/80 leading-relaxed"></p>
             <p id="acc-note" class="text-xs font-bold text-neutral-500"></p>
         </div>
 
@@ -708,7 +709,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919acc"></script>
+    <script src="./js/i18n.js?v=20260919sme"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -1113,43 +1114,65 @@
             const d = accData;
             if (!d) return;
             const sum = document.getElementById('acc-summary');
-            const profitClass = Number(d.profit) >= 0 ? 'text-emerald-400' : 'text-red-400';
+            const pbt = d.profit_before_tax != null ? d.profit_before_tax : d.profit;
+            const profitClass = Number(pbt) >= 0 ? 'text-emerald-400' : 'text-red-400';
+            const lines = Array.isArray(d.statement) && d.statement.length
+                ? d.statement
+                : [
+                    { key: 'turnover', amount: d.turnover ?? d.revenue, role: 'header' },
+                    { key: 'cost_of_sales', amount: d.cost_of_sales || 0, role: 'deduct' },
+                    { key: 'gross_profit', amount: d.gross_profit ?? ((d.turnover ?? d.revenue) - (d.cost_of_sales || 0)), role: 'subtotal' },
+                    { key: 'staff_costs', amount: d.staff_costs ?? d.labor, role: 'deduct' },
+                    { key: 'profit_before_tax', amount: pbt, role: 'total' },
+                ];
+
+            const stmtHtml = lines.map((line) => {
+                const label = t('admin.acc.line.' + line.key);
+                const amt = Number(line.amount) || 0;
+                const showNeg = line.role === 'deduct' && amt !== 0;
+                const display = showNeg ? '−' + money2(amt) : money2(amt);
+                const rowCls = line.role === 'total'
+                    ? 'border-t border-neutral-600 pt-2 mt-1 text-base font-black ' + profitClass
+                    : line.role === 'subtotal'
+                        ? 'border-t border-neutral-700 pt-2 mt-1 font-black text-neutral-100'
+                        : line.role === 'header'
+                            ? 'font-black text-yellow-400'
+                            : 'text-neutral-300';
+                const labelCls = line.role === 'deduct' ? 'font-bold pl-3' : 'font-black';
+                return `<div class="flex items-baseline justify-between gap-3 text-sm ${rowCls}">
+                    <span class="${labelCls}">${esc(label)}</span>
+                    <span class="tabular-nums shrink-0">${esc(display)}</span>
+                </div>`;
+            }).join('');
+
             sum.innerHTML = `
                 <div class="card space-y-3">
-                    <div class="text-xs font-bold text-neutral-500">${esc(d.range_label || '')}</div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div>
-                            <div class="text-[11px] font-bold text-neutral-500" data-i18n-skip>${esc(t('admin.acc.revenue'))}</div>
-                            <div class="text-xl font-black text-yellow-400">${esc(money(d.revenue))}</div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.expenses'))}</div>
-                            <div class="text-xl font-black">${esc(money2(d.expenses))}</div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.labor'))}</div>
-                            <div class="text-xl font-black">${esc(money2(d.labor))}</div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.profit'))}</div>
-                            <div class="text-xl font-black ${profitClass}">${esc(money2(d.profit))}</div>
-                        </div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                        <div class="text-xs font-bold text-neutral-500">${esc(d.range_label || '')}</div>
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-neutral-500">${esc(t('admin.acc.framework'))}</div>
                     </div>
-                    <p class="text-xs font-bold text-neutral-500">${esc(t('admin.acc.formula'))}</p>
+                    <div class="text-[11px] font-bold text-neutral-500 mb-1">${esc(t('admin.acc.statement_title'))}</div>
+                    <div class="space-y-1.5">${stmtHtml}</div>
+                    <p class="text-xs font-bold text-neutral-500 pt-1">${esc(t('admin.acc.currency_note'))}</p>
                 </div>`;
 
             const stores = Array.isArray(d.stores) ? d.stores : [];
             document.getElementById('acc-stores').innerHTML = stores.map((s) => {
-                const pc = Number(s.profit) >= 0 ? 'text-emerald-400' : 'text-red-400';
+                const sp = s.profit_before_tax != null ? s.profit_before_tax : s.profit;
+                const pc = Number(sp) >= 0 ? 'text-emerald-400' : 'text-red-400';
+                const gp = s.gross_profit != null
+                    ? s.gross_profit
+                    : money2Num((s.turnover ?? s.revenue) - (s.cost_of_sales || 0));
                 return `<div class="card">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <div class="font-black">${esc(s.label || s.store_name)}</div>
-                        <div class="font-black ${pc}">${esc(money2(s.profit))}</div>
+                        <div class="font-black ${pc}">${esc(money2(sp))}</div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2 text-xs font-bold text-neutral-400">
-                        <div>${esc(t('admin.acc.revenue'))}<div class="text-sm text-neutral-200">${esc(money(s.revenue))}</div></div>
-                        <div>${esc(t('admin.acc.expenses'))}<div class="text-sm text-neutral-200">${esc(money2(s.expenses))}</div></div>
-                        <div>${esc(t('admin.acc.labor'))}<div class="text-sm text-neutral-200">${esc(money2(s.labor))}</div></div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold text-neutral-400">
+                        <div>${esc(t('admin.acc.line.turnover'))}<div class="text-sm text-neutral-200">${esc(money(s.turnover ?? s.revenue))}</div></div>
+                        <div>${esc(t('admin.acc.line.cost_of_sales'))}<div class="text-sm text-neutral-200">${esc(money2(s.cost_of_sales || 0))}</div></div>
+                        <div>${esc(t('admin.acc.line.gross_profit'))}<div class="text-sm text-neutral-200">${esc(money2(gp))}</div></div>
+                        <div>${esc(t('admin.acc.line.staff_costs'))}<div class="text-sm text-neutral-200">${esc(money2(s.staff_costs ?? s.labor))}</div></div>
                     </div>
                 </div>`;
             }).join('') || `<p class="text-neutral-500">${esc(t('admin.acc.empty_stores'))}</p>`;
@@ -1163,13 +1186,14 @@
             } else {
                 expEl.innerHTML = rows.slice(0, 40).map((e) => {
                     const amt = e.amount == null ? '—' : money2(e.amount);
+                    const cat = t('admin.acc.cat.' + (e.category || 'other'));
                     const link = e.receipt_url
                         ? `<a class="text-sky-400 underline text-xs" href="${esc(e.receipt_url)}" target="_blank" rel="noopener">${esc(t('admin.acc.receipt'))}</a>`
                         : '';
                     return `<div class="card flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <div class="font-black truncate">${esc(e.merchant_name || t('admin.acc.unknown_merchant'))}</div>
-                            <div class="text-xs font-bold text-neutral-500">${esc(e.label || e.store_id)} · ${esc(e.expense_date || '')}</div>
+                            <div class="text-xs font-bold text-neutral-500">${esc(e.label || e.store_id)} · ${esc(e.expense_date || '')} · ${esc(cat)}</div>
                             ${link}
                         </div>
                         <div class="font-black shrink-0">${esc(amt)}</div>
@@ -1177,8 +1201,21 @@
                 }).join('');
             }
 
+            const disc = document.getElementById('acc-disclaimer');
+            if (disc) {
+                const lang = (typeof MB_I18N !== 'undefined' && MB_I18N.getLang)
+                    ? MB_I18N.getLang()
+                    : (localStorage.getItem('mb_lang') || 'zh');
+                const fromApi = d.disclaimer && (lang === 'en' ? d.disclaimer.en : d.disclaimer.zh);
+                disc.textContent = fromApi || t('admin.acc.disclaimer');
+            }
             const note = document.getElementById('acc-note');
             if (note) note.textContent = t('admin.acc.note_cogs');
+        }
+
+        function money2Num(n) {
+            const v = Number(n || 0);
+            return Math.round(v * 100) / 100;
         }
 
         function pctBar(part, total) {
