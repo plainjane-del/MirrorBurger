@@ -518,6 +518,22 @@ async function handleClockAction({ store_name, pin_code }) {
     };
 }
 
+async function listTimecardsInRange(storeName, fromIso, toIso) {
+    const store = normalizeStoreName(storeName);
+    const from = String(fromIso || '').trim();
+    const to = String(toIso || '').trim();
+    if (!from) return [];
+    let path = `timecards?store_name=eq.${encodeURIComponent(store)}`
+        + `&clock_in_time=gte.${encodeURIComponent(from)}`
+        + `&select=id,store_name,employee_id,clock_in_time,clock_out_time,total_hours,total_pay`
+        + `&order=clock_in_time.desc&limit=2000`;
+    if (to && !to.startsWith('9999')) {
+        path += `&clock_in_time=lt.${encodeURIComponent(to)}`;
+    }
+    const rows = await sbFetch(path);
+    return Array.isArray(rows) ? rows : [];
+}
+
 module.exports = {
     KNOWN_STORES,
     normalizeStoreName,
@@ -535,6 +551,7 @@ module.exports = {
     findOpenTimecard,
     clockIn,
     clockOut,
+    listTimecardsInRange,
     rulesPayload,
     generateAndSavePayrollRules,
     handleClockAction,

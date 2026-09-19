@@ -239,6 +239,7 @@
             </div>
             <div class="nav-primary">
                 <button type="button" id="tab-sales" class="nav-btn is-on" onclick="setTab('sales')" data-i18n="admin.nav.sales">銷售</button>
+                <button type="button" id="tab-acc" class="nav-btn" onclick="setTab('acc')" data-i18n="admin.nav.acc">帳目</button>
                 <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')" data-i18n="admin.nav.orders">訂單</button>
                 <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')" data-i18n="admin.nav.items">菜品</button>
                 <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')" data-i18n="admin.nav.tables">枱 QR</button>
@@ -252,7 +253,7 @@
                 <div id="nav-more-panel" class="nav-more-panel" role="group" aria-label="More">
                     <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')" data-i18n="admin.nav.inventory">庫存</button>
                     <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')" data-i18n="admin.nav.printer">出單機</button>
-                    <a class="nav-btn" href="/expense.html" data-i18n="admin.nav.expense">開支</a>
+                    <a class="nav-btn" href="/expense.html" data-i18n="admin.nav.expense_scan">掃開支</a>
                     <a class="nav-btn" href="/pos.html" data-i18n="admin.nav.pos">POS</a>
                     <a class="nav-btn" href="/kitchen.html" data-i18n="admin.nav.kitchen">廚房</a>
                     <a class="nav-btn" href="/" data-i18n="admin.nav.site">網站</a>
@@ -311,6 +312,38 @@
             </div>
             <div id="sales-summary"></div>
             <div id="sales-stores" class="space-y-3 mt-4"></div>
+        </div>
+
+        <div id="panel-acc" class="hidden space-y-4">
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="acc-range-select" aria-label="Acc date range" onchange="setAccRange(this.value)">
+                    <option value="today" data-i18n="admin.range.today">今日</option>
+                    <option value="yesterday" data-i18n="admin.range.yesterday">昨日</option>
+                    <option value="week" data-i18n="admin.range.week">一星期</option>
+                    <option value="month" selected data-i18n="admin.range.month">今個月</option>
+                    <option value="ytd" data-i18n="admin.range.ytd">年頭到而家</option>
+                    <option value="year" data-i18n="admin.range.year">一年</option>
+                    <option value="custom" data-i18n="admin.range.custom">自訂</option>
+                </select>
+                <a class="btn btn-primary" href="/expense.html" data-i18n="admin.acc.scan_cta">＋ 掃收據</a>
+            </div>
+            <div id="acc-custom" class="hidden flex flex-wrap gap-3 items-end">
+                <div>
+                    <label data-i18n="admin.from">由</label>
+                    <input type="date" id="acc-from" onchange="onCustomDates('acc')">
+                </div>
+                <div>
+                    <label data-i18n="admin.to">至</label>
+                    <input type="date" id="acc-to" onchange="onCustomDates('acc')">
+                </div>
+            </div>
+            <div id="acc-summary"></div>
+            <div id="acc-stores" class="space-y-3"></div>
+            <div>
+                <h2 class="text-lg font-black mb-2" data-i18n="admin.acc.expenses_title">開支明細</h2>
+                <div id="acc-expenses" class="space-y-2"></div>
+            </div>
+            <p id="acc-note" class="text-xs font-bold text-neutral-500"></p>
         </div>
 
         <div id="panel-items" class="hidden">
@@ -700,6 +733,8 @@
         let qrMode = 'table';
         let salesData = null;
         let salesRange = 'today';
+        let accRange = 'month';
+        let accData = null;
         let currentTab = 'sales';
         let ticketRows = [];
         let ticketsData = null;
@@ -728,6 +763,7 @@
         const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', 'year', 'custom'];
         const PAGE_KEYS = {
             sales: { title: 'admin.page.sales.title', sub: '' },
+            acc: { title: 'admin.page.acc.title', sub: 'admin.page.acc.sub' },
             items: { title: 'admin.page.items.title', sub: 'admin.page.items.sub' },
             tables: { title: 'admin.page.tables.title', sub: 'admin.page.tables.sub' },
             orders: { title: 'admin.page.orders.title', sub: 'admin.page.orders.sub' },
@@ -820,6 +856,7 @@
 
         function refreshCurrent() {
             if (currentTab === 'sales') return loadSales();
+            if (currentTab === 'acc') return loadAcc();
             if (currentTab === 'orders') return loadTickets();
             if (currentTab === 'tables') return loadTables();
             if (currentTab === 'payroll') return loadPayroll();
@@ -850,7 +887,7 @@
             subEl.classList.toggle('hidden', !sub);
             const moreTabs = which === 'inventory' || which === 'printer';
             if (moreTabs) setNavMoreOpen(true);
-            ['sales', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
+            ['sales', 'acc', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);
@@ -865,6 +902,10 @@
             if (which === 'sales') {
                 if (salesData) renderSales();
                 loadSales();
+            }
+            if (which === 'acc') {
+                if (accData) renderAcc();
+                loadAcc();
             }
             if (which === 'orders') {
                 if (ticketsData) renderTickets(ticketsData);
@@ -900,11 +941,14 @@
         }
 
         function datePrefix(which) {
-            return which === 'orders' ? 'ticket' : 'sales';
+            if (which === 'orders') return 'ticket';
+            if (which === 'acc') return 'acc';
+            return 'sales';
         }
 
         function showCustomDates(which, show) {
-            const row = document.getElementById((which === 'orders' ? 'orders' : 'sales') + '-custom');
+            const id = which === 'orders' ? 'orders-custom' : (which === 'acc' ? 'acc-custom' : 'sales-custom');
+            const row = document.getElementById(id);
             if (row) row.classList.toggle('hidden', !show);
         }
 
@@ -950,6 +994,12 @@
             if (which === 'orders') {
                 if (document.getElementById('ticket-range').value !== 'custom') return;
                 loadTickets();
+                return;
+            }
+            if (which === 'acc') {
+                if (accRange !== 'custom') return;
+                accData = null;
+                loadAcc();
                 return;
             }
             if (salesRange !== 'custom') return;
@@ -1009,8 +1059,126 @@
             loadSales();
         }
 
+        function setAccRange(which) {
+            const next = normalizeRange(which);
+            const sel = document.getElementById('acc-range-select');
+            if (sel && sel.value !== next) sel.value = next;
+            if (next === accRange && accData && accData.range === next && next !== 'custom') {
+                showCustomDates('acc', false);
+                renderAcc();
+                return;
+            }
+            accRange = next;
+            showCustomDates('acc', accRange === 'custom');
+            if (accRange === 'custom') ensureCustomDates('acc');
+            accData = null;
+            loadAcc();
+        }
+
         function money(n) {
             return 'HK$' + Number(n || 0);
+        }
+
+        function money2(n) {
+            const v = Number(n || 0);
+            return 'HK$' + (Number.isInteger(v) ? v : v.toFixed(2));
+        }
+
+        async function loadAcc() {
+            const sum = document.getElementById('acc-summary');
+            const requested = accRange;
+            const dates = requested === 'custom' ? ensureCustomDates('acc') : {};
+            if (sum && !accData) sum.innerHTML = '<p class="text-neutral-500">' + esc(t('common.loading')) + '</p>';
+            try {
+                accData = await api('/api/admin-menu', {
+                    token,
+                    action: 'acc_pnl',
+                    range: requested,
+                    from: dates.from || '',
+                    to: dates.to || '',
+                });
+                if (accRange !== requested) return;
+                renderAcc();
+            } catch (e) {
+                if (accRange !== requested) return;
+                accData = null;
+                if (sum) sum.innerHTML = '';
+                document.getElementById('acc-stores').innerHTML =
+                    `<p class="text-red-400 text-sm">${esc(t('admin.acc.load_fail', { msg: e.message || e }))}</p>`;
+                document.getElementById('acc-expenses').innerHTML = '';
+            }
+        }
+
+        function renderAcc() {
+            const d = accData;
+            if (!d) return;
+            const sum = document.getElementById('acc-summary');
+            const profitClass = Number(d.profit) >= 0 ? 'text-emerald-400' : 'text-red-400';
+            sum.innerHTML = `
+                <div class="card space-y-3">
+                    <div class="text-xs font-bold text-neutral-500">${esc(d.range_label || '')}</div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                            <div class="text-[11px] font-bold text-neutral-500" data-i18n-skip>${esc(t('admin.acc.revenue'))}</div>
+                            <div class="text-xl font-black text-yellow-400">${esc(money(d.revenue))}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.expenses'))}</div>
+                            <div class="text-xl font-black">${esc(money2(d.expenses))}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.labor'))}</div>
+                            <div class="text-xl font-black">${esc(money2(d.labor))}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold text-neutral-500">${esc(t('admin.acc.profit'))}</div>
+                            <div class="text-xl font-black ${profitClass}">${esc(money2(d.profit))}</div>
+                        </div>
+                    </div>
+                    <p class="text-xs font-bold text-neutral-500">${esc(t('admin.acc.formula'))}</p>
+                </div>`;
+
+            const stores = Array.isArray(d.stores) ? d.stores : [];
+            document.getElementById('acc-stores').innerHTML = stores.map((s) => {
+                const pc = Number(s.profit) >= 0 ? 'text-emerald-400' : 'text-red-400';
+                return `<div class="card">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <div class="font-black">${esc(s.label || s.store_name)}</div>
+                        <div class="font-black ${pc}">${esc(money2(s.profit))}</div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs font-bold text-neutral-400">
+                        <div>${esc(t('admin.acc.revenue'))}<div class="text-sm text-neutral-200">${esc(money(s.revenue))}</div></div>
+                        <div>${esc(t('admin.acc.expenses'))}<div class="text-sm text-neutral-200">${esc(money2(s.expenses))}</div></div>
+                        <div>${esc(t('admin.acc.labor'))}<div class="text-sm text-neutral-200">${esc(money2(s.labor))}</div></div>
+                    </div>
+                </div>`;
+            }).join('') || `<p class="text-neutral-500">${esc(t('admin.acc.empty_stores'))}</p>`;
+
+            const rows = Array.isArray(d.expense_rows) ? d.expense_rows : [];
+            const expEl = document.getElementById('acc-expenses');
+            if (d.expenses_error) {
+                expEl.innerHTML = `<p class="text-amber-300 text-sm font-bold">${esc(t('admin.acc.expenses_missing'))} ${esc(d.expenses_error)}</p>`;
+            } else if (!rows.length) {
+                expEl.innerHTML = `<p class="text-neutral-500 text-sm">${esc(t('admin.acc.no_expenses'))}</p>`;
+            } else {
+                expEl.innerHTML = rows.slice(0, 40).map((e) => {
+                    const amt = e.amount == null ? '—' : money2(e.amount);
+                    const link = e.receipt_url
+                        ? `<a class="text-sky-400 underline text-xs" href="${esc(e.receipt_url)}" target="_blank" rel="noopener">${esc(t('admin.acc.receipt'))}</a>`
+                        : '';
+                    return `<div class="card flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="font-black truncate">${esc(e.merchant_name || t('admin.acc.unknown_merchant'))}</div>
+                            <div class="text-xs font-bold text-neutral-500">${esc(e.label || e.store_id)} · ${esc(e.expense_date || '')}</div>
+                            ${link}
+                        </div>
+                        <div class="font-black shrink-0">${esc(amt)}</div>
+                    </div>`;
+                }).join('');
+            }
+
+            const note = document.getElementById('acc-note');
+            if (note) note.textContent = t('admin.acc.note_cogs');
         }
 
         function pctBar(part, total) {
