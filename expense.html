@@ -121,13 +121,100 @@
             showLock();
         }
 
-        function fileToBase64(file) {
+        const MAX_EDGE = 1200;
+        const MAX_BYTES = 200 * 1024; // 200KB payload target before base64 overhead
+
+        function dataUrlBytes(dataUrl) {
+            const i = dataUrl.indexOf(',');
+            const b64 = i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+            return Math.floor(b64.length * 0.75);
+        }
+
+        function loadImage(file) {
             return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(String(reader.result || ''));
-                reader.onerror = () => reject(new Error('讀圖失敗'));
-                reader.readAsDataURL(file);
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error('讀圖失敗'));
+                };
+                img.src = url;
             });
+        }
+
+        function canvasSupports(type) {
+            try {
+                const c = document.createElement('canvas');
+                c.width = 1;
+                c.height = 1;
+                return c.toDataURL(type).startsWith(`data:${type}`);
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function drawScaled(img, maxEdge) {
+            const srcW = img.naturalWidth || img.width;
+            const srcH = img.naturalHeight || img.height;
+            const scale = Math.min(1, maxEdge / Math.max(srcW, srcH));
+            const w = Math.max(1, Math.round(srcW * scale));
+            const h = Math.max(1, Math.round(srcH * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            return canvas;
+        }
+
+        /** Compress receipt photo via Canvas: max edge 1200px, JPEG/WebP, aim ≤200KB. */
+        async function compressReceiptImage(file) {
+            const img = await loadImage(file);
+            const preferWebp = canvasSupports('image/webp');
+            const mime = preferWebp ? 'image/webp' : 'image/jpeg';
+            let maxEdge = MAX_EDGE;
+            let quality = 0.7;
+            let best = null;
+
+            for (let pass = 0; pass < 10; pass++) {
+                const canvas = drawScaled(img, maxEdge);
+                const dataUrl = canvas.toDataURL(mime, quality);
+                const bytes = dataUrlBytes(dataUrl);
+                best = { dataUrl, mime_type: mime, bytes, width: canvas.width, height: canvas.height };
+                if (bytes <= MAX_BYTES) return best;
+
+                if (quality > 0.45) {
+                    quality = Math.max(0.45, quality - 0.1);
+                } else if (maxEdge > 800) {
+                    maxEdge = Math.max(800, Math.round(maxEdge * 0.85));
+                    quality = 0.7;
+                } else if (quality > 0.35) {
+                    quality -= 0.05;
+                } else {
+                    maxEdge = Math.max(640, Math.round(maxEdge * 0.85));
+                    quality = Math.max(0.3, quality - 0.05);
+                }
+            }
+
+            // Last resort: force JPEG at smaller size if WebP still over budget
+            if (preferWebp && best && best.bytes > MAX_BYTES) {
+                const canvas = drawScaled(img, Math.min(maxEdge, 800));
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+                best = {
+                    dataUrl,
+                    mime_type: 'image/jpeg',
+                    bytes: dataUrlBytes(dataUrl),
+                    width: canvas.width,
+                    height: canvas.height,
+                };
+            }
+            return best;
         }
 
         async function onPick(event) {
@@ -142,10 +229,16 @@
             result.innerHTML = '';
 
             try {
-                const dataUrl = await fileToBase64(file);
-                preview.src = dataUrl;
+                status.textContent = '壓縮相片中…';
+                status.className = 'text-sm font-bold text-neutral-400';
+
+                const compressed = await compressReceiptImage(file);
+                if (!compressed || !compressed.dataUrl) throw new Error('壓縮失敗');
+
+                preview.src = compressed.dataUrl;
                 preview.classList.remove('hidden');
-                status.textContent = '正在 AI 分析…';
+                const kb = Math.round(compressed.bytes / 1024);
+                status.textContent = `已壓縮 ${kb}KB · 正在 AI 分析…`;
                 status.className = 'text-sm font-bold text-amber-300';
 
                 const res = await fetch('/api/upload-expense', {
@@ -154,8 +247,8 @@
                     body: JSON.stringify({
                         token,
                         store_id: document.getElementById('store_id').value,
-                        image_base64: dataUrl,
-                        mime_type: file.type || 'image/jpeg',
+                        image_base64: compressed.dataUrl,
+                        mime_type: compressed.mime_type,
                     }),
                 });
                 const data = await res.json().catch(() => ({}));
