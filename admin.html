@@ -826,6 +826,19 @@
             return loadAll();
         }
 
+        function setNavMoreOpen(open) {
+            const wrap = document.getElementById('nav-more');
+            const btn = document.getElementById('nav-more-btn');
+            if (!wrap || !btn) return;
+            wrap.classList.toggle('is-open', !!open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function toggleNavMore() {
+            const wrap = document.getElementById('nav-more');
+            setNavMoreOpen(!(wrap && wrap.classList.contains('is-open')));
+        }
+
         function setTab(which) {
             currentTab = which;
             const meta = pageMeta(which);
@@ -834,15 +847,16 @@
             const sub = String(meta.sub || '').trim();
             subEl.textContent = sub;
             subEl.classList.toggle('hidden', !sub);
+            const moreTabs = which === 'inventory' || which === 'printer';
+            if (moreTabs) setNavMoreOpen(true);
             ['sales', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
                 const panel = document.getElementById('panel-' + name);
                 const tab = document.getElementById('tab-' + name);
                 if (panel) panel.classList.toggle('hidden', name !== which);
-                if (tab) {
-                    const soft = tab.classList.contains('nav-btn-soft') || tab.id === 'tab-inventory' || tab.id === 'tab-printer';
-                    tab.className = 'nav-btn' + (soft ? ' nav-btn-soft' : '') + (name === which ? ' is-on' : '');
-                }
+                if (tab) tab.className = 'nav-btn' + (name === which ? ' is-on' : '');
             });
+            const moreBtn = document.getElementById('nav-more-btn');
+            if (moreBtn) moreBtn.classList.toggle('is-on', moreTabs);
             const hintEl = document.getElementById('load-hint');
             if (hintEl) hintEl.classList.toggle('hidden', which !== 'items');
             const errEl = document.getElementById('load-err');
