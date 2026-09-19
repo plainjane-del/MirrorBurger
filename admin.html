@@ -1130,7 +1130,7 @@
                 const label = t('admin.acc.line.' + line.key);
                 const amt = Number(line.amount) || 0;
                 const showNeg = line.role === 'deduct' && amt !== 0;
-                const display = showNeg ? '−' + money2(amt) : money2(amt);
+                const display = showNeg ? ('− ' + money2(amt)) : money2(amt);
                 const rowCls = line.role === 'total'
                     ? 'border-t border-neutral-600 pt-2 mt-1 text-base font-black ' + profitClass
                     : line.role === 'subtotal'
