@@ -252,6 +252,7 @@
                 <div id="nav-more-panel" class="nav-more-panel" role="group" aria-label="More">
                     <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')" data-i18n="admin.nav.inventory">庫存</button>
                     <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')" data-i18n="admin.nav.printer">出單機</button>
+                    <a class="nav-btn" href="/expense.html" data-i18n="admin.nav.expense">開支</a>
                     <a class="nav-btn" href="/pos.html" data-i18n="admin.nav.pos">POS</a>
                     <a class="nav-btn" href="/kitchen.html" data-i18n="admin.nav.kitchen">廚房</a>
                     <a class="nav-btn" href="/" data-i18n="admin.nav.site">網站</a>
@@ -674,7 +675,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919k"></script>
+    <script src="./js/i18n.js?v=20260919m"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
