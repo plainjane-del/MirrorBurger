@@ -235,12 +235,12 @@
                         <label data-i18n="admin.label.category">分類</label>
                         <select id="filter-cat" onchange="renderItems()">
                             <option value="" data-i18n="admin.all">全部</option>
-                            <option value="beef">牛肉</option>
-                            <option value="others">其他漢堡</option>
-                            <option value="veggie">素食</option>
-                            <option value="snacks">小食</option>
-                            <option value="drinks">飲品</option>
-                            <option value="sauces">醬</option>
+                            <option value="beef" data-i18n="admin.cat.beef">牛肉</option>
+                            <option value="others" data-i18n="admin.cat.others">其他漢堡</option>
+                            <option value="veggie" data-i18n="admin.cat.veggie">素食</option>
+                            <option value="snacks" data-i18n="admin.cat.snacks">小食</option>
+                            <option value="drinks" data-i18n="admin.cat.drinks">飲品</option>
+                            <option value="sauces" data-i18n="admin.cat.sauces">醬</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-primary" onclick="editItem(null)" data-i18n="admin.items.new">＋ 新項目</button>
@@ -253,10 +253,10 @@
                         <label data-i18n="admin.label.kind">類型</label>
                         <select id="filter-kind" onchange="renderMods()">
                             <option value="" data-i18n="admin.all">全部</option>
-                            <option value="addon">加料</option>
-                            <option value="sauce">醬</option>
-                            <option value="combo_snack">套餐小食</option>
-                            <option value="combo_drink">套餐飲品</option>
+                            <option value="addon" data-i18n="admin.kind.addon">加料</option>
+                            <option value="sauce" data-i18n="admin.kind.sauce">醬</option>
+                            <option value="combo_snack" data-i18n="admin.kind.combo_snack">套餐小食</option>
+                            <option value="combo_drink" data-i18n="admin.kind.combo_drink">套餐飲品</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-primary" onclick="editMod(null)" data-i18n="admin.mods.new">＋ 新選項</button>
@@ -324,9 +324,9 @@
                     <label data-i18n="admin.label.store">分店</label>
                     <select id="ticket-store" onchange="loadTickets()">
                         <option value="" data-i18n="admin.all">全部</option>
-                        <option value="Sai Ying Pun">西營盤</option>
-                        <option value="Fortress Hill">天后</option>
-                        <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                        <option value="Sai Ying Pun" data-i18n="admin.store.syp">西營盤</option>
+                        <option value="Fortress Hill" data-i18n="admin.store.th">天后</option>
+                        <option value="Tsuen Wan (Takeaway Only)" data-i18n="admin.store.tw">荃灣</option>
                     </select>
                 </div>
                 <div class="flex-1 min-w-[10rem]">
@@ -343,39 +343,39 @@
         <div id="panel-payroll" class="hidden space-y-4">
             <div class="card p-5 space-y-3">
                 <div>
-                    <label>分店</label>
+                    <label data-i18n="admin.label.store">分店</label>
                     <select id="payroll-store" onchange="loadPayroll()">
-                        <option value="Sai Ying Pun">西營盤</option>
-                        <option value="Fortress Hill">天后</option>
-                        <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
+                        <option value="Sai Ying Pun" data-i18n="admin.store.syp">西營盤</option>
+                        <option value="Fortress Hill" data-i18n="admin.store.th">天后</option>
+                        <option value="Tsuen Wan (Takeaway Only)" data-i18n="admin.store.tw">荃灣</option>
                     </select>
                 </div>
-                <p class="text-sm text-neutral-400 font-bold">用日常說話寫出糧規則，AI 會轉成呢間舖用嘅設定。</p>
+                <p class="text-sm text-neutral-400 font-bold" data-i18n="admin.payroll.hint">用日常說話寫出糧規則，AI 會轉成呢間舖用嘅設定。</p>
                 <div>
-                    <label>出糧規則</label>
-                    <textarea id="payroll-text" rows="4" placeholder="例如：遲到15分鐘扣錢，無飯鐘"></textarea>
+                    <label data-i18n="admin.payroll.rules_label">出糧規則</label>
+                    <textarea id="payroll-text" rows="4" data-i18n-placeholder="admin.payroll.rules_ph" placeholder="例如：遲到15分鐘扣錢，無飯鐘"></textarea>
                 </div>
-                <button type="button" class="btn btn-primary" id="payroll-save-btn" onclick="generatePayrollRules()">Generate &amp; Save Rules</button>
+                <button type="button" class="btn btn-primary" id="payroll-save-btn" onclick="generatePayrollRules()" data-i18n="admin.payroll.generate">Generate &amp; Save Rules</button>
                 <p id="payroll-msg" class="text-sm font-bold text-neutral-400"></p>
                 <div id="payroll-rules" class="text-sm font-bold text-neutral-300 space-y-1"></div>
             </div>
             <div class="card p-5 space-y-3">
-                <h2 class="text-lg font-black">員工 PIN</h2>
-                <p class="text-sm text-neutral-400 font-bold">POS 打卡要用。每間舖 PIN 唔可以重複。</p>
+                <h2 class="text-lg font-black" data-i18n="admin.payroll.staff_title">員工 PIN</h2>
+                <p class="text-sm text-neutral-400 font-bold" data-i18n="admin.payroll.staff_hint">POS 打卡要用。每間舖 PIN 唔可以重複。</p>
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
                     <div class="sm:col-span-1">
-                        <label>名</label>
-                        <input id="emp-name" maxlength="40" placeholder="陳大文">
+                        <label data-i18n="admin.payroll.name">名</label>
+                        <input id="emp-name" maxlength="40" data-i18n-placeholder="admin.payroll.name_ph" placeholder="陳大文">
                     </div>
                     <div>
-                        <label>4 位 PIN</label>
+                        <label data-i18n="admin.payroll.pin">4 位 PIN</label>
                         <input id="emp-pin" inputmode="numeric" maxlength="4" placeholder="1234">
                     </div>
                     <div>
-                        <label>時薪 HK$</label>
+                        <label data-i18n="admin.payroll.rate">時薪 HK$</label>
                         <input id="emp-rate" type="number" min="0" step="1" placeholder="50">
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="saveEmployee()">加員工</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEmployee()" data-i18n="admin.payroll.add">加員工</button>
                 </div>
                 <div id="emp-list" class="space-y-2"></div>
             </div>
@@ -385,49 +385,49 @@
             <div class="card p-5 space-y-3">
                 <div class="flex flex-wrap gap-3 items-end">
                     <div>
-                        <label>分店庫存</label>
+                        <label data-i18n="admin.inv.store_label">分店庫存</label>
                         <select id="inv-store" onchange="loadInventory()">
-                            <option value="SYP">西營盤 SYP</option>
-                            <option value="TH">天后 TH</option>
-                            <option value="TW">荃灣 TW</option>
+                            <option value="SYP" data-i18n="admin.store.syp_code">西營盤 SYP</option>
+                            <option value="TH" data-i18n="admin.store.th_code">天后 TH</option>
+                            <option value="TW" data-i18n="admin.store.tw_code">荃灣 TW</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="editInventoryItem(null)">＋ 新物料</button>
+                    <button type="button" class="btn btn-primary" onclick="editInventoryItem(null)" data-i18n="admin.inv.new">＋ 新物料</button>
                 </div>
-                <p class="text-sm text-neutral-400 font-bold">落單完成會按配方扣庫存；低於警戒線會 push 通知。</p>
+                <p class="text-sm text-neutral-400 font-bold" data-i18n="admin.inv.hint">落單完成會按配方扣庫存；低於警戒線會 push 通知。</p>
                 <div id="inv-list" class="space-y-2"></div>
             </div>
             <div class="card p-5 space-y-3">
-                <h2 class="text-lg font-black">餐點配方</h2>
+                <h2 class="text-lg font-black" data-i18n="admin.inv.recipe_title">餐點配方</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                     <div>
-                        <label>揀餐點</label>
+                        <label data-i18n="admin.inv.pick_item">揀餐點</label>
                         <select id="recipe-menu" onchange="loadRecipeEditor()"></select>
                     </div>
                     <div>
-                        <label>成本方式</label>
+                        <label data-i18n="admin.inv.cost_method">成本方式</label>
                         <select id="recipe-method" onchange="onRecipeMethodChange()">
-                            <option value="direct">固定成本 (direct)</option>
-                            <option value="recipe">按配方扣庫存 (recipe)</option>
+                            <option value="direct" data-i18n="admin.inv.method_direct">固定成本 (direct)</option>
+                            <option value="recipe" data-i18n="admin.inv.method_recipe">按配方扣庫存 (recipe)</option>
                         </select>
                     </div>
                     <div id="recipe-direct-wrap">
-                        <label>固定成本 HK$</label>
+                        <label data-i18n="admin.inv.direct_cost">固定成本 HK$</label>
                         <input id="recipe-direct-cost" type="number" min="0" step="0.01" value="0">
                     </div>
-                    <button type="button" class="btn btn-ghost" onclick="saveMenuCosting()">儲存成本設定</button>
+                    <button type="button" class="btn btn-ghost" onclick="saveMenuCosting()" data-i18n="admin.inv.save_cost">儲存成本設定</button>
                 </div>
                 <div id="recipe-lines-wrap" class="hidden space-y-3 pt-2 border-t border-neutral-800">
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
                         <div class="sm:col-span-2">
-                            <label>物料（用上面分店庫存）</label>
+                            <label data-i18n="admin.inv.pick_material">物料（用上面分店庫存）</label>
                             <select id="recipe-inv-pick"></select>
                         </div>
                         <div>
-                            <label>每份用量</label>
-                            <input id="recipe-qty" type="number" min="0.0001" step="any" placeholder="e.g. 120">
+                            <label data-i18n="admin.inv.qty">每份用量</label>
+                            <input id="recipe-qty" type="number" min="0.0001" step="any" data-i18n-placeholder="admin.inv.qty_ph" placeholder="e.g. 120">
                         </div>
-                        <button type="button" class="btn btn-primary" onclick="addRecipeLine()">加入配方</button>
+                        <button type="button" class="btn btn-primary" onclick="addRecipeLine()" data-i18n="admin.inv.add_line">加入配方</button>
                     </div>
                     <div id="recipe-lines" class="space-y-2"></div>
                 </div>
@@ -436,24 +436,24 @@
 
         <div id="panel-printer" class="hidden space-y-4">
             <div class="card p-5 space-y-3">
-                <h2 class="text-lg font-black">依家 POS 可以駁咩機</h2>
-                <p class="text-sm text-neutral-400 font-bold leading-relaxed">大多數市面 <span class="text-white">ESC/POS 熱敏出單機</span> 都得：佳博、Epson TM 系列、Xprinter、商米外置機。用 USB 插 <span class="text-white">店舖 Sunmi</span> 或 <span class="text-white">電腦版 Chrome</span>。iPhone Chrome／Safari 都駁唔到 USB；Epson App 配對只得個 App 用。</p>
+                <h2 class="text-lg font-black" data-i18n="admin.printer.h1">依家 POS 可以駁咩機</h2>
+                <p class="text-sm text-neutral-400 font-bold leading-relaxed" data-i18n-html="admin.printer.p1">大多數市面 <span class="text-white">ESC/POS 熱敏出單機</span> 都得：佳博、Epson TM 系列、Xprinter、商米外置機。用 USB 插 <span class="text-white">店舖 Sunmi</span> 或 <span class="text-white">電腦版 Chrome</span>。iPhone Chrome／Safari 都駁唔到 USB；Epson App 配對只得個 App 用。</p>
             </div>
             <div class="card p-5 space-y-3">
-                <h2 class="text-lg font-black">Epson TM-m30II（你而家呢部）</h2>
+                <h2 class="text-lg font-black" data-i18n="admin.printer.h2">Epson TM-m30II（你而家呢部）</h2>
                 <ol class="text-sm font-bold text-neutral-300 space-y-2 list-decimal pl-5 leading-relaxed">
-                    <li>揭開機底蓋，USB 線插出單機，另一頭插 <strong class="text-white">Sunmi 收銀機</strong>（唔好插 Windows 再期望 iPhone 印）。</li>
-                    <li>開電。Sunmi 系統設定 → 打印機 → 揀呢部 Epson，協議 ESC/POS。</li>
-                    <li>POS 撳右上「出單機」，紙闊揀 <strong class="text-white">80mm</strong>，再撳「駁 Sunmi 出單機」。</li>
-                    <li>如果用店舖電腦：Chrome 開 POS，USB 插電腦，紙闊 80mm，撳「駁 USB」然後揀 Epson。</li>
+                    <li data-i18n-html="admin.printer.li1">揭開機底蓋，USB 線插出單機，另一頭插 <strong class="text-white">Sunmi 收銀機</strong>（唔好插 Windows 再期望 iPhone 印）。</li>
+                    <li data-i18n="admin.printer.li2">開電。Sunmi 系統設定 → 打印機 → 揀呢部 Epson，協議 ESC/POS。</li>
+                    <li data-i18n-html="admin.printer.li3">POS 撳右上「出單機」，紙闊揀 <strong class="text-white">80mm</strong>，再撳「駁 Sunmi 出單機」。</li>
+                    <li data-i18n="admin.printer.li4">如果用店舖電腦：Chrome 開 POS，USB 插電腦，紙闊 80mm，撳「駁 USB」然後揀 Epson。</li>
                 </ol>
-                <p class="text-sm font-bold text-amber-300 leading-relaxed">呢部 M362B 標準版冇 Lightning。iPhone 出單做唔到，要 Sunmi 或電腦。</p>
+                <p class="text-sm font-bold text-amber-300 leading-relaxed" data-i18n="admin.printer.warn">呢部 M362B 標準版冇 Lightning。iPhone 出單做唔到，要 Sunmi 或電腦。</p>
             </div>
             <div class="card p-5 space-y-3">
-                <h2 class="text-lg font-black">佳博 GP-58MBIII+</h2>
-                <p class="text-sm font-bold text-neutral-300 leading-relaxed">USB 插 Sunmi，紙闊 <strong class="text-white">58mm</strong>。Firefox 開 POS。</p>
+                <h2 class="text-lg font-black" data-i18n="admin.printer.h3">佳博 GP-58MBIII+</h2>
+                <p class="text-sm font-bold text-neutral-300 leading-relaxed" data-i18n-html="admin.printer.p3">USB 插 Sunmi，紙闊 <strong class="text-white">58mm</strong>。Firefox 開 POS。</p>
             </div>
-            <a class="btn btn-primary" href="/pos.html">開啟 POS 設定出單機</a>
+            <a class="btn btn-primary" href="/pos.html" data-i18n="admin.printer.open_pos">開啟 POS 設定出單機</a>
         </div>
         </div>
     </div>
@@ -462,14 +462,14 @@
         <div class="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-3">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h2 class="text-lg font-black" id="ticket-title">訂單</h2>
+                    <h2 class="text-lg font-black" id="ticket-title" data-i18n="admin.modal.ticket">訂單</h2>
                     <p class="text-sm text-neutral-400 font-bold mt-1" id="ticket-meta"></p>
                 </div>
-                <button type="button" class="btn btn-ghost" onclick="closeTicket()">關閉</button>
+                <button type="button" class="btn btn-ghost" onclick="closeTicket()" data-i18n="admin.modal.close">關閉</button>
             </div>
             <div id="ticket-items" class="space-y-2"></div>
             <div class="flex justify-between font-black text-lg pt-2 border-t border-neutral-800">
-                <span>實收</span>
+                <span data-i18n="admin.modal.paid">實收</span>
                 <span id="ticket-total"></span>
             </div>
         </div>
@@ -480,47 +480,47 @@
         <div class="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-3">
             <h2 class="text-lg font-black" id="item-modal-title">編輯項目</h2>
             <div class="grid grid-cols-2 gap-3">
-                <div><label>中文名</label><input id="f-name-zh"></div>
-                <div><label>英文名</label><input id="f-name-en"></div>
-                <div><label>價錢</label><input id="f-price" type="number" step="1"></div>
-                <div><label>分類</label>
+                <div><label data-i18n="admin.field.name_zh">中文名</label><input id="f-name-zh"></div>
+                <div><label data-i18n="admin.field.name_en">英文名</label><input id="f-name-en"></div>
+                <div><label data-i18n="admin.field.price">價錢</label><input id="f-price" type="number" step="1"></div>
+                <div><label data-i18n="admin.field.category">分類</label>
                     <select id="f-cat">
-                        <option value="beef">牛肉</option>
-                        <option value="others">其他漢堡</option>
-                        <option value="veggie">素食</option>
-                        <option value="snacks">小食</option>
-                        <option value="drinks">飲品</option>
-                        <option value="sauces">醬</option>
+                        <option value="beef" data-i18n="admin.cat.beef">牛肉</option>
+                        <option value="others" data-i18n="admin.cat.others">其他漢堡</option>
+                        <option value="veggie" data-i18n="admin.cat.veggie">素食</option>
+                        <option value="snacks" data-i18n="admin.cat.snacks">小食</option>
+                        <option value="drinks" data-i18n="admin.cat.drinks">飲品</option>
+                        <option value="sauces" data-i18n="admin.cat.sauces">醬</option>
                     </select>
                 </div>
-                <div><label>編號</label><input id="f-id" placeholder="b5"></div>
+                <div><label data-i18n="admin.field.id">編號</label><input id="f-id" data-i18n-placeholder="admin.ph.item_id" placeholder="b5"></div>
             </div>
-            <div><label>中文說明</label><textarea id="f-desc-zh" rows="2"></textarea></div>
+            <div><label data-i18n="admin.field.desc_zh">中文說明</label><textarea id="f-desc-zh" rows="2"></textarea></div>
             <div class="flex flex-wrap gap-4 text-sm">
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-sold" type="checkbox" class="w-4 h-4"> 賣晒</label>
-                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-active" type="checkbox" class="w-4 h-4" checked> 上架</label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-sold" type="checkbox" class="w-4 h-4"> <span data-i18n="admin.field.sold">賣晒</span></label>
+                <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-active" type="checkbox" class="w-4 h-4" checked> <span data-i18n="admin.field.active">上架</span></label>
             </div>
             <details class="text-sm">
-                <summary class="font-bold text-neutral-400 cursor-pointer">進階</summary>
+                <summary class="font-bold text-neutral-400 cursor-pointer" data-i18n="admin.field.advanced">進階</summary>
                 <div class="grid grid-cols-2 gap-3 mt-3">
-                    <div><label>排序</label><input id="f-sort" type="number" value="0"></div>
+                    <div><label data-i18n="admin.field.sort">排序</label><input id="f-sort" type="number" value="0"></div>
                 </div>
-                <div class="mt-3"><label>英文說明</label><textarea id="f-desc-en" rows="2"></textarea></div>
-                <div class="mt-3"><label>圖片網址</label><input id="f-img"></div>
+                <div class="mt-3"><label data-i18n="admin.field.desc_en">英文說明</label><textarea id="f-desc-en" rows="2"></textarea></div>
+                <div class="mt-3"><label data-i18n="admin.field.img">圖片網址</label><input id="f-img"></div>
                 <div class="grid grid-cols-2 gap-3 mt-3">
-                    <div><label>標籤 EN</label><input id="f-tag-en"></div>
-                    <div><label>標籤中文</label><input id="f-tag-zh"></div>
+                    <div><label data-i18n="admin.field.tag_en">標籤 EN</label><input id="f-tag-en"></div>
+                    <div><label data-i18n="admin.field.tag_zh">標籤中文</label><input id="f-tag-zh"></div>
                 </div>
                 <div class="flex flex-wrap gap-4 text-sm mt-3">
-                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-side" type="checkbox" class="w-4 h-4"> 配菜</label>
-                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-temp" type="checkbox" class="w-4 h-4"> 有熱／凍</label>
+                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-side" type="checkbox" class="w-4 h-4"> <span data-i18n="admin.field.side">配菜</span></label>
+                    <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="f-temp" type="checkbox" class="w-4 h-4"> <span data-i18n="admin.field.temp">有熱／凍</span></label>
                 </div>
-                <div class="mt-3 hidden" id="f-dietary-wrap"><label>Dietary JSON</label><input id="f-dietary" placeholder='["🌶️"]'></div>
+                <div class="mt-3 hidden" id="f-dietary-wrap"><label>Dietary JSON</label><input id="f-dietary" data-i18n-placeholder="admin.ph.dietary" placeholder='["🌶️"]'></div>
                 <div class="mt-3 hidden" id="f-sizes-wrap"><label>Sizes JSON</label><textarea id="f-sizes" rows="2"></textarea></div>
             </details>
             <div class="flex gap-2 pt-2">
-                <button type="button" class="btn btn-primary flex-1" onclick="saveItem()">儲存</button>
-                <button type="button" class="btn btn-ghost" onclick="closeItemModal()">取消</button>
+                <button type="button" class="btn btn-primary flex-1" onclick="saveItem()" data-i18n="common.save">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeItemModal()" data-i18n="common.cancel">取消</button>
             </div>
         </div>
     </div>
@@ -530,27 +530,27 @@
         <div class="card w-full max-w-md p-5 space-y-3">
             <h2 class="text-lg font-black" id="mod-modal-title">編輯選項</h2>
             <div class="grid grid-cols-2 gap-3">
-                <div><label>中文名</label><input id="m-name-zh"></div>
-                <div><label>英文名</label><input id="m-name-en"></div>
-                <div><label>加價</label><input id="m-price" type="number" step="1"></div>
-                <div><label>類型</label>
+                <div><label data-i18n="admin.field.name_zh">中文名</label><input id="m-name-zh"></div>
+                <div><label data-i18n="admin.field.name_en">英文名</label><input id="m-name-en"></div>
+                <div><label data-i18n="admin.field.addon_price">加價</label><input id="m-price" type="number" step="1"></div>
+                <div><label data-i18n="admin.field.kind">類型</label>
                     <select id="m-kind">
-                        <option value="addon">加料</option>
-                        <option value="sauce">醬</option>
-                        <option value="combo_snack">套餐小食</option>
-                        <option value="combo_drink">套餐飲品</option>
+                        <option value="addon" data-i18n="admin.kind.addon">加料</option>
+                        <option value="sauce" data-i18n="admin.kind.sauce">醬</option>
+                        <option value="combo_snack" data-i18n="admin.kind.combo_snack">套餐小食</option>
+                        <option value="combo_drink" data-i18n="admin.kind.combo_drink">套餐飲品</option>
                     </select>
                 </div>
-                <div><label>編號</label><input id="m-id"></div>
+                <div><label data-i18n="admin.field.id">編號</label><input id="m-id"></div>
             </div>
             <details class="text-sm">
-                <summary class="font-bold text-neutral-400 cursor-pointer">進階</summary>
-                <div class="mt-3"><label>排序</label><input id="m-sort" type="number" value="0"></div>
+                <summary class="font-bold text-neutral-400 cursor-pointer" data-i18n="admin.field.advanced">進階</summary>
+                <div class="mt-3"><label data-i18n="admin.field.sort">排序</label><input id="m-sort" type="number" value="0"></div>
             </details>
-            <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="m-active" type="checkbox" class="w-4 h-4" checked> 上架</label>
+            <label class="flex items-center gap-2 !normal-case !text-sm !font-semibold text-neutral-200"><input id="m-active" type="checkbox" class="w-4 h-4" checked> <span data-i18n="admin.field.active">上架</span></label>
             <div class="flex gap-2 pt-2">
-                <button type="button" class="btn btn-primary flex-1" onclick="saveMod()">儲存</button>
-                <button type="button" class="btn btn-ghost" onclick="closeModModal()">取消</button>
+                <button type="button" class="btn btn-primary flex-1" onclick="saveMod()" data-i18n="common.save">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeModModal()" data-i18n="common.cancel">取消</button>
             </div>
         </div>
     </div>
@@ -561,15 +561,15 @@
             <h2 class="text-lg font-black" id="inv-modal-title">新物料</h2>
             <input type="hidden" id="inv-id">
             <div class="grid grid-cols-2 gap-3">
-                <div class="col-span-2"><label>名稱</label><input id="inv-name" placeholder="牛肉餅 / 紙盒"></div>
-                <div><label>單位</label><input id="inv-uom" placeholder="g / pcs / ml" value="g"></div>
-                <div><label>單位成本 HK$</label><input id="inv-cost" type="number" min="0" step="0.0001" value="0"></div>
-                <div><label>現有庫存</label><input id="inv-stock" type="number" step="any" value="0"></div>
-                <div><label>低庫存警戒</label><input id="inv-threshold" type="number" step="any" value="0"></div>
+                <div class="col-span-2"><label data-i18n="admin.field.inv_name">名稱</label><input id="inv-name" data-i18n-placeholder="admin.ph.inv_name" placeholder="牛肉餅 / 紙盒"></div>
+                <div><label data-i18n="admin.field.uom">單位</label><input id="inv-uom" data-i18n-placeholder="admin.ph.uom" placeholder="g / pcs / ml" value="g"></div>
+                <div><label data-i18n="admin.field.unit_cost">單位成本 HK$</label><input id="inv-cost" type="number" min="0" step="0.0001" value="0"></div>
+                <div><label data-i18n="admin.field.stock">現有庫存</label><input id="inv-stock" type="number" step="any" value="0"></div>
+                <div><label data-i18n="admin.field.threshold">低庫存警戒</label><input id="inv-threshold" type="number" step="any" value="0"></div>
             </div>
             <div class="flex gap-2 pt-2">
-                <button type="button" class="btn btn-primary flex-1" onclick="saveInventoryItem()">儲存</button>
-                <button type="button" class="btn btn-ghost" onclick="closeInvModal()">取消</button>
+                <button type="button" class="btn btn-primary flex-1" onclick="saveInventoryItem()" data-i18n="common.save">儲存</button>
+                <button type="button" class="btn btn-ghost" onclick="closeInvModal()" data-i18n="common.cancel">取消</button>
             </div>
         </div>
     </div>
@@ -577,7 +577,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919d"></script>
+    <script src="./js/i18n.js?v=20260919e"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -606,8 +606,16 @@
         let ticketRows = [];
         let ticketsData = null;
 
-        const CAT_ZH = { beef: '牛肉', others: '其他漢堡', veggie: '素食', snacks: '小食', drinks: '飲品', sauces: '醬' };
-        const KIND_ZH = { addon: '加料', sauce: '醬', combo_snack: '套餐小食', combo_drink: '套餐飲品' };
+        function catLabel(key) {
+            const k = 'admin.cat.' + key;
+            const out = t(k);
+            return out === k ? (key || '') : out;
+        }
+        function modKindLabel(key) {
+            const k = 'admin.kind.' + key;
+            const out = t(k);
+            return out === k ? (key || '') : out;
+        }
 
         let toastTimer = null;
         function toast(msg) {
@@ -660,16 +668,15 @@
             const errEl = document.getElementById('load-err');
             const hintEl = document.getElementById('load-hint');
             errEl.classList.add('hidden');
-            hintEl.textContent = '載入中…';
+            hintEl.textContent = t('common.loading');
             try {
                 const data = await api('/api/admin-menu', { token, action: 'list' });
                 items = data.items || [];
                 modifiers = data.modifiers || [];
-                hintEl.textContent = `共 ${items.length} 個餐點 · ${modifiers.length} 個加料／套餐選項`;
+                hintEl.textContent = t('admin.load.hint', { n: items.length, m: modifiers.length });
                 hintEl.classList.toggle('hidden', currentTab !== 'items');
                 if (!items.length) {
-                    errEl.textContent =
-                        '資料庫未有餐點。請去 Supabase → SQL Editor 跑 supabase/menu-full.sql（同 restore-menu-prices.sql），再撳「重新載入」。';
+                    errEl.textContent = t('admin.load.empty_db');
                     errEl.classList.toggle('hidden', currentTab !== 'items');
                 }
                 renderItems();
@@ -680,8 +687,7 @@
                 renderItems();
                 renderMods();
                 hintEl.textContent = '';
-                errEl.textContent = '載入失敗：' + (e.message || e) +
-                    ' — 多數係未跑 menu-full.sql，或者 Vercel 未設 SUPABASE_URL / SUPABASE_KEY。';
+                errEl.textContent = t('admin.load.fail_detail', { msg: e.message || e });
                 errEl.classList.remove('hidden');
             }
         }
@@ -885,13 +891,13 @@
 
         function deltaHtml(current, previous) {
             const diff = Number(current || 0) - Number(previous || 0);
-            if (!previous && !current) return '<span class="delta-flat">對比昨日 —</span>';
-            if (!previous) return '<span class="delta-up">新開數</span>';
+            if (!previous && !current) return '<span class="delta-flat">' + esc(t('admin.sales.vs_yesterday_flat')) + '</span>';
+            if (!previous) return '<span class="delta-up">' + esc(t('admin.sales.new_baseline')) + '</span>';
             const pct = Math.round((diff / previous) * 100);
             const cls = diff > 0 ? 'delta-up' : (diff < 0 ? 'delta-down' : 'delta-flat');
             const arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '•');
             const sign = diff > 0 ? '+' : '';
-            return `<span class="${cls}">${arrow} 對比昨日 ${sign}${diff}（${sign}${pct}%）</span>`;
+            return `<span class="${cls}">${arrow} ${esc(t('admin.sales.vs_yesterday', { sign, diff, pct }))}</span>`;
         }
 
         function hkTime(iso) {
@@ -1172,7 +1178,7 @@
             const prev = sel.value;
             const rows = filteredTableStores();
             if (!rows.length) {
-                sel.innerHTML = '<option value="">搵唔到分店</option>';
+                sel.innerHTML = '<option value="">' + esc(t('admin.qr.no_store')) + '</option>';
                 return;
             }
             sel.innerHTML = rows.map((s) =>
@@ -1223,8 +1229,8 @@
             const help = document.getElementById('qr-help');
             if (help) {
                 help.textContent = qrMode === 'pickup'
-                    ? '搜尋同揀一間店，列印嗰間店門口 QR。每張 A4 一間店；多間店就一間一間印。'
-                    : '搜尋同揀分店、設定枱數，然後列印 QR 貼枱面。每張 A4 最多 12 個枱 QR，超過會自動分頁。';
+                    ? t('admin.qr.help_pickup')
+                    : t('admin.qr.help_table');
             }
             previewQr();
         }
@@ -1235,8 +1241,8 @@
         }
 
         function pickupOfferLine(storeName) {
-            if (storeName === 'Tsuen Wan (Takeaway Only)') return '荃灣外賣 85折';
-            return '滿 $120 或任何套餐 9折';
+            if (storeName === 'Tsuen Wan (Takeaway Only)') return t('admin.qr.offer_tw');
+            return t('admin.qr.offer_default');
         }
 
         function previewPickupQr() {
@@ -1244,7 +1250,7 @@
             const msg = document.getElementById('table-msg');
             const store = selectedTableStore();
             if (!store) {
-                grid.innerHTML = '<p class="text-neutral-500">搵唔到分店。改吓搜尋再揀。</p>';
+                grid.innerHTML = '<p class="text-neutral-500">' + esc(t('admin.qr.no_store_hint')) + '</p>';
                 if (msg) msg.textContent = '';
                 return;
             }
@@ -1254,12 +1260,12 @@
             const url = `${origin}/p/${slug}`;
             const qr = `https://api.qrserver.com/v1/create-qr-code/?size=520x520&margin=8&data=${encodeURIComponent(url)}`;
             grid.className = 'qr-pickup-grid grid grid-cols-1 sm:grid-cols-2 gap-4';
-            if (msg) msg.textContent = '印出貼呢間店門口或櫃檯。一張 A4 一間店。客人掃完直接外賣自取落單，手機付款。';
+            if (msg) msg.textContent = t('admin.qr.pickup_msg');
             grid.innerHTML = `<article class="card p-6 text-center">
                     <div class="text-[11px] font-black tracking-widest uppercase text-neutral-400">Mirror Burger · ${esc(label)}</div>
-                    <img src="${qr}" alt="${esc(label)} 外賣自取 QR" width="220" height="220" class="mx-auto my-3">
-                    <div class="text-3xl font-black">外賣自取</div>
-                    <div class="text-sm font-bold text-neutral-500 mt-2">掃碼落單 · 手機付款</div>
+                    <img src="${qr}" alt="${esc(t('admin.qr.alt_pickup', { label }))}" width="220" height="220" class="mx-auto my-3">
+                    <div class="text-3xl font-black">${esc(t('admin.qr.pickup_title'))}</div>
+                    <div class="text-sm font-bold text-neutral-500 mt-2">${esc(t('admin.qr.scan_pickup'))}</div>
                     <div class="text-xs font-black text-neutral-400 mt-2">${esc(pickupOfferLine(store.store_name))}</div>
                 </article>`;
         }
@@ -1272,23 +1278,23 @@
             const msg = document.getElementById('table-msg');
             grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
             if (!store || n < 1) {
-                grid.innerHTML = '<p class="text-neutral-500">呢間店枱數係 0。撳 ＋ 加枱，再儲存。荃灣只限外賣就撳上面「外賣自取」印門口 QR。</p>';
+                grid.innerHTML = '<p class="text-neutral-500">' + esc(t('admin.qr.table_zero')) + '</p>';
                 if (msg) msg.textContent = '';
                 return;
             }
             const origin = qrOrigin();
             const label = store.label || store.store_name;
             const slug = store.slug || 'syp';
-            if (msg) msg.textContent = `儲存後印出貼枱面。客人掃 1 至 ${n} 號枱，送到廚房後櫃檯收款。`;
+            if (msg) msg.textContent = t('admin.qr.table_msg', { n });
             grid.innerHTML = Array.from({ length: n }, (_, i) => {
                 const num = i + 1;
                 const url = `${origin}/t/${slug}/${num}`;
                 const qr = `https://api.qrserver.com/v1/create-qr-code/?size=440x440&margin=8&data=${encodeURIComponent(url)}`;
                 return `<article class="card p-5 text-center">
                     <div class="text-[11px] font-black tracking-widest uppercase text-neutral-400">Mirror Burger · ${esc(label)}</div>
-                    <img src="${qr}" alt="${num}號枱" width="200" height="200" class="mx-auto my-3">
-                    <div class="text-4xl font-black">${num}號枱</div>
-                    <div class="text-xs font-bold text-neutral-500 mt-1">掃碼點餐 · 櫃檯付款</div>
+                    <img src="${qr}" alt="${esc(t('admin.qr.table_n', { n: num }))}" width="200" height="200" class="mx-auto my-3">
+                    <div class="text-4xl font-black">${esc(t('admin.qr.table_n', { n: num }))}</div>
+                    <div class="text-xs font-bold text-neutral-500 mt-1">${esc(t('admin.qr.scan_dine'))}</div>
                 </article>`;
             }).join('');
         }
@@ -1338,20 +1344,20 @@
         function printQr() {
             const store = selectedTableStore();
             if (!store) {
-                toast('請先揀一間分店');
+                toast(t('admin.qr.pick_store'));
                 return;
             }
             if (qrMode === 'table') {
                 const n = Math.max(0, Math.min(40, Number(document.getElementById('table-count').value) || 0));
                 if (n < 1) {
-                    toast('呢間店未有枱。撳 ＋ 加枱，或改印外賣自取。');
+                    toast(t('admin.qr.no_tables'));
                     return;
                 }
             }
             const root = document.getElementById('qr-print-root');
             const html = qrPrintSheetsHtml();
             if (!root || !html) {
-                toast('未有 QR 可印');
+                toast(t('admin.qr.nothing'));
                 return;
             }
             root.innerHTML = html;
@@ -1368,9 +1374,9 @@
             const qr = qrImageUrl(url, imgSize || 440);
             return '<article class="card">'
                 + '<div class="brand">Mirror Burger · ' + esc(label) + '</div>'
-                + '<img src="' + qr + '" alt="' + num + '號枱" width="152" height="152">'
-                + '<div class="no">' + num + '號枱</div>'
-                + '<div class="pay">掃碼點餐 · 櫃檯付款</div>'
+                + '<img src="' + qr + '" alt="' + esc(t('admin.qr.table_n', { n: num })) + '" width="152" height="152">'
+                + '<div class="no">' + esc(t('admin.qr.table_n', { n: num })) + '</div>'
+                + '<div class="pay">' + esc(t('admin.qr.scan_dine')) + '</div>'
                 + '</article>';
         }
 
@@ -1382,9 +1388,9 @@
             const qr = qrImageUrl(url, 640);
             return '<section class="sheet pickup-sheet">'
                 + '<div class="brand">Mirror Burger · ' + esc(label) + '</div>'
-                + '<img src="' + qr + '" alt="' + esc(label) + ' 外賣自取 QR" width="360" height="360">'
-                + '<div class="no">外賣自取</div>'
-                + '<div class="pay">掃碼落單 · 手機付款</div>'
+                + '<img src="' + qr + '" alt="' + esc(t('admin.qr.alt_pickup', { label })) + '" width="360" height="360">'
+                + '<div class="no">' + esc(t('admin.qr.pickup_title')) + '</div>'
+                + '<div class="pay">' + esc(t('admin.qr.scan_pickup')) + '</div>'
                 + '<div class="offer">' + esc(pickupOfferLine(store.store_name)) + '</div>'
                 + '</section>';
         }
@@ -1400,8 +1406,9 @@
                 count,
             });
             await loadTables();
-            document.getElementById('table-msg').textContent = '已儲存 ' + store.label + ' · ' + count + ' 張枱';
-            toast('已儲存 ' + store.label + ' · ' + count + ' 張枱');
+            const savedMsg = t('admin.qr.saved', { label: store.label, n: count });
+            document.getElementById('table-msg').textContent = savedMsg;
+            toast(savedMsg);
         }
 
         function renderItems() {
@@ -1412,18 +1419,18 @@
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div class="min-w-0 flex-1">
                         <div class="font-black truncate">${esc(i.name_zh || i.name_en)} <span class="text-neutral-500 font-semibold text-xs">${esc(i.id)}</span></div>
-                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(CAT_ZH[i.category] || i.category)}
-                            ${i.is_sold_out ? ' · <span class="text-amber-400">賣晒</span>' : ''}
-                            ${i.is_active === false ? ' · <span class="text-red-400">已下架</span>' : ''}
+                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(catLabel(i.category))}
+                            ${i.is_sold_out ? ' · <span class="text-amber-400">' + esc(t('admin.items.sold_out')) + '</span>' : ''}
+                            ${i.is_active === false ? ' · <span class="text-red-400">' + esc(t('admin.items.inactive')) + '</span>' : ''}
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" class="btn btn-ghost text-sm" onclick="toggleSold('${escAttr(i.id)}')">${i.is_sold_out ? '恢復供應' : '賣晒'}</button>
-                        <button type="button" class="btn btn-ghost text-sm" onclick="editItem('${escAttr(i.id)}')">編輯</button>
-                        <button type="button" class="btn btn-danger text-sm" onclick="removeItem('${escAttr(i.id)}')">刪除</button>
+                        <button type="button" class="btn btn-ghost text-sm" onclick="toggleSold('${escAttr(i.id)}')">${esc(i.is_sold_out ? t('admin.items.restock') : t('admin.items.sold_out'))}</button>
+                        <button type="button" class="btn btn-ghost text-sm" onclick="editItem('${escAttr(i.id)}')">${esc(t('admin.items.edit'))}</button>
+                        <button type="button" class="btn btn-danger text-sm" onclick="removeItem('${escAttr(i.id)}')">${esc(t('admin.items.delete'))}</button>
                     </div>
                 </div>
-            `).join('') || '<p class="text-neutral-500">冇項目</p>';
+            `).join('') || '<p class="text-neutral-500">' + esc(t('admin.items.empty')) + '</p>';
         }
 
         function renderMods() {
@@ -1434,16 +1441,16 @@
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div>
                         <div class="font-black">${esc(m.name_zh || m.name_en)} <span class="text-neutral-500 text-xs">${esc(m.id)}</span></div>
-                        <div class="text-sm text-neutral-400">${esc(KIND_ZH[m.kind] || m.kind)} · +$${Number(m.price)}
-                            ${m.is_active === false ? ' · 已下架' : ''}
+                        <div class="text-sm text-neutral-400">${esc(modKindLabel(m.kind))} · +$${Number(m.price)}
+                            ${m.is_active === false ? ' · ' + esc(t('admin.items.inactive')) : ''}
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" class="btn btn-ghost text-sm" onclick="editMod('${escAttr(m.id)}')">編輯</button>
-                        <button type="button" class="btn btn-danger text-sm" onclick="removeMod('${escAttr(m.id)}')">刪除</button>
+                        <button type="button" class="btn btn-ghost text-sm" onclick="editMod('${escAttr(m.id)}')">${esc(t('admin.items.edit'))}</button>
+                        <button type="button" class="btn btn-danger text-sm" onclick="removeMod('${escAttr(m.id)}')">${esc(t('admin.items.delete'))}</button>
                     </div>
                 </div>
-            `).join('') || '<p class="text-neutral-500">冇選項</p>';
+            `).join('') || '<p class="text-neutral-500">' + esc(t('admin.mods.empty')) + '</p>';
         }
 
         function esc(s) {
@@ -1456,7 +1463,7 @@
         function editItem(id) {
             editingItemId = id;
             const i = id ? items.find((x) => x.id === id) : null;
-            document.getElementById('item-modal-title').textContent = i ? '編輯項目' : '新增項目';
+            document.getElementById('item-modal-title').textContent = i ? t('admin.modal.item_edit') : t('admin.modal.item_new');
             document.getElementById('f-id').value = i?.id || '';
             document.getElementById('f-id').disabled = !!i;
             document.getElementById('f-cat').value = i?.category || 'beef';
@@ -1485,10 +1492,10 @@
         async function saveItem() {
             let dietary = [];
             let sizes = null;
-            try { dietary = JSON.parse(document.getElementById('f-dietary').value || '[]'); } catch { alert('Dietary JSON 無效'); return; }
+            try { dietary = JSON.parse(document.getElementById('f-dietary').value || '[]'); } catch { alert(t('admin.alert.dietary_json')); return; }
             const sizesRaw = document.getElementById('f-sizes').value.trim();
             if (sizesRaw) {
-                try { sizes = JSON.parse(sizesRaw); } catch { alert('Sizes JSON 無效'); return; }
+                try { sizes = JSON.parse(sizesRaw); } catch { alert(t('admin.alert.sizes_json')); return; }
             }
             const item = {
                 id: document.getElementById('f-id').value.trim(),
@@ -1510,14 +1517,14 @@
                 has_temp: document.getElementById('f-temp').checked,
             };
             if (!item.id || !item.name_zh || !Number.isFinite(item.price)) {
-                alert('請填編號、中文名、價錢');
+                alert(t('admin.alert.item_required'));
                 return;
             }
             if (!item.name_en) item.name_en = item.name_zh;
             await api('/api/admin-menu', { token, action: 'upsert_item', item });
             closeItemModal();
             await loadAll();
-            toast('已儲存');
+            toast(t('admin.toast.saved'));
         }
 
         async function toggleSold(id) {
@@ -1529,20 +1536,20 @@
                 item: { ...i, is_sold_out: !i.is_sold_out },
             });
             await loadAll();
-            toast(i.is_sold_out ? '已恢復供應' : '已標賣晒');
+            toast(i.is_sold_out ? t('admin.toast.restocked') : t('admin.toast.marked_sold'));
         }
 
         async function removeItem(id) {
-            if (!confirm('刪除 ' + id + '？')) return;
+            if (!confirm(t('admin.confirm.delete_id', { id }))) return;
             await api('/api/admin-menu', { token, action: 'delete_item', id });
             await loadAll();
-            toast('已刪除');
+            toast(t('admin.toast.deleted'));
         }
 
         function editMod(id) {
             editingModId = id;
             const m = id ? modifiers.find((x) => x.id === id) : null;
-            document.getElementById('mod-modal-title').textContent = m ? '編輯選項' : '新增選項';
+            document.getElementById('mod-modal-title').textContent = m ? t('admin.modal.mod_edit') : t('admin.modal.mod_new');
             document.getElementById('m-id').value = m?.id || '';
             document.getElementById('m-id').disabled = !!m;
             document.getElementById('m-kind').value = m?.kind || 'addon';
@@ -1569,21 +1576,21 @@
                 is_active: document.getElementById('m-active').checked,
             };
             if (!modifier.id || !modifier.name_zh) {
-                alert('請填編號同中文名');
+                alert(t('admin.alert.mod_required'));
                 return;
             }
             if (!modifier.name_en) modifier.name_en = modifier.name_zh;
             await api('/api/admin-menu', { token, action: 'upsert_modifier', modifier });
             closeModModal();
             await loadAll();
-            toast('已儲存');
+            toast(t('admin.toast.saved'));
         }
 
         async function removeMod(id) {
-            if (!confirm('刪除 ' + id + '？')) return;
+            if (!confirm(t('admin.confirm.delete_id', { id }))) return;
             await api('/api/admin-menu', { token, action: 'delete_modifier', id });
             await loadAll();
-            toast('已刪除');
+            toast(t('admin.toast.deleted'));
         }
 
         function payrollStore() {
@@ -1594,7 +1601,7 @@
             const box = document.getElementById('payroll-rules');
             const lines = (data && data.rules_zh) || [];
             if (!lines.length) {
-                box.innerHTML = '<p class="text-neutral-500">未有規則。上面寫完再撳 Generate &amp; Save Rules。</p>';
+                box.innerHTML = '<p class="text-neutral-500">' + esc(t('admin.payroll.no_rules')) + '</p>';
                 return;
             }
             box.innerHTML = lines.map((line) => `<p>${esc(line)}</p>`).join('');
@@ -1607,13 +1614,13 @@
             const list = document.getElementById('emp-list');
             const rows = employees || [];
             if (!rows.length) {
-                list.innerHTML = '<p class="text-neutral-500 text-sm">未有員工</p>';
+                list.innerHTML = '<p class="text-neutral-500 text-sm">' + esc(t('admin.payroll.no_staff')) + '</p>';
                 return;
             }
             list.innerHTML = rows.map((e) => `
                 <div class="flex flex-wrap items-center justify-between gap-2 border border-neutral-800 rounded-xl px-3 py-2">
-                    <div class="font-black">${esc(e.name)} · PIN ${esc(e.pin_code)} · 時薪 ${money(e.hourly_rate)}</div>
-                    <button type="button" class="btn btn-ghost" onclick="deleteEmployee('${escAttr(e.id)}')">刪除</button>
+                    <div class="font-black">${esc(t('admin.payroll.emp_line', { name: e.name, pin: e.pin_code, rate: money(e.hourly_rate) }))}</div>
+                    <button type="button" class="btn btn-ghost" onclick="deleteEmployee('${escAttr(e.id)}')">${esc(t('admin.items.delete'))}</button>
                 </div>`).join('');
         }
 
@@ -1640,11 +1647,11 @@
             const msg = document.getElementById('payroll-msg');
             const text = document.getElementById('payroll-text').value.trim();
             if (!text) {
-                msg.textContent = '請先寫規則，例如：遲到15分鐘扣錢，無飯鐘';
+                msg.textContent = t('admin.payroll.need_text');
                 return;
             }
             btn.disabled = true;
-            msg.textContent = 'AI 產生緊…';
+            msg.textContent = t('admin.payroll.generating');
             try {
                 const data = await api('/api/admin-menu', {
                     token,
@@ -1653,10 +1660,10 @@
                     text,
                 });
                 renderPayrollRules(data);
-                msg.textContent = '已儲存呢間舖嘅規則';
-                toast('已儲存');
+                msg.textContent = t('admin.payroll.saved_rules');
+                toast(t('admin.toast.saved'));
             } catch (e) {
-                msg.textContent = e.message || '失敗';
+                msg.textContent = e.message || t('admin.payroll.fail');
             } finally {
                 btn.disabled = false;
             }
@@ -1678,22 +1685,22 @@
                 document.getElementById('emp-name').value = '';
                 document.getElementById('emp-pin').value = '';
                 document.getElementById('emp-rate').value = '';
-                toast('已加員工');
+                toast(t('admin.toast.employee_added'));
                 await loadPayroll();
             } catch (e) {
-                alert(e.message || '儲存失敗');
+                alert(e.message || t('admin.alert.save_fail'));
             }
         }
 
         async function deleteEmployee(id) {
-            if (!confirm('刪除呢個員工？')) return;
+            if (!confirm(t('admin.confirm.delete_employee'))) return;
             await api('/api/admin-menu', {
                 token,
                 action: 'payroll_delete_employee',
                 store_name: payrollStore(),
                 id,
             });
-            toast('已刪除');
+            toast(t('admin.toast.deleted'));
             await loadPayroll();
         }
 
@@ -1714,13 +1721,13 @@
             );
             sel.innerHTML = list.map((it) =>
                 `<option value="${esc(it.id)}">${esc(it.name_zh || it.name_en || it.id)} (${esc(it.id)})</option>`
-            ).join('') || '<option value="">未有餐點</option>';
+            ).join('') || '<option value="">' + esc(t('admin.inv.no_menu')) + '</option>';
             if (prev && list.some((it) => it.id === prev)) sel.value = prev;
         }
 
         async function loadInventory() {
             const list = document.getElementById('inv-list');
-            list.innerHTML = '<p class="text-neutral-500 font-bold">載入中…</p>';
+            list.innerHTML = '<p class="text-neutral-500 font-bold">' + esc(t('common.loading')) + '</p>';
             fillRecipeMenuSelect();
             try {
                 const data = await api('/api/admin-menu', {
@@ -1740,7 +1747,7 @@
         function renderInventory() {
             const list = document.getElementById('inv-list');
             if (!inventoryRows.length) {
-                list.innerHTML = '<p class="text-neutral-500 font-bold">呢間舖未有物料，撳上面加。</p>';
+                list.innerHTML = '<p class="text-neutral-500 font-bold">' + esc(t('admin.inv.empty')) + '</p>';
                 return;
             }
             list.innerHTML = inventoryRows.map((row) => {
@@ -1748,13 +1755,13 @@
                 return `<div class="rounded-xl border ${low ? 'border-amber-600 bg-amber-950/30' : 'border-neutral-800 bg-neutral-900'} p-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <div class="font-black">${esc(row.name)} <span class="text-neutral-500 text-xs font-bold">${esc(row.unit_of_measure)}</span>
-                          ${low ? '<span class="text-amber-300 text-xs ml-1">低庫存</span>' : ''}
+                          ${low ? '<span class="text-amber-300 text-xs ml-1">' + esc(t('admin.inv.low')) + '</span>' : ''}
                         </div>
-                        <div class="text-sm font-bold text-neutral-400">庫存 ${esc(row.current_stock)} · 警戒 ${esc(row.low_stock_threshold)} · 成本 $${esc(row.cost_per_unit)}/${esc(row.unit_of_measure)}</div>
+                        <div class="text-sm font-bold text-neutral-400">${esc(t('admin.inv.row', { stock: row.current_stock, threshold: row.low_stock_threshold, cost: row.cost_per_unit, uom: row.unit_of_measure }))}</div>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" class="btn btn-ghost" onclick="editInventoryItem('${esc(row.id)}')">改</button>
-                        <button type="button" class="btn btn-danger" onclick="deleteInventoryItem('${esc(row.id)}')">刪</button>
+                        <button type="button" class="btn btn-ghost" onclick="editInventoryItem('${esc(row.id)}')">${esc(t('admin.inv.edit'))}</button>
+                        <button type="button" class="btn btn-danger" onclick="deleteInventoryItem('${esc(row.id)}')">${esc(t('admin.inv.delete'))}</button>
                     </div>
                 </div>`;
             }).join('');
@@ -1765,12 +1772,12 @@
             if (!sel) return;
             sel.innerHTML = inventoryRows.map((row) =>
                 `<option value="${esc(row.id)}">${esc(row.name)} (${esc(row.unit_of_measure)})</option>`
-            ).join('') || '<option value="">請先加物料</option>';
+            ).join('') || '<option value="">' + esc(t('admin.inv.add_material_first')) + '</option>';
         }
 
         function editInventoryItem(id) {
             const row = id ? inventoryRows.find((r) => r.id === id) : null;
-            document.getElementById('inv-modal-title').textContent = row ? '改物料' : '新物料';
+            document.getElementById('inv-modal-title').textContent = row ? t('admin.modal.inv_edit') : t('admin.modal.inv_new');
             document.getElementById('inv-id').value = row ? row.id : '';
             document.getElementById('inv-name').value = row ? row.name : '';
             document.getElementById('inv-uom').value = row ? row.unit_of_measure : 'g';
@@ -1800,21 +1807,21 @@
                     },
                 });
                 closeInvModal();
-                toast('已儲存物料');
+                toast(t('admin.toast.inv_saved'));
                 await loadInventory();
             } catch (e) {
-                alert(e.message || '儲存失敗');
+                alert(e.message || t('admin.alert.save_fail'));
             }
         }
 
         async function deleteInventoryItem(id) {
-            if (!confirm('刪除呢個物料？有配方引用會失敗。')) return;
+            if (!confirm(t('admin.confirm.delete_inv'))) return;
             try {
                 await api('/api/admin-menu', { token, action: 'inventory_delete', id });
-                toast('已刪除');
+                toast(t('admin.toast.deleted'));
                 await loadInventory();
             } catch (e) {
-                alert(e.message || '刪除失敗');
+                alert(e.message || t('admin.alert.delete_fail'));
             }
         }
 
@@ -1857,7 +1864,7 @@
         function renderRecipeLines() {
             const box = document.getElementById('recipe-lines');
             if (!recipeLines.length) {
-                box.innerHTML = '<p class="text-neutral-500 font-bold text-sm">未有配方物料。</p>';
+                box.innerHTML = '<p class="text-neutral-500 font-bold text-sm">' + esc(t('admin.inv.no_recipe')) + '</p>';
                 return;
             }
             box.innerHTML = recipeLines.map((line) => {
@@ -1866,7 +1873,7 @@
                 const uom = inv.unit_of_measure || '';
                 return `<div class="flex items-center justify-between gap-2 rounded-lg border border-neutral-800 px-3 py-2">
                     <div class="font-bold text-sm">${esc(name)} · ${esc(line.quantity_used)} ${esc(uom)}</div>
-                    <button type="button" class="btn btn-danger" onclick="deleteRecipeLine('${esc(line.id)}')">刪</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteRecipeLine('${esc(line.id)}')">${esc(t('admin.inv.delete'))}</button>
                 </div>`;
             }).join('');
         }
@@ -1884,10 +1891,10 @@
                 });
                 const idx = items.findIndex((it) => it.id === menuId);
                 if (idx >= 0 && data.item) items[idx] = Object.assign({}, items[idx], data.item);
-                toast('已儲存成本設定');
+                toast(t('admin.toast.cost_saved'));
                 await loadRecipeEditor();
             } catch (e) {
-                alert(e.message || '儲存失敗');
+                alert(e.message || t('admin.alert.save_fail'));
             }
         }
 
@@ -1896,7 +1903,7 @@
             const inventory_item_id = document.getElementById('recipe-inv-pick').value;
             const quantity_used = document.getElementById('recipe-qty').value;
             if (!menu_item_id || !inventory_item_id) {
-                alert('請揀餐點同物料');
+                alert(t('admin.alert.pick_menu_inv'));
                 return;
             }
             try {
@@ -1911,21 +1918,21 @@
                     line: { menu_item_id, inventory_item_id, quantity_used },
                 });
                 document.getElementById('recipe-qty').value = '';
-                toast('已加入配方');
+                toast(t('admin.toast.recipe_added'));
                 await loadRecipeEditor();
             } catch (e) {
-                alert(e.message || '加入失敗');
+                alert(e.message || t('admin.alert.add_fail'));
             }
         }
 
         async function deleteRecipeLine(id) {
-            if (!confirm('刪除呢行配方？')) return;
+            if (!confirm(t('admin.confirm.delete_recipe'))) return;
             try {
                 await api('/api/admin-menu', { token, action: 'recipe_delete_line', id });
-                toast('已刪除');
+                toast(t('admin.toast.deleted'));
                 await loadRecipeEditor();
             } catch (e) {
-                alert(e.message || '刪除失敗');
+                alert(e.message || t('admin.alert.delete_fail'));
             }
         }
 
@@ -1940,6 +1947,21 @@
                 if (subEl) subEl.textContent = meta.sub;
                 if (salesData) renderSales();
                 if (ticketsData) renderTickets(ticketsData);
+                renderItems();
+                renderMods();
+                if (typeof previewQr === 'function') previewQr();
+                if (typeof setQrMode === 'function') setQrMode(qrMode);
+                if (currentTab === 'payroll') loadPayroll().catch(() => {});
+                if (inventoryRows && inventoryRows.length) {
+                    renderInventory();
+                    renderRecipeLines();
+                } else if (currentTab === 'inventory') {
+                    loadInventory().catch(() => {});
+                }
+                const hintEl = document.getElementById('load-hint');
+                if (hintEl && items.length) {
+                    hintEl.textContent = t('admin.load.hint', { n: items.length, m: modifiers.length });
+                }
             } catch (_) { /* ignore */ }
         });
         try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}

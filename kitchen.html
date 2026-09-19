@@ -264,34 +264,61 @@
             background: #450a0a;
             opacity: 0.95;
         }
+
+        .lang-toggle {
+            min-height: 40px;
+            min-width: 56px;
+            padding: 0 14px;
+            border-radius: 999px;
+            border: 2px solid #FFD131;
+            background: #FFD131;
+            color: #0a0a0a;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: .04em;
+            cursor: pointer;
+        }
+        .lang-toggle:active { transform: scale(.97); }
+        #kitchen-lang-login {
+            position: absolute;
+            top: calc(12px + env(safe-area-inset-top));
+            right: 16px;
+            z-index: 101;
+        }
+        #kitchen-lock { position: relative; }
+        body:has(#kitchen-app:not(.hidden)) #kitchen-lang-login {
+            display: none !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 <body class="antialiased">
 
     <div id="kitchen-lock" class="fixed inset-0 z-[100] bg-kds-bg flex items-center justify-center px-6">
+        <button type="button" id="kitchen-lang-login" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
         <form id="kitchen-login-form" class="w-full max-w-sm space-y-5" onsubmit="return submitKitchenLogin(event)">
             <div class="text-center space-y-2">
                 <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_280/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="Mirror Burger" class="h-14 w-auto mx-auto">
-                <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight">Kitchen Login</h1>
-                <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
+                <h1 class="text-2xl font-black text-kds-yellow uppercase tracking-tight" data-i18n="kitchen.login.title">Kitchen Login</h1>
+                <p class="text-sm font-bold text-neutral-400" data-i18n="kitchen.login.hint">用分店密碼登入；Master 可以切換所有分店。</p>
                 <p class="text-[11px] font-bold text-neutral-600 tracking-widest uppercase">Kitchen · v2026.09.18a</p>
-                <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1">
+                <p class="text-xs font-bold text-neutral-500 leading-relaxed px-1" data-i18n="kitchen.login.pwa">
                     iPhone 熄芒收單：用 Safari 打開本頁 → 分享 →「加入主畫面」→ 由主畫面圖示進入，再撳一次「開啟手機推送」。之後唔使開住 App 都會響。
                 </p>
             </div>
             <select id="kitchen-login-store"
                 class="w-full rounded-2xl bg-kds-card border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-kds-yellow">
-                <option value="Sai Ying Pun">西營盤</option>
-                <option value="Fortress Hill">天后</option>
-                <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
-                <option value="__master__">Master 全部分店</option>
+                <option value="Sai Ying Pun" data-i18n="kitchen.store.syp">西營盤</option>
+                <option value="Fortress Hill" data-i18n="kitchen.store.th">天后</option>
+                <option value="Tsuen Wan (Takeaway Only)" data-i18n="kitchen.store.tw">荃灣</option>
+                <option value="__master__" data-i18n="kitchen.store.master">Master 全部分店</option>
             </select>
             <input id="kitchen-password" type="password" autocomplete="current-password" required
-                placeholder="Password"
+                data-i18n-placeholder="kitchen.login.password" placeholder="Password"
                 class="w-full rounded-2xl bg-kds-card border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-kds-yellow">
             <p id="kitchen-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
             <button type="submit" id="kitchen-login-btn"
-                class="w-full rounded-2xl bg-kds-yellow text-black py-4 text-base font-black uppercase tracking-widest">
+                class="w-full rounded-2xl bg-kds-yellow text-black py-4 text-base font-black uppercase tracking-widest" data-i18n="kitchen.login.submit">
                 進入廚房
             </button>
         </form>
@@ -302,7 +329,7 @@
         <div class="flex items-center gap-2">
             <img src="https://res.cloudinary.com/dnuhe2uwy/image/upload/c_limit,w_140/f_auto/q_auto/v1777801810/logo_only_kqxyfg.png" alt="" class="h-7 w-auto shrink-0">
             <div class="min-w-0 flex-1">
-                <div class="text-sm font-black text-kds-yellow leading-none" id="kds-title">廚房</div>
+                <div class="text-sm font-black text-kds-yellow leading-none" id="kds-title" data-i18n="kitchen.brand">廚房</div>
                 <p class="text-[11px] text-neutral-400 font-bold mt-0.5 flex items-center gap-1.5 truncate">
                     <span id="conn-dot" class="inline-block w-2 h-2 rounded-full offline"></span>
                     <span id="conn-label">連線中…</span>
@@ -310,24 +337,25 @@
                     <span id="order-count">0 單</span>
                 </p>
             </div>
+            <button type="button" data-lang-toggle class="lang-toggle shrink-0" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
             <button id="store-status-btn" type="button" onclick="toggleStoreStatus()" class="chip-btn store-status-btn is-closed" disabled>…</button>
-            <button type="button" id="shift-btn" onclick="unlockKitchenAudio({ quiet: false })" class="chip-btn shift-btn">開鈴</button>
-            <button type="button" onclick="openMoreMenu()" class="chip-btn">更多</button>
+            <button type="button" id="shift-btn" onclick="unlockKitchenAudio({ quiet: false })" class="chip-btn shift-btn" data-i18n="kitchen.bell.on">開鈴</button>
+            <button type="button" onclick="openMoreMenu()" class="chip-btn" data-i18n="kitchen.more">更多</button>
         </div>
-        <button type="button" id="push-nudge" onclick="enableKitchenPush({ silent: false })" class="hidden mt-2 w-full rounded-xl bg-amber-400 text-black px-3 py-2.5 text-xs font-black text-left">
+        <button type="button" id="push-nudge" onclick="enableKitchenPush({ silent: false })" class="hidden mt-2 w-full rounded-xl bg-amber-400 text-black px-3 py-2.5 text-xs font-black text-left" data-i18n="kitchen.push.nudge">
             熄芒收單未開 — 撳呢度允許 iPhone 通知（只須一次）
         </button>
 
-        <div id="branch-tabs" class="mt-2 grid grid-cols-4 gap-1 hidden" role="tablist" aria-label="分店">
-            <button type="button" class="branch-tab" data-branch="__all__" onclick="selectBranch(this)">全部</button>
-            <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)">西營盤</button>
-            <button type="button" class="branch-tab" data-branch="Fortress Hill" onclick="selectBranch(this)">天后</button>
-            <button type="button" class="branch-tab" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)">荃灣</button>
+        <div id="branch-tabs" class="mt-2 grid grid-cols-4 gap-1 hidden" role="tablist" data-i18n-title="kitchen.aria.stores" aria-label="分店">
+            <button type="button" class="branch-tab" data-branch="__all__" onclick="selectBranch(this)" data-i18n="kitchen.store.all">全部</button>
+            <button type="button" class="branch-tab is-active" data-branch="Sai Ying Pun" onclick="selectBranch(this)" data-i18n="kitchen.store.syp">西營盤</button>
+            <button type="button" class="branch-tab" data-branch="Fortress Hill" onclick="selectBranch(this)" data-i18n="kitchen.store.th">天后</button>
+            <button type="button" class="branch-tab" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectBranch(this)" data-i18n="kitchen.store.tw">荃灣</button>
         </div>
 
-        <div class="mt-2 grid grid-cols-2 gap-1" role="tablist" aria-label="模式">
-            <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')">訂單</button>
-            <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')">沽清</button>
+        <div class="mt-2 grid grid-cols-2 gap-1" role="tablist" data-i18n-title="kitchen.aria.mode" aria-label="模式">
+            <button type="button" id="mode-orders" class="mode-tab is-active" onclick="setKitchenMode('orders')" data-i18n="kitchen.mode.orders">訂單</button>
+            <button type="button" id="mode-soldout" class="mode-tab" onclick="setKitchenMode('soldout')" data-i18n="kitchen.mode.soldout">沽清</button>
         </div>
         <div id="pending-kpay" class="hidden mt-2 rounded-xl border border-amber-500 bg-amber-950/70 p-2"></div>
     </header>
@@ -336,14 +364,14 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
             <div id="col-paid-wrap" class="board-col is-shown">
                 <div class="board-col-h new">
-                    <span>新單</span>
+                    <span data-i18n="kitchen.col.new">新單</span>
                     <span id="count-paid" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
                 </div>
                 <div id="col-paid" class="board-col-body"></div>
             </div>
             <div id="col-ready-wrap" class="board-col is-shown">
                 <div class="board-col-h ready">
-                    <span>可取餐</span>
+                    <span data-i18n="kitchen.col.ready">可取餐</span>
                     <span id="count-ready" class="text-xs rounded-full bg-black/30 px-2 py-0.5">0</span>
                 </div>
                 <div id="col-ready" class="board-col-body"></div>
@@ -355,10 +383,10 @@
         <div class="max-w-5xl mx-auto">
             <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
-                    <h2 class="text-2xl font-black text-kds-yellow">沽清／賣晒</h2>
-                    <p class="text-sm font-bold text-neutral-400 mt-1">撳一下即可 · 即時同步顧客網站（同 Admin 同一資料）</p>
+                    <h2 class="text-2xl font-black text-kds-yellow" data-i18n="kitchen.soldout.title">沽清／賣晒</h2>
+                    <p class="text-sm font-bold text-neutral-400 mt-1" data-i18n="kitchen.soldout.sub">撳一下即可 · 即時同步顧客網站（同 Admin 同一資料）</p>
                 </div>
-                <button type="button" onclick="loadSoldOutMenu()" class="px-4 py-3 rounded-xl bg-neutral-800 font-black border border-neutral-600">重新載入</button>
+                <button type="button" onclick="loadSoldOutMenu()" class="px-4 py-3 rounded-xl bg-neutral-800 font-black border border-neutral-600" data-i18n="kitchen.soldout.reload">重新載入</button>
             </div>
             <div class="flex flex-wrap gap-2 mb-4" id="soldout-cat-tabs"></div>
             <p id="soldout-msg" class="text-sm font-bold text-neutral-500 mb-3"></p>
@@ -368,10 +396,10 @@
 
     <div id="completed-panel" class="history-panel" aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closeCompletedToday()"></div>
-        <aside class="history-panel-sheet" role="dialog" aria-label="今日已完成訂單">
+        <aside class="history-panel-sheet" role="dialog" data-i18n-title="kitchen.aria.completed" aria-label="今日已完成訂單">
             <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
                 <div>
-                    <h2 class="text-xl font-black text-kds-yellow">今日已完成</h2>
+                    <h2 class="text-xl font-black text-kds-yellow" data-i18n="kitchen.completed.title">今日已完成</h2>
                     <p id="completed-count" class="text-sm font-bold text-neutral-400 mt-0.5">0 張</p>
                 </div>
                 <button type="button" onclick="closeCompletedToday()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
@@ -382,11 +410,11 @@
 
     <div id="stats-panel" class="history-panel" aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closeTodayStats()"></div>
-        <aside class="history-panel-sheet" role="dialog" aria-label="今日統計">
+        <aside class="history-panel-sheet" role="dialog" data-i18n-title="kitchen.aria.stats" aria-label="今日統計">
             <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
                 <div>
-                    <h2 class="text-xl font-black text-kds-yellow">今日統計</h2>
-                    <p class="text-sm font-bold text-neutral-400 mt-0.5">依目前分店</p>
+                    <h2 class="text-xl font-black text-kds-yellow" data-i18n="kitchen.stats.title">今日統計</h2>
+                    <p class="text-sm font-bold text-neutral-400 mt-0.5" data-i18n="kitchen.stats.sub">依目前分店</p>
                 </div>
                 <button type="button" onclick="closeTodayStats()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
             </div>
@@ -396,27 +424,27 @@
 
     <div id="password-panel" class="history-panel" aria-hidden="true">
         <div class="history-panel-backdrop" onclick="closePasswordPanel()"></div>
-        <aside class="history-panel-sheet" role="dialog" aria-label="更改密碼">
+        <aside class="history-panel-sheet" role="dialog" data-i18n-title="kitchen.aria.password" aria-label="更改密碼">
             <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-kds-border">
                 <div>
-                    <h2 class="text-xl font-black text-kds-yellow">更改密碼</h2>
-                    <p id="password-panel-hint" class="text-sm font-bold text-neutral-400 mt-0.5">只改呢個帳號。伺服器只存 hash，唔存明文。</p>
+                    <h2 class="text-xl font-black text-kds-yellow" data-i18n="kitchen.pw.title">更改密碼</h2>
+                    <p id="password-panel-hint" class="text-sm font-bold text-neutral-400 mt-0.5" data-i18n="kitchen.pw.hint_default">只改呢個帳號。伺服器只存 hash，唔存明文。</p>
                 </div>
                 <button type="button" onclick="closePasswordPanel()" class="w-11 h-11 rounded-full bg-neutral-800 font-black text-lg">✕</button>
             </div>
             <form class="p-4 space-y-3" onsubmit="return submitKitchenPassword(event)">
-                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">而家密碼</label>
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest" data-i18n="kitchen.pw.current">而家密碼</label>
                 <input id="pw-current" type="password" autocomplete="current-password" required
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
-                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">新密碼（至少 8 個字）</label>
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest" data-i18n="kitchen.pw.new">新密碼（至少 8 個字）</label>
                 <input id="pw-new" type="password" autocomplete="new-password" required minlength="8"
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
-                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest">再入一次新密碼</label>
+                <label class="block text-xs font-black text-neutral-500 uppercase tracking-widest" data-i18n="kitchen.pw.confirm">再入一次新密碼</label>
                 <input id="pw-confirm" type="password" autocomplete="new-password" required minlength="8"
                     class="w-full rounded-xl bg-neutral-900 border border-neutral-700 px-4 py-3 text-base font-bold text-white outline-none focus:border-kds-yellow">
                 <p id="password-panel-msg" class="hidden text-sm font-bold"></p>
                 <button type="submit" id="pw-save-btn"
-                    class="w-full rounded-xl bg-kds-yellow text-black py-3 text-sm font-black uppercase tracking-widest">
+                    class="w-full rounded-xl bg-kds-yellow text-black py-3 text-sm font-black uppercase tracking-widest" data-i18n="kitchen.pw.save">
                     儲存新密碼
                 </button>
             </form>
@@ -427,21 +455,22 @@
         <div class="history-panel-backdrop" onclick="closeMoreMenu()"></div>
         <div id="more-sheet-panel" class="more-sheet-panel" hidden>
             <div class="flex items-center justify-between mb-3">
-                <h2 class="text-base font-black">更多</h2>
+                <h2 class="text-base font-black" data-i18n="kitchen.more">更多</h2>
                 <button type="button" onclick="event.stopPropagation(); closeMoreMenu();" class="w-9 h-9 rounded-full bg-neutral-800 font-black">✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2">
-                <button type="button" id="push-btn" onclick="closeMoreMenu(); enableKitchenPush({ silent: false })" class="chip-btn min-h-[44px]">開啟手機推送</button>
-                <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]">測試開屏響鈴</button>
-                <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]">今日統計</button>
-                <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]">今日已完成</button>
-                <button type="button" onclick="closeMoreMenu(); openPasswordPanel()" class="chip-btn min-h-[44px] col-span-2">更改密碼</button>
-                <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900">登出</button>
+                <button type="button" id="push-btn" onclick="closeMoreMenu(); enableKitchenPush({ silent: false })" class="chip-btn min-h-[44px]" data-i18n="kitchen.more.push">開啟手機推送</button>
+                <button type="button" onclick="closeMoreMenu(); unlockKitchenAudio({ quiet: false })" class="chip-btn min-h-[44px]" data-i18n="kitchen.more.test_bell">測試開屏響鈴</button>
+                <button type="button" onclick="closeMoreMenu(); openTodayStats()" class="chip-btn min-h-[44px]" data-i18n="kitchen.more.stats">今日統計</button>
+                <button type="button" onclick="closeMoreMenu(); openCompletedToday()" class="chip-btn min-h-[44px]" data-i18n="kitchen.more.completed">今日已完成</button>
+                <button type="button" onclick="closeMoreMenu(); openPasswordPanel()" class="chip-btn min-h-[44px] col-span-2" data-i18n="kitchen.more.password">更改密碼</button>
+                <button type="button" onclick="logoutKitchen()" class="chip-btn min-h-[44px] col-span-2 text-red-300 border-red-900" data-i18n="common.logout">登出</button>
             </div>
         </div>
     </div>
     </div><!-- /#kitchen-app -->
 
+    <script src="./js/i18n.js?v=20260919e"></script>
     <script>
         const SUPABASE_URL = 'https://olmoingcxkgdrqezweuf.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sbW9pbmdjeGtnZHJxZXp3ZXVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwOTA4MTMsImV4cCI6MjA5NDY2NjgxM30.FHH8doicN8j1OKtt10BL9LS5Ta5dhLn5mSCF_cQ_pNw';
@@ -459,11 +488,14 @@
         // 廚房活躍狀態：已付款但未完成
         const ACTIVE_STATUSES = ['PAID', 'PREPARING', 'READY'];
         const STATUS_META = {
-            PAID:       { label: '新單',     color: 'border-yellow-400',  badge: 'bg-yellow-400 text-black' },
-            PREPARING:  { label: '製作中',   color: 'border-sky-400',     badge: 'bg-sky-500 text-white' },
-            READY:      { label: '可取餐',   color: 'border-emerald-400', badge: 'bg-emerald-500 text-white' },
-            COMPLETED:  { label: '已完成',   color: 'border-neutral-600', badge: 'bg-neutral-600 text-white' }
+            PAID:       { labelKey: 'kitchen.status.paid',       color: 'border-yellow-400',  badge: 'bg-yellow-400 text-black' },
+            PREPARING:  { labelKey: 'kitchen.status.preparing',  color: 'border-sky-400',     badge: 'bg-sky-500 text-white' },
+            READY:      { labelKey: 'kitchen.status.ready',      color: 'border-emerald-400', badge: 'bg-emerald-500 text-white' },
+            COMPLETED:  { labelKey: 'kitchen.status.completed',  color: 'border-neutral-600', badge: 'bg-neutral-600 text-white' }
         };
+        function statusMetaLabel(meta) {
+            return meta && meta.labelKey ? t(meta.labelKey) : '';
+        }
 
         let currentBranch = '__all__';
         let sessionScope = 'single_store';
@@ -547,10 +579,10 @@
         }
 
         function storeLabel(name) {
-            if (name === 'Fortress Hill') return '天后';
-            if (name === 'Tsuen Wan (Takeaway Only)') return '荃灣';
-            if (name === 'Sai Ying Pun') return '西營盤';
-            return name || '廚房';
+            if (name === 'Fortress Hill') return t('kitchen.store.th');
+            if (name === 'Tsuen Wan (Takeaway Only)') return t('kitchen.store.tw');
+            if (name === 'Sai Ying Pun') return t('kitchen.store.syp');
+            return name || t('kitchen.brand');
         }
 
         function applyKitchenAuth(data = {}) {
@@ -593,9 +625,11 @@
             const title = document.getElementById('kds-title');
             if (title) {
                 if (master && isAllBranchesView()) {
-                    title.textContent = '廚房 · Master · 全部';
+                    title.textContent = t('kitchen.title.all');
                 } else {
-                    title.textContent = master ? ('廚房 · Master · ' + storeLabel(currentBranch)) : ('廚房 · ' + storeLabel(currentBranch));
+                    title.textContent = master
+                        ? t('kitchen.title.master', { store: storeLabel(currentBranch) })
+                        : t('kitchen.title.store', { store: storeLabel(currentBranch) });
                 }
             }
             document.querySelectorAll('.branch-tab').forEach((el) => {
@@ -633,11 +667,11 @@
 
         function getFulfillment(order) {
             if (isTableOrder(order) || /堂食/.test(String(order.pickup_time || ''))) {
-                return { label: 'Dine-in', zh: '堂食', cls: 'bg-amber-400 text-black' };
+                return { label: 'Dine-in', zh: t('kitchen.fulfill.dine'), cls: 'bg-amber-400 text-black' };
             }
             const mode = (order.delivery_mode || order.order_type || order.fulfillment || order.mode || 'pickup').toString().toLowerCase();
-            if (mode.includes('deliver')) return { label: 'Delivery', zh: '外送', cls: 'bg-orange-500 text-white' };
-            return { label: 'Pickup', zh: '自取', cls: 'bg-neutral-700 text-white' };
+            if (mode.includes('deliver')) return { label: 'Delivery', zh: t('kitchen.fulfill.delivery'), cls: 'bg-orange-500 text-white' };
+            return { label: 'Pickup', zh: t('kitchen.fulfill.pickup'), cls: 'bg-neutral-700 text-white' };
         }
 
         function parseItems(order) {
@@ -655,7 +689,7 @@
         }
 
         function itemName(item) {
-            return item.nameZh || item.nameEn || item.name || '項目';
+            return item.nameZh || item.nameEn || item.name || t('kitchen.item_fallback');
         }
 
         function itemNotes(item) {
@@ -714,12 +748,12 @@
         function notifyCustomerWhatsApp(orderNo) {
             const order = ordersMap.get(orderNo);
             if (!order) {
-                alert('找不到訂單資料。');
+                alert(t('kitchen.alert.no_order'));
                 return;
             }
             const formattedPhone = normalizeWhatsAppPhone(order.customer_phone);
             if (!formattedPhone) {
-                alert('此單沒有有效電話號碼，無法開啟 WhatsApp。');
+                alert(t('kitchen.alert.no_phone'));
                 return;
             }
             const store_name = storeLabel(order.store_name || effectiveStoreName() || '');
@@ -748,14 +782,14 @@
         async function loadCompletedToday() {
             const listEl = document.getElementById('completed-list');
             const countEl = document.getElementById('completed-count');
-            listEl.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
+            listEl.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">${escapeHtml(t('common.loading'))}</p>`;
 
             try {
                 const data = await kitchenOrdersApi({ action: 'completed' });
                 const rows = Array.isArray(data.orders) ? data.orders : [];
-                countEl.textContent = `${rows.length} 張`;
+                countEl.textContent = t('kitchen.completed.count', { n: rows.length });
                 if (!rows.length) {
-                    listEl.innerHTML = `<p class="text-neutral-500 font-bold py-10 text-center">今日未有已完成訂單</p>`;
+                    listEl.innerHTML = `<p class="text-neutral-500 font-bold py-10 text-center">${escapeHtml(t('kitchen.completed.empty'))}</p>`;
                     return;
                 }
 
@@ -763,7 +797,7 @@
                     <div class="rounded-2xl border border-neutral-700 bg-kds-card p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <div class="text-xs font-black uppercase tracking-widest text-neutral-500">單號</div>
+                                <div class="text-xs font-black uppercase tracking-widest text-neutral-500">${escapeHtml(t('kitchen.ticket_no'))}</div>
                                 <div class="text-2xl font-black text-white">#${escapeHtml(ticketLabel(o))}</div>
                                 ${canSwitchBranches() ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/60 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(o.store_name))}</div>` : ''}
                             </div>
@@ -781,7 +815,7 @@
                 `).join('');
             } catch (err) {
                 console.error(err);
-                listEl.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(err.message || err)}</p>`;
+                listEl.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">${escapeHtml(t('kitchen.completed.load_fail', { msg: err.message || err }))}</p>`;
                 countEl.textContent = '—';
             }
         }
@@ -810,7 +844,7 @@
 
         async function loadTodayStats() {
             const body = document.getElementById('stats-body');
-            body.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">載入中…</p>`;
+            body.innerHTML = `<p class="text-neutral-500 font-bold py-8 text-center">${escapeHtml(t('common.loading'))}</p>`;
 
             try {
                 const data = await kitchenOrdersApi({ action: 'stats' });
@@ -851,15 +885,15 @@
                 });
 
                 body.innerHTML = [
-                    statCard('已完成', `${completed} 張`, `營業額約 HK$${Math.round(revenue)}`),
-                    statCard('廚房進行中', `${active} 張`, '已付款未完成'),
-                    statCard('已取消 / 未付逾時', `${cancelled} 張`, '含取消同系統清走'),
-                    statCard('仍待付款', `${pending} 張`, '客人可能仲喺 KPay'),
-                    statCard('今日總單數', `${rows.length} 張`, `已付款相關約 ${paidLike + completed} 張`)
+                    statCard(t('kitchen.stats.completed'), t('kitchen.stats.tickets', { n: completed }), t('kitchen.stats.completed_sub', { amount: Math.round(revenue) })),
+                    statCard(t('kitchen.stats.active'), t('kitchen.stats.tickets', { n: active }), t('kitchen.stats.active_sub')),
+                    statCard(t('kitchen.stats.cancelled'), t('kitchen.stats.tickets', { n: cancelled }), t('kitchen.stats.cancelled_sub')),
+                    statCard(t('kitchen.stats.pending'), t('kitchen.stats.tickets', { n: pending }), t('kitchen.stats.pending_sub')),
+                    statCard(t('kitchen.stats.total'), t('kitchen.stats.tickets', { n: rows.length }), t('kitchen.stats.total_sub', { n: paidLike + completed }))
                 ].join('');
             } catch (err) {
                 console.error(err);
-                body.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">載入失敗：${escapeHtml(err.message || err)}</p>`;
+                body.innerHTML = `<p class="text-red-400 font-bold py-8 text-center">${escapeHtml(t('kitchen.alert.load_fail', { msg: err.message || err }))}</p>`;
             }
         }
 
@@ -884,12 +918,12 @@
                 const btn = document.getElementById('shift-btn');
                 if (btn) {
                     btn.classList.add('is-on');
-                    btn.textContent = '已開鈴';
+                    btn.textContent = t('kitchen.bell.on_done');
                 }
             } catch (err) {
                 console.error('Audio unlock failed', err);
                 audioUnlocked = false;
-                if (!quiet) alert('無法啟用響鈴，請先撳「開鈴」掣。');
+                if (!quiet) alert(t('kitchen.alert.bell_fail'));
             }
         }
 
@@ -981,15 +1015,15 @@
                 && MBStoreHours.overrideActive(storeStatusRow());
             if (effective === true) {
                 btn.classList.add('is-open');
-                btn.textContent = '營業中';
+                btn.textContent = t('kitchen.store.open');
                 btn.disabled = false;
             } else if (effective === false) {
                 btn.classList.add('is-closed');
-                btn.textContent = manual ? '已暫停' : '已收舖';
+                btn.textContent = manual ? t('kitchen.store.paused') : t('kitchen.store.closed');
                 btn.disabled = false;
             } else {
                 btn.classList.add('is-closed');
-                btn.textContent = '狀態未知';
+                btn.textContent = t('kitchen.store.unknown');
                 btn.disabled = true;
             }
         }
@@ -1000,7 +1034,7 @@
                 if (btn) {
                     btn.disabled = true;
                     btn.classList.remove('is-open', 'is-closed');
-                    btn.textContent = '全部';
+                    btn.textContent = t('kitchen.store.all');
                 }
                 storeIsOpen = null;
                 storeOverrideUntil = null;
@@ -1009,7 +1043,7 @@
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = '載入中…';
+                btn.textContent = t('kitchen.store.loading');
             }
 
             const branch = effectiveStoreName();
@@ -1067,7 +1101,7 @@
                 renderStoreStatusBtn();
             } catch (err) {
                 console.error('toggleStoreStatus', err);
-                alert('更新營業狀態失敗：' + (err.message || err));
+                alert(t('kitchen.alert.store_fail', { msg: err.message || err }));
                 renderStoreStatusBtn();
             }
         }
@@ -1166,7 +1200,7 @@
                 renderOrders();
             } catch (err) {
                 console.error(err);
-                const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">載入失敗：${escapeHtml(err.message || err)}</div>`;
+                const errHtml = `<div class="text-center py-10 text-red-400 font-black text-lg">${escapeHtml(t('kitchen.alert.load_fail', { msg: err.message || err }))}</div>`;
                 document.getElementById('col-paid').innerHTML = errHtml;
                 const readyCol = document.getElementById('col-ready');
                 if (readyCol) readyCol.innerHTML = '';
@@ -1185,7 +1219,7 @@
             }
             box.classList.remove('hidden');
             box.innerHTML = `
-                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">KPay 已確認收款，系統未入廚 — 撳「入廚房」</div>
+                <div class="text-[11px] font-black uppercase tracking-widest text-amber-300">${escapeHtml(t('kitchen.kpay.banner'))}</div>
                 ${pendingOnline.map((o) => {
                     const no = escapeHtml(o.order_no);
                     const noJs = escapeJsString(o.order_no);
@@ -1198,7 +1232,7 @@
                             ${branchLabel}
                             <div class="text-xs font-bold text-amber-100 truncate">${escapeHtml(o.customer_name || '—')} · ${escapeHtml(o.pickup_time || '')}</div>
                         </div>
-                        <button type="button" class="chip-btn bg-amber-400 text-black border-amber-300" onclick="confirmKpayPaid('${noJs}')">入廚房</button>
+                        <button type="button" class="chip-btn bg-amber-400 text-black border-amber-300" onclick="confirmKpayPaid('${noJs}')">${escapeHtml(t('kitchen.kpay.enter'))}</button>
                     </div>`;
                 }).join('')}
             `;
@@ -1208,14 +1242,14 @@
             try {
                 const data = await kitchenOrdersApi({ action: 'mark_order_paid', orderNo });
                 if (!data || (!data.ok && !data.alreadyPaid && !data.order)) {
-                    throw new Error('確認失敗');
+                    throw new Error(t('kitchen.alert.confirm_fail'));
                 }
                 pendingOnline = pendingOnline.filter((o) => o.order_no !== orderNo);
                 renderPendingOnline();
                 await loadOrders();
                 ringNewOrder();
             } catch (err) {
-                alert('確認收款失敗：' + (err.message || err));
+                alert(t('kitchen.alert.kpay_fail', { msg: err.message || err }));
             }
         }
 
@@ -1272,7 +1306,7 @@
             lastBoardSig = sig;
             const list = sortOrders([...ordersMap.values()]);
             duplicateMap = duplicateOrderNos(list);
-            document.getElementById('order-count').textContent = `${list.length} 單`;
+            document.getElementById('order-count').textContent = t('kitchen.orders_n', { n: list.length });
 
             const cooking = list.filter((o) => {
                 const st = getKitchenStatus(o);
@@ -1293,10 +1327,10 @@
             const paidEl = document.getElementById('col-paid');
             const readyEl = document.getElementById('col-ready');
             if (paidEl) {
-                paidEl.innerHTML = cooking.length ? cooking.map(renderCard).join('') : empty('暫無新單');
+                paidEl.innerHTML = cooking.length ? cooking.map(renderCard).join('') : empty(t('kitchen.col.empty_new'));
             }
             if (readyEl) {
-                readyEl.innerHTML = ready.length ? ready.map(renderCard).join('') : empty('暫無可取餐');
+                readyEl.innerHTML = ready.length ? ready.map(renderCard).join('') : empty(t('kitchen.col.empty_ready'));
             }
 
             applyBoardFilter();
@@ -1351,8 +1385,8 @@
             const msg = document.getElementById('password-panel-msg');
             if (hint) {
                 hint.textContent = canSwitchBranches()
-                    ? '改 Master 密碼。之後要用新密碼先入到「Master 全部分店」。'
-                    : ('改 ' + storeLabel(currentBranch) + ' 呢間店嘅密碼。');
+                    ? t('kitchen.pw.hint_master')
+                    : t('kitchen.pw.hint_store', { store: storeLabel(currentBranch) });
             }
             if (msg) {
                 msg.classList.add('hidden');
@@ -1389,11 +1423,11 @@
                 msg.classList.add(ok ? 'text-emerald-400' : 'text-red-400');
             }
             if (next !== confirmPw) {
-                showMsg('兩次新密碼唔一致', false);
+                showMsg(t('kitchen.pw.mismatch'), false);
                 return false;
             }
             btn.disabled = true;
-            btn.textContent = '儲存中…';
+            btn.textContent = t('kitchen.pw.saving');
             try {
                 const token = sessionStorage.getItem(KITCHEN_TOKEN_KEY) || localStorage.getItem(KITCHEN_TOKEN_KEY) || '';
                 const res = await fetch('/api/kitchen-login', {
@@ -1407,17 +1441,17 @@
                     }),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(data.error || '儲存失敗');
-                showMsg('已改好。之後請用新密碼登入。', true);
+                if (!res.ok) throw new Error(data.error || t('kitchen.pw.fail'));
+                showMsg(t('kitchen.pw.ok'), true);
                 ['pw-current', 'pw-new', 'pw-confirm'].forEach((id) => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
             } catch (err) {
-                showMsg(err.message || '儲存失敗', false);
+                showMsg(err.message || t('kitchen.pw.fail'), false);
             } finally {
                 btn.disabled = false;
-                btn.textContent = '儲存新密碼';
+                btn.textContent = t('kitchen.pw.save');
             }
             return false;
         }
@@ -1425,15 +1459,13 @@
         let kitchenMode = 'orders';
         let soldOutItems = [];
         let soldOutCategory = 'all';
-        const SOLD_OUT_CATS = [
-            { id: 'all', label: '全部' },
-            { id: 'beef', label: '牛肉' },
-            { id: 'others', label: '其他' },
-            { id: 'veggie', label: '素食' },
-            { id: 'snacks', label: '小食' },
-            { id: 'drinks', label: '飲品' },
-            { id: 'sauces', label: '醬汁' },
-        ];
+        const SOLD_OUT_CAT_IDS = ['all', 'beef', 'others', 'veggie', 'snacks', 'drinks', 'sauces'];
+        function soldOutCats() {
+            return SOLD_OUT_CAT_IDS.map((id) => ({
+                id,
+                label: t(id === 'all' ? 'kitchen.cat.all' : ('kitchen.cat.' + id)),
+            }));
+        }
 
         function setKitchenMode(mode) {
             kitchenMode = mode === 'soldout' ? 'soldout' : 'orders';
@@ -1498,24 +1530,24 @@
         async function loadSoldOutMenu() {
             const msg = document.getElementById('soldout-msg');
             const grid = document.getElementById('soldout-grid');
-            msg.textContent = '載入菜單中…';
+            msg.textContent = t('kitchen.soldout.loading');
             grid.innerHTML = '';
             try {
                 const data = await kitchenMenuApi({ action: 'list' });
                 soldOutItems = Array.isArray(data.items) ? data.items : [];
                 msg.textContent = soldOutItems.length
-                    ? `共 ${soldOutItems.length} 項 · 綠＝有貨 · 紅＝賣晒`
-                    : '未有菜單資料。請先喺 Supabase 跑 menu-full.sql';
+                    ? t('kitchen.soldout.count', { n: soldOutItems.length })
+                    : t('kitchen.soldout.empty_db');
                 renderSoldOutCats();
                 renderSoldOutGrid();
             } catch (err) {
-                msg.textContent = '載入失敗：' + (err.message || err);
+                msg.textContent = t('kitchen.alert.load_fail', { msg: err.message || err });
             }
         }
 
         function renderSoldOutCats() {
             const el = document.getElementById('soldout-cat-tabs');
-            el.innerHTML = SOLD_OUT_CATS.map((c) => `
+            el.innerHTML = soldOutCats().map((c) => `
                 <button type="button"
                     class="px-4 py-2 rounded-xl font-black text-sm border-2 ${soldOutCategory === c.id ? 'bg-kds-yellow text-black border-kds-yellow' : 'bg-neutral-900 text-neutral-300 border-neutral-700'}"
                     onclick="setSoldOutCategory('${c.id}')">${c.label}</button>
@@ -1532,7 +1564,7 @@
             const grid = document.getElementById('soldout-grid');
             const rows = soldOutItems.filter((i) => soldOutCategory === 'all' || i.category === soldOutCategory);
             if (!rows.length) {
-                grid.innerHTML = '<p class="text-neutral-500 font-bold col-span-full py-8 text-center">呢類冇項目</p>';
+                grid.innerHTML = '<p class="text-neutral-500 font-bold col-span-full py-8 text-center">' + escapeHtml(t('kitchen.soldout.empty_cat')) + '</p>';
                 return;
             }
             grid.innerHTML = rows.map((item) => {
@@ -1549,7 +1581,7 @@
                                 <div class="text-sm text-neutral-400 mt-0.5">$${Number.isFinite(price) ? Math.round(price) : '—'} · ${escapeHtml(item.category || '')}</div>
                             </div>
                             <div class="shrink-0 text-base md:text-lg font-black ${sold ? 'text-red-300' : 'text-emerald-300'}">
-                                ${sold ? '賣晒' : '有貨'}
+                                ${sold ? escapeHtml(t('kitchen.soldout.sold')) : escapeHtml(t('kitchen.soldout.avail'))}
                             </div>
                         </div>
                     </button>`;
@@ -1559,7 +1591,7 @@
         async function toggleSoldOut(id, nextSold) {
             const msg = document.getElementById('soldout-msg');
             try {
-                msg.textContent = '更新中…';
+                msg.textContent = t('kitchen.soldout.updating');
                 await kitchenMenuApi({
                     action: 'set_sold_out',
                     id,
@@ -1567,8 +1599,8 @@
                 });
                 await loadSoldOutMenu();
             } catch (err) {
-                msg.textContent = '更新失敗：' + (err.message || err);
-                alert('沽清更新失敗：' + (err.message || err));
+                msg.textContent = t('kitchen.soldout.fail', { msg: err.message || err });
+                alert(t('kitchen.soldout.fail_alert', { msg: err.message || err }));
             }
         }
 
@@ -1602,14 +1634,14 @@
                             </div>
                         </div>`;
                 }).join('')
-                : `<div class="text-neutral-500 font-bold py-4">無餐點資料</div>`;
+                : `<div class="text-neutral-500 font-bold py-4">${escapeHtml(t('kitchen.no_items'))}</div>`;
 
             const branchBadge = canSwitchBranches()
                 ? `<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-sky-900/70 text-sky-300 text-xs font-black">${escapeHtml(storeLabel(order.store_name))}</div>`
                 : '';
             const dupOthers = duplicateMap.get(order.order_no) || [];
             const dupBanner = dupOthers.length
-                ? `<div class="rounded-lg border border-red-500 bg-red-950/80 px-2 py-1.5 text-[11px] font-black text-red-200 leading-snug">同一個客？先核對 ${dupOthers.map((n) => '#' + escapeHtml(ticketLabel({ order_no: n, display_id: (ordersMap.get(n) || {}).display_id }))).join(' / ')}</div>`
+                ? `<div class="rounded-lg border border-red-500 bg-red-950/80 px-2 py-1.5 text-[11px] font-black text-red-200 leading-snug">${escapeHtml(t('kitchen.dup', { list: dupOthers.map((n) => '#' + ticketLabel({ order_no: n, display_id: (ordersMap.get(n) || {}).display_id })).join(' / ') }))}</div>`
                 : '';
 
             return `
@@ -1618,18 +1650,18 @@
                         ${dupBanner}
                         <div class="flex items-start justify-between gap-2">
                             <div>
-                                <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">單號</div>
+                                <div class="text-[10px] font-black uppercase tracking-widest text-neutral-400">${escapeHtml(t('kitchen.ticket_no'))}</div>
                                 <div class="text-xl font-black text-white tracking-tight">#${shortNo}</div>
                                 ${branchBadge}
-                                ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">店內 POS</div>' : ''}
-                                ${isTableOrder(order) && tableNoFromOrder(order) ? `<div class="mt-1 text-3xl font-black text-amber-300 leading-none">${escapeHtml(tableNoFromOrder(order))}號枱</div>` : ''}
-                                ${isUnpaidTable(order) ? '<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">未收款</div>' : ''}
+                                ${String(order.channel || '') === 'pos' ? '<div class="text-[10px] font-black text-amber-300 mt-0.5">' + escapeHtml(t('kitchen.pos_channel')) + '</div>' : ''}
+                                ${isTableOrder(order) && tableNoFromOrder(order) ? `<div class="mt-1 text-3xl font-black text-amber-300 leading-none">${escapeHtml(t('kitchen.table_n', { n: tableNoFromOrder(order) }))}</div>` : ''}
+                                ${isUnpaidTable(order) ? '<div class="mt-1 inline-flex px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">' + escapeHtml(t('kitchen.unpaid')) + '</div>' : ''}
                                 <div class="text-lg font-black text-kds-yellow">${amount}</div>
                             </div>
                             <div class="text-right">
-                                <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-black uppercase ${meta.badge}">${meta.label}</div>
+                                <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-black uppercase ${meta.badge}">${escapeHtml(statusMetaLabel(meta))}</div>
                                 <div class="mt-1 text-2xl font-black text-kds-yellow leading-none">${pickup}</div>
-                                <div class="text-[10px] font-bold text-neutral-400 uppercase">${isTableOrder(order) ? '堂食' : '取餐'}</div>
+                                <div class="text-[10px] font-bold text-neutral-400 uppercase">${escapeHtml(isTableOrder(order) ? t('kitchen.dine_in') : t('kitchen.pickup'))}</div>
                             </div>
                         </div>
 
@@ -1649,15 +1681,15 @@
                         ${(status === 'READY' || status === 'PREPARING' || status === 'PAID') ? `
                         <button type="button" class="wa-notify-btn ${waSent ? 'is-sent' : ''} w-full rounded-lg px-3"
                             onclick="notifyCustomerWhatsApp('${orderNoJs}')">
-                            ${waSent ? '✓ 已通知' : 'WhatsApp 通知'}
+                            ${waSent ? escapeHtml(t('kitchen.btn.wa_sent')) : escapeHtml(t('kitchen.btn.wa'))}
                         </button>` : ''}
                     </div>
 
                     <div class="grid grid-cols-2 gap-1 p-2 bg-black/40 border-t border-neutral-800">
                         <button type="button" class="status-btn rounded-lg bg-emerald-600 text-white ${status === 'READY' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'READY')">可取餐</button>
+                            onclick="updateOrderStatus('${orderNoJs}', 'READY')">${escapeHtml(t('kitchen.btn.ready'))}</button>
                         <button type="button" class="status-btn rounded-lg bg-neutral-600 text-white ${status === 'COMPLETED' ? 'is-active' : ''}"
-                            onclick="updateOrderStatus('${orderNoJs}', 'COMPLETED')">完成</button>
+                            onclick="updateOrderStatus('${orderNoJs}', 'COMPLETED')">${escapeHtml(t('kitchen.btn.done'))}</button>
                     </div>
                 </article>`;
         }
@@ -1706,7 +1738,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                alert('更新狀態失敗：' + (err.message || err));
+                alert(t('kitchen.alert.status_fail', { msg: err.message || err }));
             }
         }
 
@@ -1733,7 +1765,7 @@
             const label = document.getElementById('conn-label');
             dot.classList.toggle('online', online);
             dot.classList.toggle('offline', !online);
-            label.textContent = online ? '已連接（30秒刷新）' : '連線中斷（10秒刷新）';
+            label.textContent = online ? t('kitchen.conn.online') : t('kitchen.conn.offline');
             scheduleOrdersPoll();
         }
 
@@ -1832,17 +1864,17 @@
             const btn = document.getElementById('push-btn');
             if (!btn) return;
             if (state === 'on') {
-                btn.textContent = '✓ 手機推送已開啟';
+                btn.textContent = t('kitchen.more.push_on');
                 btn.classList.add('border-emerald-500', 'text-emerald-200');
             } else if (state === 'busy') {
-                btn.textContent = '開啟中…';
+                btn.textContent = t('kitchen.more.push_busy');
                 btn.disabled = true;
             } else if (state === 'unsupported') {
-                btn.textContent = detail || '此裝置不支援推送';
+                btn.textContent = detail || t('kitchen.push.use_homescreen');
                 btn.disabled = true;
             } else {
                 btn.disabled = false;
-                btn.textContent = '開啟手機推送';
+                btn.textContent = t('kitchen.more.push');
             }
         }
 
@@ -1856,13 +1888,9 @@
         async function enableKitchenPush({ silent } = {}) {
             if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
                 if (!silent) {
-                    alert(
-                        '此瀏覽器／裝置暫不支援網頁推送。\n\n' +
-                        'iPhone：用 Safari 打開本頁 → 分享 → 「加入主畫面」→ 由主畫面圖示開啟。\n' +
-                        '（iOS 16.4+）'
-                    );
+                    alert(t('kitchen.alert.push_unsupported'));
                 }
-                setPushBtnState('unsupported', '請用主畫面 App 開啟');
+                setPushBtnState('unsupported', t('kitchen.push.use_homescreen'));
                 return;
             }
 
@@ -1870,9 +1898,9 @@
             const isIOS = isIOSDevice();
             if (isIOS && !isStandalone) {
                 if (!silent) {
-                    alert('iPhone 請先：Safari → 分享 →「加入主畫面」，再用主畫面圖示打開廚房，先會有熄芒推送。');
+                    alert(t('kitchen.alert.push_ios'));
                 }
-                setPushBtnState('unsupported', '請用主畫面 App 開啟');
+                setPushBtnState('unsupported', t('kitchen.push.use_homescreen'));
                 updatePushNudge();
                 return;
             }
@@ -1888,7 +1916,7 @@
                     ? 'granted'
                     : await Notification.requestPermission();
                 if (perm !== 'granted') {
-                    if (!silent) alert('你拒絕咗通知權限。可去系統設定重新開啟。');
+                    if (!silent) alert(t('kitchen.alert.push_denied'));
                     setPushBtnState('off');
                     updatePushNudge();
                     return;
@@ -1897,7 +1925,7 @@
                 const keyRes = await fetch('/api/push-vapid-public');
                 const keyData = await keyRes.json().catch(() => ({}));
                 if (!keyRes.ok || !keyData.publicKey) {
-                    throw new Error(keyData.error || '伺服器尚未設定推送（VAPID）');
+                    throw new Error(keyData.error || t('kitchen.alert.vapid'));
                 }
 
                 const reg = await ensureKitchenServiceWorker();
@@ -1921,14 +1949,14 @@
                     })
                 });
                 const saveData = await saveRes.json().catch(() => ({}));
-                if (!saveRes.ok) throw new Error(saveData.error || '儲存訂閱失敗');
+                if (!saveRes.ok) throw new Error(saveData.error || t('kitchen.alert.sub_fail'));
 
                 localStorage.setItem('mb_kds_push_on', '1');
                 setPushBtnState('on');
                 updatePushNudge();
             } catch (err) {
                 console.error(err);
-                if (!silent) alert('開啟推送失敗：' + (err.message || err));
+                if (!silent) alert(t('kitchen.alert.push_fail', { msg: err.message || err }));
                 setPushBtnState('off');
                 updatePushNudge();
             }
@@ -1958,7 +1986,7 @@
                             const btn = document.getElementById('shift-btn');
                             if (btn) {
                                 btn.classList.add('is-on');
-                                btn.textContent = '已開鈴';
+                                btn.textContent = t('kitchen.bell.on_done');
                             }
                         }
                     }).catch(() => {});
@@ -1998,7 +2026,7 @@
             const password = document.getElementById('kitchen-password').value;
             const store_name = selectedKitchenLoginStore();
             btn.disabled = true;
-            btn.textContent = '驗證中…';
+            btn.textContent = t('kitchen.login.verifying');
             err.classList.add('hidden');
             try {
                 const res = await fetch('/api/kitchen-login', {
@@ -2008,17 +2036,17 @@
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    throw new Error(data.error || '密碼錯誤');
+                    throw new Error(data.error || t('kitchen.login.wrong'));
                 }
                 saveKitchenToken(data.token);
                 applyKitchenAuth(data);
                 bootKitchen();
             } catch (e) {
-                err.textContent = e.message || '登入失敗';
+                err.textContent = e.message || t('kitchen.login.fail');
                 err.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
-                btn.textContent = '進入廚房';
+                btn.textContent = t('kitchen.login.submit');
             }
             return false;
         }
@@ -2028,7 +2056,34 @@
             location.reload();
         }
 
+
+        try { MB_I18N.applyI18n(document); } catch (_) {}
+        document.addEventListener('mb:lang', function () {
+            try {
+                syncBranchTabs();
+                lastBoardSig = '';
+                renderOrders();
+                renderPendingOnline();
+                renderStoreStatusBtn();
+                if (kitchenMode === 'soldout') {
+                    renderSoldOutCats();
+                    renderSoldOutGrid();
+                }
+                const shift = document.getElementById('shift-btn');
+                if (shift && audioUnlocked) shift.textContent = t('kitchen.bell.on_done');
+                else if (shift) shift.textContent = t('kitchen.bell.on');
+                setConn(realtimeOnline);
+                if (document.getElementById('completed-panel')?.classList.contains('is-open')) {
+                    loadCompletedToday();
+                }
+                if (document.getElementById('stats-panel')?.classList.contains('is-open')) {
+                    loadTodayStats();
+                }
+            } catch (_) { /* ignore */ }
+        });
+
         window.onload = async () => {
+            try { MB_I18N.applyI18n(document); } catch (_) {}
             ensureKitchenServiceWorker().catch(() => {});
             if ('Notification' in window && Notification.permission === 'granted') {
                 enableKitchenPush({ silent: true }).catch(() => {});
@@ -2045,7 +2100,7 @@
                     }
                     if (checked.status === 401) {
                         clearKitchenToken();
-                        showKitchenLock('登入已過期，請再入密碼');
+                        showKitchenLock(t('kitchen.login.expired'));
                         return;
                     }
                     saveKitchenToken(token);
@@ -2063,4 +2118,3 @@
     </script>
 </body>
 </html>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
