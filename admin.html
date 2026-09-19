@@ -577,7 +577,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919c"></script>
+    <script src="./js/i18n.js?v=20260919d"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -913,7 +913,7 @@
             const list = document.getElementById('sales-stores');
             const data = salesData;
             if (!data) {
-                if (sum) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+                if (sum) sum.innerHTML = '<p class="text-neutral-500">' + esc(t('common.loading')) + '</p>';
                 return;
             }
             const current = data;
@@ -921,41 +921,41 @@
             const take = current.takeaway || { orders: 0, revenue: 0 };
             const dinePct = pctBar(dine.orders, current.orders);
             const takePct = pctBar(take.orders, current.orders);
-            const rangeLabel = data.range_label || t('admin.range.' + salesRange) || t('admin.range.today');
+            const rangeLabel = t('admin.range.' + salesRange) || t('admin.range.today');
             const empty = !Number(current.orders);
             if (empty) {
                 sum.innerHTML = `
                     <div class="card metric-hero p-6 mb-4">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(rangeLabel)} 三間舖共收</div>
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.total_collected', { range: rangeLabel }))}</div>
                         <div class="text-5xl font-black mt-2 tracking-tight">${money(0)}</div>
-                        <div class="text-sm font-bold text-neutral-400 mt-2">呢段時間未有收款</div>
+                        <div class="text-sm font-bold text-neutral-400 mt-2">${esc(t('admin.sales.no_revenue'))}</div>
                     </div>`;
             } else {
             sum.innerHTML = `
                 <div class="card metric-hero p-6 mb-4">
-                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(rangeLabel)} 三間舖共收</div>
+                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.total_collected', { range: rangeLabel }))}</div>
                     <div class="text-5xl font-black mt-2 tracking-tight">${money(current.revenue)}</div>
-                    <div class="text-sm font-bold text-neutral-300 mt-2">${Number(current.orders || 0)} 張已收款</div>
+                    <div class="text-sm font-bold text-neutral-300 mt-2">${esc(t('admin.sales.paid_orders', { n: Number(current.orders || 0) }))}</div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="card p-4">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">訂單總數</div>
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.order_count'))}</div>
                         <div class="text-3xl font-black mt-2">${Number(current.orders || 0)}</div>
                     </div>
                     <div class="card p-4">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">客單價</div>
+                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.aov'))}</div>
                         <div class="text-3xl font-black mt-2">${money(current.aov)}</div>
                     </div>
                 </div>
                 <div class="card p-5">
-                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">堂食／外賣</div>
+                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase mb-3">${esc(t('admin.sales.dine_vs_take'))}</div>
                     <div class="flex justify-between text-sm font-bold mb-1">
-                        <span>堂食 ${Number(dine.orders)} 張 · ${money(dine.revenue)}</span>
+                        <span>${esc(t('admin.sales.dine_line', { n: Number(dine.orders), money: money(dine.revenue) }))}</span>
                         <span class="text-neutral-500">${dinePct}%</span>
                     </div>
                     <div class="bar-track mb-4"><div class="bar-fill" style="width:${dinePct}%;background:#fbbf24"></div></div>
                     <div class="flex justify-between text-sm font-bold mb-1">
-                        <span>外賣 ${Number(take.orders)} 張 · ${money(take.revenue)}</span>
+                        <span>${esc(t('admin.sales.take_line', { n: Number(take.orders), money: money(take.revenue) }))}</span>
                         <span class="text-neutral-500">${takePct}%</span>
                     </div>
                     <div class="bar-track"><div class="bar-fill" style="width:${takePct}%;background:#60a5fa"></div></div>
@@ -968,22 +968,22 @@
                 return `<button type="button" class="card store-jump p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openStoreOrders('${escAttr(s.store_name)}')">
                     <div>
                         <div class="font-black">${esc(s.label)}</div>
-                        <div class="text-xs font-bold text-neutral-500 mt-1">堂食 ${Number(sDine.orders)} · 外賣 ${Number(sTake.orders)} · 撳入睇單</div>
+                        <div class="text-xs font-bold text-neutral-500 mt-1">${esc(t('admin.sales.store_line', { dine: Number(sDine.orders), take: Number(sTake.orders) }))}</div>
                     </div>
                     <div class="text-right">
                         <div class="text-2xl font-black">${money(s.revenue)}</div>
-                        <div class="text-xs font-bold text-neutral-400 mt-1">${Number(s.orders || 0)} 張</div>
+                        <div class="text-xs font-bold text-neutral-400 mt-1">${esc(t('admin.sales.tickets_n', { n: Number(s.orders || 0) }))}</div>
                     </div>
                 </button>`;
             }).join('');
-            list.innerHTML = storeRows || '<p class="text-neutral-500">呢段時間未有收款</p>';
+            list.innerHTML = storeRows || '<p class="text-neutral-500">' + esc(t('admin.sales.no_revenue')) + '</p>';
         }
 
         async function loadSales() {
             const sum = document.getElementById('sales-summary');
             const requested = salesRange;
             const dates = requested === 'custom' ? ensureCustomDates('sales') : {};
-            if (sum && !salesData) sum.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+            if (sum && !salesData) sum.innerHTML = '<p class="text-neutral-500">' + esc(t('common.loading')) + '</p>';
             try {
                 salesData = await api('/api/admin-menu', {
                     token,
@@ -999,12 +999,25 @@
                 salesData = null;
                 if (sum) sum.innerHTML = '';
                 document.getElementById('sales-stores').innerHTML =
-                    `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
+                    `<p class="text-red-400 text-sm">${esc(t('admin.sales.load_fail', { msg: e.message || e }))}</p>`;
             }
         }
 
-        const PAY_LABEL = { cash: '現金', fps: '轉數快', payme: 'PayMe', card: '卡機', kpay: 'KPay' };
-        const STATUS_LABEL = { paid: '已收款', pending: '等付款', unpaid: '未付', cancelled: '已取消', other: '' };
+        function payLabel(method) {
+            const key = String(method || '').toLowerCase();
+            const map = { cash: 'admin.pay.cash', fps: 'admin.pay.fps', payme: 'admin.pay.payme', card: 'admin.pay.card', kpay: 'admin.pay.kpay' };
+            return map[key] ? t(map[key]) : (method || '');
+        }
+
+        function statusLabel(status) {
+            const key = String(status || '').toLowerCase();
+            const map = { paid: 'admin.status.paid', pending: 'admin.status.pending', unpaid: 'admin.status.unpaid', cancelled: 'admin.status.cancelled' };
+            return map[key] ? t(map[key]) : '';
+        }
+
+        function kindLabel(kind) {
+            return kind === 'dine_in' ? t('admin.kind.dine_in') : t('admin.kind.takeaway');
+        }
 
         function hkWhen(iso, withDate) {
             if (!iso) return '';
@@ -1019,15 +1032,11 @@
                     opts.month = '2-digit';
                     opts.day = '2-digit';
                 }
-                return new Date(iso).toLocaleString('zh-HK', opts);
+                const loc = (typeof MB_I18N !== 'undefined' && MB_I18N.getLang() === 'en') ? 'en-HK' : 'zh-HK';
+                return new Date(iso).toLocaleString(loc, opts);
             } catch {
                 return '';
             }
-        }
-
-        function payLabel(method) {
-            const key = String(method || '').toLowerCase();
-            return PAY_LABEL[key] || method || '';
         }
 
         function renderTickets(data) {
@@ -1037,34 +1046,34 @@
             ticketRows = data.tickets || [];
             const q = data.q || '';
             const range = data.range || 'today';
-            const rangeZh = data.range_label || t('admin.range.' + range) || t('admin.range.today');
+            const rangeLabel = t('admin.range.' + range) || t('admin.range.today');
             const showDate = range !== 'today' && range !== 'yesterday';
             msg.textContent = q
-                ? (ticketRows.length ? `搵到 ${ticketRows.length} 張（單號含 ${q}）` : `搵唔到 ${q}`)
+                ? (ticketRows.length ? t('admin.orders.found', { n: ticketRows.length, q: q }) : t('admin.orders.not_found', { q: q }))
                 : (data.truncated
-                    ? `已收款先計入合計。下面只列出最近 ${ticketRows.length} 張。`
-                    : '已收款先計入合計；撳一張睇餐。');
+                    ? t('admin.orders.truncated_note', { n: ticketRows.length })
+                    : t('admin.orders.hint'));
             list.innerHTML = ticketRows.length
                 ? ticketRows.map((o, i) => {
-                    const kind = o.kind === 'dine_in' ? '堂食' : '外賣';
-                    const st = STATUS_LABEL[o.status] || '';
+                    const kind = kindLabel(o.kind);
+                    const st = statusLabel(o.status);
                     const pay = payLabel(o.pay_method);
                     const when = hkWhen(o.created_at, showDate || !!q);
                     return `<button type="button" class="card ticket-row p-4 w-full text-left flex flex-wrap items-center justify-between gap-3" onclick="openTicket(${i})">
                         <div>
                             <div class="font-black">#${esc(o.order_no)} · ${esc(o.label)}</div>
-                            <div class="text-xs font-bold text-neutral-500 mt-1">${esc(when)} · ${kind}${o.pickup_time ? ' · ' + esc(o.pickup_time) : ''}${pay ? ' · ' + esc(pay) : ''}${st && o.status !== 'paid' ? ' · ' + st : ''}</div>
+                            <div class="text-xs font-bold text-neutral-500 mt-1">${esc(when)} · ${esc(kind)}${o.pickup_time ? ' · ' + esc(o.pickup_time) : ''}${pay ? ' · ' + esc(pay) : ''}${st && o.status !== 'paid' ? ' · ' + esc(st) : ''}</div>
                         </div>
                         <div class="text-right">
                             <div class="font-black">${money(o.total_amount)}</div>
-                            <div class="text-xs font-bold text-neutral-500">${Number(o.item_count || 0) ? Number(o.item_count) + ' 件' : ''}</div>
+                            <div class="text-xs font-bold text-neutral-500">${Number(o.item_count || 0) ? esc(t('admin.orders.items_n', { n: Number(o.item_count) })) : ''}</div>
                         </div>
                     </button>`;
                 }).join('')
-                : '<p class="text-neutral-500">呢段時間未有單</p>';
+                : '<p class="text-neutral-500">' + esc(t('admin.orders.empty')) + '</p>';
             if (ticketRows.length) {
                 sum.classList.remove('hidden');
-                sum.textContent = `${rangeZh} · ${Number(data.orders || 0)} 張 · ${money(data.revenue)}`;
+                sum.textContent = t('admin.orders.sum', { range: rangeLabel, n: Number(data.orders || 0), money: money(data.revenue) });
             } else {
                 sum.classList.add('hidden');
                 sum.textContent = '';
@@ -1074,7 +1083,7 @@
         async function loadTickets() {
             const list = document.getElementById('orders-list');
             const msg = document.getElementById('orders-msg');
-            if (list && !ticketsData) list.innerHTML = '<p class="text-neutral-500">載入中…</p>';
+            if (list && !ticketsData) list.innerHTML = '<p class="text-neutral-500">' + esc(t('common.loading')) + '</p>';
             if (msg && !ticketsData) msg.textContent = '';
             try {
                 const data = await api('/api/admin-menu', {
@@ -1091,7 +1100,7 @@
             } catch (e) {
                 ticketRows = [];
                 ticketsData = null;
-                if (list) list.innerHTML = `<p class="text-red-400 text-sm">載入失敗：${esc(e.message || e)}</p>`;
+                if (list) list.innerHTML = `<p class="text-red-400 text-sm">${esc(t('admin.sales.load_fail', { msg: e.message || e }))}</p>`;
             }
         }
 
@@ -1110,7 +1119,7 @@
             document.getElementById('ticket-title').textContent = '#' + o.order_no;
             const bits = [
                 o.label,
-                o.kind === 'dine_in' ? '堂食' : '外賣',
+                kindLabel(o.kind),
                 o.pickup_time,
                 payLabel(o.pay_method),
                 o.customer_name,
@@ -1125,7 +1134,7 @@
                         ${it.notes ? `<div class="text-xs text-neutral-500">${esc(it.notes)}</div>` : ''}
                     </div>
                 </div>`).join('');
-            document.getElementById('ticket-items').innerHTML = lines || '<p class="text-neutral-500 text-sm">冇餐點明細</p>';
+            document.getElementById('ticket-items').innerHTML = lines || '<p class="text-neutral-500 text-sm">' + esc(t('admin.orders.no_items')) + '</p>';
             document.getElementById('ticket-modal').classList.remove('hidden');
         }
 
