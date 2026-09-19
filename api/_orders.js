@@ -35,6 +35,7 @@ function getSupabaseConfig() {
 async function getOrderByNo(orderNo) {
     const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
     if (!orderNo) throw new Error('Missing orderNo');
+    const no = String(orderNo).trim();
 
     // 唔 select status：舊 DB 可能未加呢欄；通知唔需要
     const baseSelect = [
@@ -50,8 +51,8 @@ async function getOrderByNo(orderNo) {
         'created_at',
     ];
 
-    async function fetchWithSelect(select) {
-        const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&select=${select}`;
+    async function fetchBy(field, select) {
+        const url = `${SUPABASE_URL}/rest/v1/orders?${field}=eq.${encodeURIComponent(no)}&select=${select}&limit=1`;
         const resp = await fetch(url, {
             headers: {
                 apikey: SUPABASE_KEY,
@@ -67,6 +68,17 @@ async function getOrderByNo(orderNo) {
         }
         const rows = text ? JSON.parse(text) : [];
         return Array.isArray(rows) ? rows[0] || null : null;
+    }
+
+    async function fetchWithSelect(select) {
+        const byNo = await fetchBy('order_no', select);
+        if (byNo) return byNo;
+        try {
+            return await fetchBy('display_id', select);
+        } catch (err) {
+            if (/display_id|schema cache|column/i.test(String(err.body || err.message || ''))) return null;
+            throw err;
+        }
     }
 
     try {
@@ -93,9 +105,11 @@ async function markOrderPaid(orderNo) {
     if (!orderNo) return { updated: false };
 
     const { SUPABASE_URL, SUPABASE_KEY } = getSupabaseConfig();
+    const existingLookup = await getOrderByNo(orderNo).catch(() => null);
+    const key = (existingLookup && existingLookup.order_no) || String(orderNo).trim();
 
     // payment_status = 收款；status = 廚房「新單」欄（有呢欄就一齊寫）
-    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(orderNo)}&payment_status=eq.PENDING`;
+    const url = `${SUPABASE_URL}/rest/v1/orders?order_no=eq.${encodeURIComponent(key)}&payment_status=eq.PENDING`;
     const patchBodies = [
         { payment_status: 'PAID', status: 'PAID' },
         { payment_status: 'PAID' },
@@ -244,10 +258,20 @@ function clip(value, max) {
 }
 
 function generateOrderNo() {
-    // Legacy fallback only — prefer allocateOrderId() (Supabase RPC).
-    const timePart = Date.now().toString().slice(-6);
-    const randPart = crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
-    return `MB${timePart}${randPart}`;
+    // Dead — never use MB… tickets. Kept only so accidental callers fail loudly.
+    throw new Error('generateOrderNo is retired; use allocateOrderId()');
+}
+
+/** Golden ticket: SYP-260919-Q-001 */
+const GOLDEN_ORDER_RE = /^[A-Z]{2,4}-\d{6}-[A-Z]-\d{3,}$/i;
+const LEGACY_MB_RE = /^(MB|UAT)[A-Z0-9]{6,}$/i;
+
+function isGoldenOrderId(value) {
+    return GOLDEN_ORDER_RE.test(String(value || '').trim());
+}
+
+function isLegacyMbOrderId(value) {
+    return LEGACY_MB_RE.test(String(value || '').trim());
 }
 
 /** District initials for display_id e.g. TW-260919-Q-001 */
@@ -323,12 +347,72 @@ async function generateDisplayId(storeName, channel) {
 
 /** Golden ticket ID = order_no = display_id (e.g. TW-260919-Q-001). */
 async function allocateOrderId(storeName, channel) {
-    return generateDisplayId(storeName, channel);
+    const id = await generateDisplayId(storeName, channel);
+    if (!isGoldenOrderId(id)) {
+        throw new Error(`allocateOrderId returned non-golden id: ${id}`);
+    }
+    return id;
 }
 
 function ticketIdOf(order) {
     if (!order) return '';
-    return String(order.display_id || order.displayId || order.order_no || order.orderNo || '').trim();
+    const display = String(order.display_id || order.displayId || '').trim();
+    const orderNo = String(order.order_no || order.orderNo || '').trim();
+    if (isGoldenOrderId(display)) return display;
+    if (isGoldenOrderId(orderNo)) return orderNo;
+    return display || orderNo;
+}
+
+/** Promote legacy MB… rows so order_no becomes the golden ticket when safe. */
+async function ensureGoldenOrderNo(order, storeName, channel) {
+    if (!order || !order.order_no) return order;
+    const current = String(order.order_no).trim();
+    if (isGoldenOrderId(current)) {
+        const display = String(order.display_id || '').trim();
+        if (display !== current) {
+            try {
+                await sbRest(`orders?order_no=eq.${encodeURIComponent(current)}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ display_id: current }),
+                });
+            } catch (err) {
+                console.warn('sync display_id skipped:', err.message || err);
+            }
+        }
+        return { ...order, display_id: current };
+    }
+
+    // KPay already opened with MB outTradeNo — keep order_no, ensure display_id for UI.
+    if (kpayManagedNoOf(order)) {
+        let golden = String(order.display_id || '').trim();
+        if (!isGoldenOrderId(golden)) {
+            golden = await allocateOrderId(storeName, channel);
+            try {
+                await sbRest(`orders?order_no=eq.${encodeURIComponent(current)}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ display_id: golden }),
+                });
+            } catch (err) {
+                console.warn('attach display_id on KPay pending skipped:', err.message || err);
+            }
+        }
+        return { ...order, display_id: golden || order.display_id };
+    }
+
+    let golden = String(order.display_id || '').trim();
+    if (!isGoldenOrderId(golden)) {
+        golden = await allocateOrderId(storeName, channel);
+    }
+    try {
+        await sbRest(`orders?order_no=eq.${encodeURIComponent(current)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ order_no: golden, display_id: golden }),
+        });
+        return { ...order, order_no: golden, display_id: golden };
+    } catch (err) {
+        console.error('ensureGoldenOrderNo failed:', current, '→', golden, err.message || err);
+        throw err;
+    }
 }
 
 function startOfTodayHkIso() {
@@ -429,28 +513,38 @@ async function createPendingOrder(input) {
         items,
     });
     if (reused && reused.order_no) {
+        let row = reused;
         try {
-            await sbRest(
-                `orders?order_no=eq.${encodeURIComponent(reused.order_no)}&payment_status=eq.PENDING`,
-                {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        customer_name: customerName,
-                        pickup_time: pickupTime,
-                        items_json: items,
-                        total_amount: priced.total,
-                    }),
-                }
-            );
+            row = await ensureGoldenOrderNo(reused, storeName, 'online');
         } catch (err) {
-            console.warn('reuse pending update skipped:', reused.order_no, err.message || err);
+            console.warn('reuse pending golden upgrade failed; creating new ticket:', err.message || err);
+            row = null;
         }
-        return {
-            orderNo: reused.order_no,
-            displayId: reused.display_id || null,
-            total: priced.total,
-            reused: true,
-        };
+        if (row && row.order_no) {
+            try {
+                await sbRest(
+                    `orders?order_no=eq.${encodeURIComponent(row.order_no)}&payment_status=eq.PENDING`,
+                    {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            customer_name: customerName,
+                            pickup_time: pickupTime,
+                            items_json: items,
+                            total_amount: priced.total,
+                            display_id: row.order_no,
+                        }),
+                    }
+                );
+            } catch (err) {
+                console.warn('reuse pending update skipped:', row.order_no, err.message || err);
+            }
+            return {
+                orderNo: ticketIdOf(row) || row.order_no,
+                displayId: ticketIdOf(row) || row.display_id || row.order_no,
+                total: priced.total,
+                reused: true,
+            };
+        }
     }
 
     let lastError = null;
@@ -479,9 +573,13 @@ async function createPendingOrder(input) {
             };
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
+            const savedNo = (row && row.order_no) || orderNo;
+            if (!isGoldenOrderId(savedNo)) {
+                throw new Error(`Created non-golden order_no: ${savedNo}`);
+            }
             return {
-                orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || orderNo,
+                orderNo: savedNo,
+                displayId: (row && row.display_id) || savedNo,
                 total: priced.total,
                 reused: false,
             };
@@ -720,10 +818,14 @@ async function createPosOrder(input) {
             };
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
-            const order = (await getOrderByNo(orderNo)) || {
+            const savedNo = (row && row.order_no) || orderNo;
+            if (!isGoldenOrderId(savedNo)) {
+                throw new Error(`Created non-golden POS order_no: ${savedNo}`);
+            }
+            const order = (await getOrderByNo(savedNo)) || {
                 ...row,
-                order_no: orderNo,
-                display_id: orderNo,
+                order_no: savedNo,
+                display_id: savedNo,
                 store_name: storeName,
                 items_json: items,
             };
@@ -732,8 +834,8 @@ async function createPosOrder(input) {
                 console.error('POS notifyOrderPaid failed:', err);
             });
             return {
-                orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || orderNo,
+                orderNo: savedNo,
+                displayId: (row && row.display_id) || savedNo,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -751,7 +853,8 @@ async function createPosOrder(input) {
 }
 
 async function cancelPosOrder(orderNo) {
-    const no = clip(orderNo, 40);
+    const looked = await getOrderByNo(orderNo).catch(() => null);
+    const no = clip((looked && looked.order_no) || orderNo, 48);
     if (!no) {
         const err = new Error('Missing orderNo');
         err.status = 400;
@@ -867,10 +970,14 @@ async function createTableOrder(input) {
             };
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
-            const order = (await getOrderByNo(orderNo)) || {
+            const savedNo = (row && row.order_no) || orderNo;
+            if (!isGoldenOrderId(savedNo)) {
+                throw new Error(`Created non-golden table order_no: ${savedNo}`);
+            }
+            const order = (await getOrderByNo(savedNo)) || {
                 ...row,
-                order_no: orderNo,
-                display_id: orderNo,
+                order_no: savedNo,
+                display_id: savedNo,
                 store_name: storeName,
                 items_json: items,
             };
@@ -879,8 +986,8 @@ async function createTableOrder(input) {
                 console.error('table notifyOrderPaid failed:', err);
             });
             return {
-                orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || orderNo,
+                orderNo: savedNo,
+                displayId: (row && row.display_id) || savedNo,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -898,7 +1005,8 @@ async function createTableOrder(input) {
 }
 
 async function markTableOrderPaid(orderNo, payMethod) {
-    const no = clip(orderNo, 40);
+    const looked = await getOrderByNo(orderNo).catch(() => null);
+    const no = clip((looked && looked.order_no) || orderNo, 48);
     const method = clip(payMethod, 20).toLowerCase();
     if (!no) {
         const err = new Error('Missing orderNo');
@@ -953,7 +1061,7 @@ async function markTableOrderPaid(orderNo, payMethod) {
 }
 
 async function getPublicOrderStatus(orderNo) {
-    const no = clip(orderNo, 40);
+    const no = clip(orderNo, 48);
     if (!no) return null;
     try {
         const rows = await sbRest(
@@ -1109,7 +1217,8 @@ function kpayManagedNoOf(order) {
 }
 
 async function saveKpayManagedNo(orderNo, managedOrderNo) {
-    const no = clip(orderNo, 32);
+    const looked = await getOrderByNo(orderNo).catch(() => null);
+    const no = clip((looked && looked.order_no) || orderNo, 48);
     const kpayNo = clip(managedOrderNo, 64);
     if (!no || !kpayNo) return null;
     try {
@@ -1142,7 +1251,7 @@ function sleep(ms) {
 }
 
 async function inspectPendingKpay(orderNo) {
-    const no = clip(orderNo, 32);
+    const no = clip(orderNo, 48);
     if (!no) return { order: null, kpay: 'missing' };
     const existing = await getOrderByNo(no);
     if (!existing) return { order: null, kpay: 'missing' };
@@ -1183,7 +1292,7 @@ async function inspectPendingKpay(orderNo) {
 }
 
 async function reconcilePendingIfPaid(orderNo, { retries = 1, delayMs = 0 } = {}) {
-    const no = clip(orderNo, 32);
+    const no = clip(orderNo, 48);
     if (!no) return null;
     let existing = await getOrderByNo(no);
     if (!existing) return null;

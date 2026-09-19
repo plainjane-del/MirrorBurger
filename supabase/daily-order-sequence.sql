@@ -14,12 +14,12 @@ CREATE TABLE IF NOT EXISTS public.daily_order_sequence (
 COMMENT ON TABLE public.daily_order_sequence IS
   'Per-store daily counters for human-readable display_id; day boundary is 04:00 HKT';
 
--- 2) Human-readable ID on orders (KPay still uses order_no = MB…)
+-- 2) Human-readable ID on orders (also used as primary order_no for new tickets)
 ALTER TABLE public.orders
     ADD COLUMN IF NOT EXISTS display_id text;
 
 COMMENT ON COLUMN public.orders.display_id IS
-  'Kitchen/customer ticket: StoreCode-YYMMDD-Channel-Seq e.g. TW-260919-Q-001';
+  'Kitchen/customer ticket: StoreCode-YYMMDD-Channel-Seq e.g. TW-260919-Q-001 (same as order_no for new orders)';
 
 CREATE UNIQUE INDEX IF NOT EXISTS orders_display_id_uidx
     ON public.orders (display_id)

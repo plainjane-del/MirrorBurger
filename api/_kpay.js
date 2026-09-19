@@ -227,11 +227,13 @@ function extractKpayOrderNo(payload) {
     ]
         .filter((v) => v != null && String(v).trim() !== '')
         .map((v) => String(v).trim());
-    const ours = candidates.find((c) => /^(MB|UAT)[A-Z0-9]+/i.test(c));
+    const ours = candidates.find((c) =>
+        /^(MB|UAT)[A-Z0-9]+$/i.test(c) || /^[A-Z]{2,4}-\d{6}-[A-Z]-\d{3,}$/i.test(c)
+    );
     if (ours) return ours;
     try {
         const blob = JSON.stringify(flat);
-        const m = blob.match(/\b((?:MB|UAT)[A-Z0-9]{6,})\b/i);
+        const m = blob.match(/\b((?:MB|UAT)[A-Z0-9]{6,}|[A-Z]{2,4}-\d{6}-[A-Z]-\d{3,})\b/i);
         if (m) return m[1];
     } catch (_) { /* ignore */ }
     return candidates[0] || null;

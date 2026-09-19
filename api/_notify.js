@@ -33,7 +33,12 @@ function formatItems(order) {
 }
 
 function ticketIdOf(order) {
-    return String((order && (order.display_id || order.order_no)) || '').trim();
+    if (!order) return '';
+    const display = String(order.display_id || '').trim();
+    const orderNo = String(order.order_no || '').trim();
+    if (/^[A-Z]{2,4}-\d{6}-[A-Z]-\d{3,}$/i.test(display)) return display;
+    if (/^[A-Z]{2,4}-\d{6}-[A-Z]-\d{3,}$/i.test(orderNo)) return orderNo;
+    return display || orderNo;
 }
 
 function buildEmailHtml(order) {
