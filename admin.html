@@ -47,16 +47,20 @@
         .nav-btn.is-on { background: #fafafa; color: #0a0a0a; }
         .range-btn { background: #262626; color: #d4d4d4; }
         .range-btn.is-on { background: #fafafa; color: #0a0a0a; }
-        #sales-range-select {
+        #sales-range-select,
+        #ticket-range-select {
             width: auto; min-width: 11rem; max-width: 100%;
             font-weight: 800; padding: 0.6rem 0.9rem;
         }
         @media (min-width: 768px) {
-            #sales-range-select { display: none !important; }
-            #sales-range-btns { display: flex !important; }
+            #sales-range-select,
+            #ticket-range-select { display: none !important; }
+            #sales-range-btns,
+            #ticket-range-btns { display: flex !important; }
         }
         @media (max-width: 767px) {
-            #sales-range-btns { display: none !important; }
+            #sales-range-btns,
+            #ticket-range-btns { display: none !important; }
         }
         .metric-hero { background: linear-gradient(180deg, #1a1a1a, #141414); }
         .bar-track { height: 8px; background: #262626; border-radius: 999px; overflow: hidden; }
@@ -318,7 +322,16 @@
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
                     <label data-i18n="admin.label.date">日期</label>
-                    <div class="flex flex-wrap gap-2">
+                    <select id="ticket-range-select" aria-label="Date range" onchange="setTicketRange(this.value)">
+                        <option value="today" data-i18n="admin.range.today">今日</option>
+                        <option value="yesterday" data-i18n="admin.range.yesterday">昨日</option>
+                        <option value="week" data-i18n="admin.range.week">一星期</option>
+                        <option value="month" data-i18n="admin.range.month">今個月</option>
+                        <option value="ytd" data-i18n="admin.range.ytd">年頭到而家</option>
+                        <option value="year" data-i18n="admin.range.year">一年</option>
+                        <option value="custom" data-i18n="admin.range.custom">自訂</option>
+                    </select>
+                    <div id="ticket-range-btns" class="flex flex-wrap gap-2" style="display:none">
                         <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')" data-i18n="admin.range.today">今日</button>
                         <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')" data-i18n="admin.range.yesterday">昨日</button>
                         <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')" data-i18n="admin.range.week">一星期</button>
@@ -872,6 +885,10 @@
             });
             if (prefix === 'range-') {
                 const sel = document.getElementById('sales-range-select');
+                if (sel && sel.value !== next) sel.value = next;
+            }
+            if (prefix === 'tr-') {
+                const sel = document.getElementById('ticket-range-select');
                 if (sel && sel.value !== next) sel.value = next;
             }
         }
@@ -1447,7 +1464,7 @@
             list.innerHTML = rows.map((i) => `
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div class="min-w-0 flex-1">
-                        <div class="font-black truncate">${esc(i.name_zh || i.name_en)} <span class="text-neutral-500 font-semibold text-xs">${esc(i.id)}</span></div>
+                        <div class="font-black truncate">${esc(i.name_zh || i.name_en)}</div>
                         <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(catLabel(i.category))}
                             ${i.is_sold_out ? ' · <span class="text-amber-400">' + esc(t('admin.items.sold_out')) + '</span>' : ''}
                             ${i.is_active === false ? ' · <span class="text-red-400">' + esc(t('admin.items.inactive')) + '</span>' : ''}
@@ -1469,7 +1486,7 @@
             list.innerHTML = rows.map((m) => `
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div>
-                        <div class="font-black">${esc(m.name_zh || m.name_en)} <span class="text-neutral-500 text-xs">${esc(m.id)}</span></div>
+                        <div class="font-black">${esc(m.name_zh || m.name_en)}</div>
                         <div class="text-sm text-neutral-400">${esc(modKindLabel(m.kind))} · +$${Number(m.price)}
                             ${m.is_active === false ? ' · ' + esc(t('admin.items.inactive')) : ''}
                         </div>
