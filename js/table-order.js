@@ -40,7 +40,7 @@ const FALLBACK = {
     ],
     combo_drink: [
         { id: 'cd1', name_zh: '可口可樂', price: 0 }, { id: 'cd1a', name_zh: '零系可口可樂', price: 0 },
-        { id: 'cd2', name_zh: '忌廉哥冰', price: 0 }, { id: 'cd3', name_zh: '梳打水', price: 2 },
+        { id: 'cd2', name_zh: '忌廉', price: 0 }, { id: 'cd3', name_zh: '梳打水', price: 2 },
         { id: 'cd4', name_zh: '肉桂凍檸茶', price: 3 }, { id: 'cd5h', name_zh: '美式咖啡 (熱)', price: 6 },
         { id: 'cd5c', name_zh: '美式咖啡 (凍)', price: 6 }, { id: 'cd6h', name_zh: '鮮奶咖啡 (熱)', price: 8 },
         { id: 'cd6c', name_zh: '鮮奶咖啡 (凍)', price: 8 }, { id: 'cd7h', name_zh: '朱古力咖啡 (熱)', price: 8 },

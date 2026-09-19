@@ -151,7 +151,7 @@ let menuData = {
     drinks: [
         { id: 'd1', nameEn: 'Coke', nameZh: '可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138704/Coke_wba2do.jpg', isSoldOut: false },
         { id: 'd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138703/coke_zero_jdjubx.jpg', dietary: ['🚫🍬'], isSoldOut: false },
-        { id: 'd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg', isSoldOut: false },
+        { id: 'd2', nameEn: 'Cream Soda', nameZh: '忌廉', price: 13, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138716/SCHWEPPES-Cream-Soda-Hong-Kong-24-X-330mL-600x600_jiecdy.jpg', isSoldOut: false },
         { id: 'd3', nameEn: 'Soda Water', nameZh: '梳打水', price: 15, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1778138715/170200178-1-schweppes-soda-water-330ml_tyvsww.jpg', dietary: ['🚫🍬'], isSoldOut: false },
         { id: 'd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', price: 22, img: '/img/menu/d4-lemon-tea.jpg', isSoldOut: false },
         { id: 'd5', nameEn: 'Americano', nameZh: '美式咖啡', price: 22, img: 'https://res.cloudinary.com/dnuhe2uwy/image/upload/v1777801201/americano_fqaszt.png', hasTemp: true, isSoldOut: false },
@@ -203,7 +203,7 @@ const comboSnacksFallback = [
 const comboDrinksFallback = [
     { id: 'cd1', nameEn: 'Coke', nameZh: '可口可樂', p: 0 },
     { id: 'cd1a', nameEn: 'Coke No Sugar', nameZh: '零系可口可樂', p: 0 },
-    { id: 'cd2', nameEn: 'Cream Soda', nameZh: '忌廉哥冰', p: 0 },
+    { id: 'cd2', nameEn: 'Cream Soda', nameZh: '忌廉', p: 0 },
     { id: 'cd3', nameEn: 'Soda Water', nameZh: '梳打水', p: 2 },
     { id: 'cd4', nameEn: 'Cinnamon Iced Lemon Tea', nameZh: '肉桂凍檸茶', p: 3 },
     { id: 'cd5h', nameEn: 'Americano (Hot)', nameZh: '美式咖啡 (熱)', p: 6 },
