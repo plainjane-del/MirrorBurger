@@ -72,8 +72,14 @@
             border:2px solid #FFD131; background:#FFD131; color:#0a0a0a;
             font-weight:900; font-size:13px; letter-spacing:.04em; cursor:pointer;
         }
+        #login-view { position: relative; }
         #admin-lang-login {
-            position:fixed; top:calc(12px + env(safe-area-inset-top)); right:16px; z-index:60;
+            position:absolute; top:0; right:1rem; z-index:2;
+        }
+        /* Never let the login lang control intercept clicks once the app is open */
+        body:has(#app-view:not(.hidden)) #admin-lang-login {
+            display: none !important;
+            pointer-events: none !important;
         }
         #login-view.hidden,
         #app-view.hidden { display: none !important; }
@@ -142,8 +148,8 @@
     </style>
 </head>
 <body class="min-h-screen">
-    <button type="button" id="admin-lang-login" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
     <div id="login-view" class="max-w-md mx-auto px-4 py-16">
+        <button type="button" id="admin-lang-login" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
         <h1 class="text-2xl font-black mb-2" data-i18n="admin.login.title">後台</h1>
         <p class="text-neutral-400 text-sm mb-6" data-i18n="admin.login.hint">睇今日生意、改價錢、印枱 QR、搵單。廚房 Master 密碼通常都得。</p>
         <form onsubmit="doLogin(); return false;">
@@ -644,14 +650,10 @@
         function showLogin() {
             document.getElementById('login-view').classList.remove('hidden');
             document.getElementById('app-view').classList.add('hidden');
-            const langBtn = document.getElementById('admin-lang-login');
-            if (langBtn) langBtn.style.display = '';
         }
         function showApp() {
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('app-view').classList.remove('hidden');
-            const langBtn = document.getElementById('admin-lang-login');
-            if (langBtn) langBtn.style.display = 'none';
         }
 
         async function loadAll() {
