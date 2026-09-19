@@ -268,7 +268,7 @@
                     </div>
                     <button type="button" class="btn btn-primary" onclick="editItem(null)" data-i18n="admin.items.new">＋ 新項目</button>
                 </div>
-                <div id="items-list" class="space-y-3"></div>
+                <div id="items-list" class="space-y-6"></div>
             </div>
             <div id="mods-section" class="hidden">
                 <div class="flex flex-wrap gap-2 mb-4 items-end">
@@ -1454,15 +1454,29 @@
             toast(savedMsg);
         }
 
+        const ITEM_CAT_ORDER = ['beef', 'others', 'veggie', 'snacks', 'drinks', 'sauces'];
+
         function renderItems() {
             const cat = document.getElementById('filter-cat').value;
             const list = document.getElementById('items-list');
             const rows = items.filter((i) => !cat || i.category === cat);
-            list.innerHTML = rows.map((i) => `
+            if (!rows.length) {
+                list.innerHTML = '<p class="text-neutral-500">' + esc(t('admin.items.empty')) + '</p>';
+                return;
+            }
+            const cats = cat
+                ? [cat]
+                : [
+                    ...ITEM_CAT_ORDER.filter((c) => rows.some((i) => i.category === c)),
+                    ...[...new Set(rows.map((i) => i.category).filter((c) => c && !ITEM_CAT_ORDER.includes(c)))],
+                ];
+
+            function itemCard(i) {
+                return `
                 <div class="card p-4 flex flex-wrap gap-3 justify-between items-center">
                     <div class="min-w-0 flex-1">
                         <div class="font-black truncate">${esc(i.name_zh || i.name_en)}</div>
-                        <div class="text-sm text-neutral-400">$${Number(i.price)} · ${esc(catLabel(i.category))}
+                        <div class="text-sm text-neutral-400">$${Number(i.price)}
                             ${i.is_sold_out ? ' · <span class="text-amber-400">' + esc(t('admin.items.sold_out')) + '</span>' : ''}
                             ${i.is_active === false ? ' · <span class="text-red-400">' + esc(t('admin.items.inactive')) + '</span>' : ''}
                         </div>
@@ -1472,8 +1486,18 @@
                         <button type="button" class="btn btn-ghost text-sm" onclick="editItem('${escAttr(i.id)}')">${esc(t('admin.items.edit'))}</button>
                         <button type="button" class="btn btn-danger text-sm" onclick="removeItem('${escAttr(i.id)}')">${esc(t('admin.items.delete'))}</button>
                     </div>
-                </div>
-            `).join('') || '<p class="text-neutral-500">' + esc(t('admin.items.empty')) + '</p>';
+                </div>`;
+            }
+
+            list.innerHTML = cats.map((c) => {
+                const group = rows.filter((i) => (i.category || '') === c);
+                if (!group.length) return '';
+                return `
+                <section class="space-y-3">
+                    <h3 class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(catLabel(c))}</h3>
+                    ${group.map(itemCard).join('')}
+                </section>`;
+            }).join('');
         }
 
         function renderMods() {
