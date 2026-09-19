@@ -35,7 +35,8 @@
         .tab-off { background: #262626; color: #d4d4d4; }
         .app-shell { min-height: 100vh; }
         .app-nav {
-            display: flex; gap: 0.5rem; overflow-x: auto; padding: 0.75rem 1rem;
+            display: flex; gap: 0.5rem; overflow-x: auto;
+            padding: 0.85rem 1rem 1.1rem;
             border-bottom: 1px solid #262626; background: #0a0a0a;
             -webkit-overflow-scrolling: touch;
         }
@@ -100,8 +101,12 @@
         }
         .store-jump { cursor: pointer; }
         .store-jump:hover { border-color: #525252; }
-        html.is-standalone #login-view { padding-top: calc(4rem + env(safe-area-inset-top, 0px)); }
-        html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+        .app-main { padding-top: 1.75rem; }
+        #app-toolbar { margin-bottom: 1.75rem; }
+        @media (max-width: 899px) {
+            .app-main { padding-top: 1.5rem; }
+            #app-toolbar { margin-top: 0.25rem; margin-bottom: 1.5rem; }
+        }
         .lang-toggle {
             min-height:40px; min-width:56px; padding:0 14px; border-radius:999px;
             border:2px solid #FFD131; background:#FFD131; color:#0a0a0a;
@@ -217,8 +222,8 @@
             </div>
         </nav>
 
-        <div class="app-main max-w-5xl mx-auto px-4 py-6 w-full">
-        <div id="app-toolbar" class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div class="app-main max-w-5xl mx-auto px-4 pb-6 w-full">
+        <div id="app-toolbar" class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-black" id="page-title">銷售概況</h1>
                 <p class="text-neutral-500 text-sm hidden" id="page-sub"></p>
