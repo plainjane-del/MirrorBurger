@@ -427,9 +427,23 @@
                 <div>商戶：${esc(e.merchant_name || '（未讀到）')}</div>
                 <div>金額：${e.amount != null ? 'HK$' + Number(e.amount) : '（未讀到）'}</div>
                 <div>日期：${esc(e.expense_date || '—')}</div>
+                <div>分類：${esc(catLabel(e.category || data.ai?.category))}</div>
                 ${e.receipt_url ? `<a class="text-sky-400 underline break-all" href="${esc(e.receipt_url)}" target="_blank" rel="noopener">收據圖片</a>` : ''}
             `;
             result.classList.remove('hidden');
+        }
+
+        function catLabel(c) {
+            const map = {
+                cost_of_sales: '銷售成本／食材',
+                packaging: '包裝',
+                rent_utilities: '租金及水電',
+                repairs: '維修保養',
+                marketing: '推廣',
+                admin: '行政',
+                other: '其他',
+            };
+            return map[c] || map.other;
         }
 
         async function captureAndUpload(auto) {
