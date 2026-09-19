@@ -55,6 +55,12 @@
             #pos-menu { padding-bottom: 8px; }
             #cart-list { min-height: 0; }
         }
+        /* iPhone PWA (black-translucent): keep top chips below Dynamic Island / status bar */
+        #pos-app > header.sticky {
+            padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+            padding-left: calc(0.75rem + env(safe-area-inset-left, 0px));
+            padding-right: calc(0.75rem + env(safe-area-inset-right, 0px));
+        }
     </style>
 </head>
 <body class="antialiased">
