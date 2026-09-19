@@ -67,6 +67,14 @@
         .store-jump:hover { border-color: #525252; }
         html.is-standalone #login-view { padding-top: calc(4rem + env(safe-area-inset-top, 0px)); }
         html.is-standalone .app-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+        .lang-toggle {
+            min-height:40px; min-width:56px; padding:0 14px; border-radius:999px;
+            border:2px solid #FFD131; background:#FFD131; color:#0a0a0a;
+            font-weight:900; font-size:13px; letter-spacing:.04em; cursor:pointer;
+        }
+        #admin-lang-login {
+            position:fixed; top:calc(12px + env(safe-area-inset-top)); right:16px; z-index:60;
+        }
         #login-view.hidden,
         #app-view.hidden { display: none !important; }
         #sales-custom.hidden,
@@ -134,36 +142,37 @@
     </style>
 </head>
 <body class="min-h-screen">
+    <button type="button" id="admin-lang-login" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
     <div id="login-view" class="max-w-md mx-auto px-4 py-16">
-        <h1 class="text-2xl font-black mb-2">後台</h1>
-        <p class="text-neutral-400 text-sm mb-6">睇今日生意、改價錢、印枱 QR、搵單。廚房 Master 密碼通常都得。</p>
+        <h1 class="text-2xl font-black mb-2" data-i18n="admin.login.title">後台</h1>
+        <p class="text-neutral-400 text-sm mb-6" data-i18n="admin.login.hint">睇今日生意、改價錢、印枱 QR、搵單。廚房 Master 密碼通常都得。</p>
         <form onsubmit="doLogin(); return false;">
-        <label>密碼</label>
+        <label data-i18n="admin.login.password">密碼</label>
         <input id="login-pass" type="password" class="mb-4" autocomplete="current-password">
-        <button type="submit" class="btn btn-primary w-full">登入</button>
+        <button type="submit" class="btn btn-primary w-full" data-i18n="admin.login.submit">登入</button>
         </form>
         <p id="login-err" class="text-red-400 text-sm mt-3 hidden"></p>
-        <p class="text-xs font-bold text-neutral-500 mt-6 leading-relaxed">加主畫面：Safari / 瀏覽器 → 分享／選單 →「加入主畫面」。圖示會寫住 ADMIN。</p>
+        <p class="text-xs font-bold text-neutral-500 mt-6 leading-relaxed" data-i18n="admin.login.pwa">加主畫面：Safari / 瀏覽器 → 分享／選單 →「加入主畫面」。圖示會寫住 ADMIN。</p>
     </div>
 
         <div id="app-view" class="hidden app-shell">
         <nav id="app-nav" class="app-nav">
             <div class="hidden" id="nav-brand" style="padding:0 0.25rem 0.75rem">
-                <div class="text-lg font-black">後台</div>
+                <div class="text-lg font-black" data-i18n="admin.brand">後台</div>
                 <div class="text-xs text-neutral-500 mt-1">Mirror Burger</div>
             </div>
-            <button type="button" id="tab-sales" class="nav-btn is-on" onclick="setTab('sales')">概况</button>
-            <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')">菜品</button>
-            <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')">堂食/外賣 QR Code</button>
-            <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')">訂單</button>
-            <button type="button" id="tab-payroll" class="nav-btn" onclick="setTab('payroll')">出糧</button>
-            <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')">庫存／配方</button>
-            <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')">出單機</button>
-            <a class="nav-btn" href="/pos.html">POS</a>
-            <a class="nav-btn" href="/kitchen.html">廚房</a>
-            <a class="nav-btn" href="/">網站</a>
+            <button type="button" id="tab-sales" class="nav-btn is-on" onclick="setTab('sales')" data-i18n="admin.nav.sales">概况</button>
+            <button type="button" id="tab-items" class="nav-btn" onclick="setTab('items')" data-i18n="admin.nav.items">菜品</button>
+            <button type="button" id="tab-tables" class="nav-btn" onclick="setTab('tables')" data-i18n="admin.nav.tables">堂食/外賣 QR Code</button>
+            <button type="button" id="tab-orders" class="nav-btn" onclick="setTab('orders')" data-i18n="admin.nav.orders">訂單</button>
+            <button type="button" id="tab-payroll" class="nav-btn" onclick="setTab('payroll')" data-i18n="admin.nav.payroll">出糧</button>
+            <button type="button" id="tab-inventory" class="nav-btn" onclick="setTab('inventory')" data-i18n="admin.nav.inventory">庫存／配方</button>
+            <button type="button" id="tab-printer" class="nav-btn" onclick="setTab('printer')" data-i18n="admin.nav.printer">出單機</button>
+            <a class="nav-btn" href="/pos.html" data-i18n="admin.nav.pos">POS</a>
+            <a class="nav-btn" href="/kitchen.html" data-i18n="admin.nav.kitchen">廚房</a>
+            <a class="nav-btn" href="/" data-i18n="admin.nav.site">網站</a>
             <div class="mt-auto hidden" id="nav-logout" style="padding-top:1rem">
-                <button type="button" class="btn btn-ghost w-full" onclick="logout()">登出</button>
+                <button type="button" class="btn btn-ghost w-full" onclick="logout()" data-i18n="common.logout">登出</button>
             </div>
         </nav>
 
@@ -173,9 +182,10 @@
                 <h1 class="text-2xl font-black" id="page-title">概况</h1>
                 <p class="text-neutral-500 text-sm" id="page-sub">每間舖收咗幾多錢</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn btn-ghost" onclick="refreshCurrent()">重新載入</button>
-                <button type="button" class="btn btn-ghost" id="toolbar-logout" onclick="logout()">登出</button>
+            <div class="flex flex-wrap gap-2 items-center">
+                <button type="button" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
+                <button type="button" class="btn btn-ghost" onclick="refreshCurrent()" data-i18n="admin.reload">重新載入</button>
+                <button type="button" class="btn btn-ghost" id="toolbar-logout" onclick="logout()" data-i18n="common.logout">登出</button>
             </div>
         </div>
         <p id="load-err" class="hidden mb-4 text-sm text-red-300 bg-red-950/50 border border-red-900 rounded-xl px-4 py-3"></p>
@@ -184,23 +194,23 @@
         <div id="panel-sales">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')">今日</button>
-                    <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')">昨日</button>
-                    <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')">一星期</button>
-                    <button type="button" id="range-month" class="btn range-btn" onclick="setSalesRange('month')">今個月</button>
-                    <button type="button" id="range-ytd" class="btn range-btn" onclick="setSalesRange('ytd')">年頭到而家</button>
-                    <button type="button" id="range-year" class="btn range-btn" onclick="setSalesRange('year')">一年</button>
-                    <button type="button" id="range-custom" class="btn range-btn" onclick="setSalesRange('custom')">自訂</button>
+                    <button type="button" id="range-today" class="btn range-btn is-on" onclick="setSalesRange('today')" data-i18n="admin.range.today">今日</button>
+                    <button type="button" id="range-yesterday" class="btn range-btn" onclick="setSalesRange('yesterday')" data-i18n="admin.range.yesterday">昨日</button>
+                    <button type="button" id="range-week" class="btn range-btn" onclick="setSalesRange('week')" data-i18n="admin.range.week">一星期</button>
+                    <button type="button" id="range-month" class="btn range-btn" onclick="setSalesRange('month')" data-i18n="admin.range.month">今個月</button>
+                    <button type="button" id="range-ytd" class="btn range-btn" onclick="setSalesRange('ytd')" data-i18n="admin.range.ytd">年頭到而家</button>
+                    <button type="button" id="range-year" class="btn range-btn" onclick="setSalesRange('year')" data-i18n="admin.range.year">一年</button>
+                    <button type="button" id="range-custom" class="btn range-btn" onclick="setSalesRange('custom')" data-i18n="admin.range.custom">自訂</button>
                 </div>
-                <p class="text-sm text-neutral-500">已收款先計；未付／取消唔計。</p>
+                <p class="text-sm text-neutral-500" data-i18n="admin.sales.paid_only">已收款先計；未付／取消唔計。</p>
             </div>
             <div id="sales-custom" class="hidden flex flex-wrap gap-3 items-end mb-4">
                 <div>
-                    <label>由</label>
+                    <label data-i18n="admin.from">由</label>
                     <input type="date" id="sales-from" onchange="onCustomDates('sales')">
                 </div>
                 <div>
-                    <label>至</label>
+                    <label data-i18n="admin.to">至</label>
                     <input type="date" id="sales-to" onchange="onCustomDates('sales')">
                 </div>
             </div>
@@ -210,15 +220,15 @@
 
         <div id="panel-items" class="hidden">
             <div class="flex flex-wrap gap-2 mb-4">
-                <button type="button" id="sub-items" class="btn tab-on" onclick="setMenuSub('items')">餐點價錢</button>
-                <button type="button" id="sub-mods" class="btn tab-off" onclick="setMenuSub('mods')">加料／套餐</button>
+                <button type="button" id="sub-items" class="btn tab-on" onclick="setMenuSub('items')" data-i18n="admin.items.prices">餐點價錢</button>
+                <button type="button" id="sub-mods" class="btn tab-off" onclick="setMenuSub('mods')" data-i18n="admin.items.mods">加料／套餐</button>
             </div>
             <div id="items-section">
                 <div class="flex flex-wrap gap-2 mb-4 items-end">
                     <div>
-                        <label>分類</label>
+                        <label data-i18n="admin.label.category">分類</label>
                         <select id="filter-cat" onchange="renderItems()">
-                            <option value="">全部</option>
+                            <option value="" data-i18n="admin.all">全部</option>
                             <option value="beef">牛肉</option>
                             <option value="others">其他漢堡</option>
                             <option value="veggie">素食</option>
@@ -227,53 +237,53 @@
                             <option value="sauces">醬</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="editItem(null)">＋ 新項目</button>
+                    <button type="button" class="btn btn-primary" onclick="editItem(null)" data-i18n="admin.items.new">＋ 新項目</button>
                 </div>
                 <div id="items-list" class="space-y-3"></div>
             </div>
             <div id="mods-section" class="hidden">
                 <div class="flex flex-wrap gap-2 mb-4 items-end">
                     <div>
-                        <label>類型</label>
+                        <label data-i18n="admin.label.kind">類型</label>
                         <select id="filter-kind" onchange="renderMods()">
-                            <option value="">全部</option>
+                            <option value="" data-i18n="admin.all">全部</option>
                             <option value="addon">加料</option>
                             <option value="sauce">醬</option>
                             <option value="combo_snack">套餐小食</option>
                             <option value="combo_drink">套餐飲品</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="editMod(null)">＋ 新選項</button>
+                    <button type="button" class="btn btn-primary" onclick="editMod(null)" data-i18n="admin.mods.new">＋ 新選項</button>
                 </div>
                 <div id="mods-list" class="space-y-3"></div>
             </div>
         </div>
 
         <div id="panel-tables" class="hidden">
-            <p id="qr-help" class="text-sm text-neutral-400 mb-4">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。每張 A4 最多 12 個枱 QR。</p>
+            <p id="qr-help" class="text-sm text-neutral-400 mb-4" data-i18n="admin.qr.help">揀分店、設定枱數，然後列印 QR 貼枱面。加多一張就撳 ＋。每張 A4 最多 12 個枱 QR。</p>
             <div class="flex flex-wrap gap-2 mb-4 no-print">
-                <button type="button" id="qr-mode-table" class="btn tab-on" onclick="setQrMode('table')">堂食枱</button>
-                <button type="button" id="qr-mode-pickup" class="btn tab-off" onclick="setQrMode('pickup')">外賣自取</button>
+                <button type="button" id="qr-mode-table" class="btn tab-on" onclick="setQrMode('table')" data-i18n="admin.qr.table">堂食枱</button>
+                <button type="button" id="qr-mode-pickup" class="btn tab-off" onclick="setQrMode('pickup')" data-i18n="admin.qr.pickup">外賣自取</button>
             </div>
             <div class="flex flex-wrap gap-3 items-end mb-4 no-print">
                 <div class="min-w-[10rem] flex-1">
-                    <label>搜尋分店</label>
-                    <input id="table-store-search" type="search" placeholder="店名／地區" oninput="filterTableStores()">
+                    <label data-i18n="admin.qr.search_store">搜尋分店</label>
+                    <input id="table-store-search" type="search" data-i18n-placeholder="admin.qr.search_ph" placeholder="店名／地區" oninput="filterTableStores()">
                 </div>
                 <div class="min-w-[12rem] flex-1">
-                    <label>分店</label>
+                    <label data-i18n="admin.label.store">分店</label>
                     <select id="table-store" onchange="onTableStoreChange()"></select>
                 </div>
                 <div id="table-count-wrap">
-                    <label>枱數</label>
+                    <label data-i18n="admin.qr.tables">枱數</label>
                     <div class="flex gap-2">
                         <button type="button" class="btn btn-ghost" onclick="nudgeTables(-1)">−</button>
                         <input id="table-count" type="number" min="0" max="40" class="w-20 text-center" onchange="previewQr()">
                         <button type="button" class="btn btn-ghost" onclick="nudgeTables(1)">＋</button>
                     </div>
                 </div>
-                <button type="button" id="save-tables-btn" class="btn btn-primary" onclick="saveTableCount()">儲存枱數</button>
-                <button type="button" class="btn btn-ghost" onclick="printQr()">列印 QR</button>
+                <button type="button" id="save-tables-btn" class="btn btn-primary" onclick="saveTableCount()" data-i18n="admin.qr.save_tables">儲存枱數</button>
+                <button type="button" class="btn btn-ghost" onclick="printQr()" data-i18n="admin.qr.print">列印 QR</button>
             </div>
             <p id="table-msg" class="text-sm text-neutral-500 mb-4"></p>
             <div id="table-qr-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
@@ -282,42 +292,42 @@
         <div id="panel-orders" class="hidden">
             <div class="flex flex-wrap gap-2 mb-4 items-end">
                 <div>
-                    <label>日期</label>
+                    <label data-i18n="admin.label.date">日期</label>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')">今日</button>
-                        <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')">昨日</button>
-                        <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')">一星期</button>
-                        <button type="button" id="tr-month" class="btn range-btn" onclick="setTicketRange('month')">今個月</button>
-                        <button type="button" id="tr-ytd" class="btn range-btn" onclick="setTicketRange('ytd')">年頭到而家</button>
-                        <button type="button" id="tr-year" class="btn range-btn" onclick="setTicketRange('year')">一年</button>
-                        <button type="button" id="tr-custom" class="btn range-btn" onclick="setTicketRange('custom')">自訂</button>
+                        <button type="button" id="tr-today" class="btn range-btn is-on" onclick="setTicketRange('today')" data-i18n="admin.range.today">今日</button>
+                        <button type="button" id="tr-yesterday" class="btn range-btn" onclick="setTicketRange('yesterday')" data-i18n="admin.range.yesterday">昨日</button>
+                        <button type="button" id="tr-week" class="btn range-btn" onclick="setTicketRange('week')" data-i18n="admin.range.week">一星期</button>
+                        <button type="button" id="tr-month" class="btn range-btn" onclick="setTicketRange('month')" data-i18n="admin.range.month">今個月</button>
+                        <button type="button" id="tr-ytd" class="btn range-btn" onclick="setTicketRange('ytd')" data-i18n="admin.range.ytd">年頭到而家</button>
+                        <button type="button" id="tr-year" class="btn range-btn" onclick="setTicketRange('year')" data-i18n="admin.range.year">一年</button>
+                        <button type="button" id="tr-custom" class="btn range-btn" onclick="setTicketRange('custom')" data-i18n="admin.range.custom">自訂</button>
                     </div>
                     <div id="orders-custom" class="hidden flex flex-wrap gap-3 items-end mt-3">
                         <div>
-                            <label>由</label>
+                            <label data-i18n="admin.from">由</label>
                             <input type="date" id="ticket-from" onchange="onCustomDates('orders')">
                         </div>
                         <div>
-                            <label>至</label>
+                            <label data-i18n="admin.to">至</label>
                             <input type="date" id="ticket-to" onchange="onCustomDates('orders')">
                         </div>
                     </div>
                     <input type="hidden" id="ticket-range" value="today">
                 </div>
                 <div>
-                    <label>分店</label>
+                    <label data-i18n="admin.label.store">分店</label>
                     <select id="ticket-store" onchange="loadTickets()">
-                        <option value="">全部</option>
+                        <option value="" data-i18n="admin.all">全部</option>
                         <option value="Sai Ying Pun">西營盤</option>
                         <option value="Fortress Hill">天后</option>
                         <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
                     </select>
                 </div>
                 <div class="flex-1 min-w-[10rem]">
-                    <label>單號</label>
-                    <input id="ticket-q" placeholder="MB…" maxlength="32" onkeydown="if(event.key==='Enter')loadTickets()">
+                    <label data-i18n="admin.label.ticket">單號</label>
+                    <input id="ticket-q" data-i18n-placeholder="admin.ticket.placeholder" placeholder="SYP-260919-P-001" maxlength="32" onkeydown="if(event.key==='Enter')loadTickets()">
                 </div>
-                <button type="button" class="btn btn-primary" onclick="loadTickets()">查詢</button>
+                <button type="button" class="btn btn-primary" onclick="loadTickets()" data-i18n="admin.query">查詢</button>
             </div>
             <p id="orders-msg" class="text-sm text-neutral-500 mb-3"></p>
             <div id="orders-list" class="space-y-2 pb-4"></div>
@@ -561,6 +571,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
+    <script src="./js/i18n.js?v=20260919c"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -603,24 +614,19 @@
         }
 
         const SALES_RANGES = ['today', 'yesterday', 'week', 'month', 'ytd', 'year', 'custom'];
-        const RANGE_ZH = {
-            today: '今日',
-            yesterday: '昨日',
-            week: '一星期',
-            month: '今個月',
-            ytd: '年頭到而家',
-            year: '近一年',
-            custom: '自訂',
+        const PAGE_KEYS = {
+            sales: { title: 'admin.page.sales.title', sub: 'admin.page.sales.sub' },
+            items: { title: 'admin.page.items.title', sub: 'admin.page.items.sub' },
+            tables: { title: 'admin.page.tables.title', sub: 'admin.page.tables.sub' },
+            orders: { title: 'admin.page.orders.title', sub: 'admin.page.orders.sub' },
+            printer: { title: 'admin.page.printer.title', sub: 'admin.page.printer.sub' },
+            payroll: { title: 'admin.page.payroll.title', sub: 'admin.page.payroll.sub' },
+            inventory: { title: 'admin.page.inventory.title', sub: 'admin.page.inventory.sub' },
         };
-        const PAGE_META = {
-            sales: { title: '概况', sub: '每間舖收咗幾多錢' },
-            items: { title: '菜品', sub: '改名稱、價錢、上下架' },
-            tables: { title: '堂食/外賣 QR Code', sub: '堂食枱 · 外賣自取門口 QR' },
-            orders: { title: '訂單', sub: '搜單號 · 揀店 · 撳開睇餐' },
-            printer: { title: '出單機', sub: '佳博 58mm · Epson 80mm · USB 插 Sunmi 或電腦' },
-            payroll: { title: '出糧', sub: '員工 PIN · AI 出糧規則' },
-            inventory: { title: '庫存／配方', sub: '物料庫存 · 餐點配方成本' },
-        };
+        function pageMeta(which) {
+            const keys = PAGE_KEYS[which] || PAGE_KEYS.sales;
+            return { title: t(keys.title), sub: t(keys.sub) };
+        }
 
         async function boot() {
             if (!token) return showLogin();
@@ -638,10 +644,14 @@
         function showLogin() {
             document.getElementById('login-view').classList.remove('hidden');
             document.getElementById('app-view').classList.add('hidden');
+            const langBtn = document.getElementById('admin-lang-login');
+            if (langBtn) langBtn.style.display = '';
         }
         function showApp() {
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('app-view').classList.remove('hidden');
+            const langBtn = document.getElementById('admin-lang-login');
+            if (langBtn) langBtn.style.display = 'none';
         }
 
         async function loadAll() {
@@ -710,7 +720,7 @@
 
         function setTab(which) {
             currentTab = which;
-            const meta = PAGE_META[which] || PAGE_META.sales;
+            const meta = pageMeta(which);
             document.getElementById('page-title').textContent = meta.title;
             document.getElementById('page-sub').textContent = meta.sub;
             ['sales', 'items', 'tables', 'orders', 'payroll', 'inventory', 'printer'].forEach((name) => {
@@ -909,7 +919,7 @@
             const take = current.takeaway || { orders: 0, revenue: 0 };
             const dinePct = pctBar(dine.orders, current.orders);
             const takePct = pctBar(take.orders, current.orders);
-            const rangeLabel = data.range_label || RANGE_ZH[salesRange] || '今日';
+            const rangeLabel = data.range_label || t('admin.range.' + salesRange) || t('admin.range.today');
             const empty = !Number(current.orders);
             if (empty) {
                 sum.innerHTML = `
@@ -1025,7 +1035,7 @@
             ticketRows = data.tickets || [];
             const q = data.q || '';
             const range = data.range || 'today';
-            const rangeZh = data.range_label || RANGE_ZH[range] || '今日';
+            const rangeZh = data.range_label || t('admin.range.' + range) || t('admin.range.today');
             const showDate = range !== 'today' && range !== 'yesterday';
             msg.textContent = q
                 ? (ticketRows.length ? `搵到 ${ticketRows.length} 張（單號含 ${q}）` : `搵唔到 ${q}`)
@@ -1909,6 +1919,18 @@
         }
 
         boot();
+        try { MB_I18N.applyI18n(document); } catch (_) {}
+        document.addEventListener('mb:lang', function () {
+            try {
+                const meta = pageMeta(currentTab || 'sales');
+                const titleEl = document.getElementById('page-title');
+                const subEl = document.getElementById('page-sub');
+                if (titleEl) titleEl.textContent = meta.title;
+                if (subEl) subEl.textContent = meta.sub;
+                if (salesData) renderSales();
+                if (ticketsData) renderTickets(ticketsData);
+            } catch (_) { /* ignore */ }
+        });
         try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}
     </script>
 </body>
