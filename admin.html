@@ -658,9 +658,16 @@
                 </div>
             </div>
             <p id="expense-modal-msg" class="text-sm font-bold text-amber-300 hidden"></p>
-            <div class="flex flex-wrap gap-2 pt-1">
+            <div id="expense-delete-confirm" class="hidden rounded-xl border border-red-500/40 bg-red-500/10 p-3 space-y-2">
+                <p class="text-sm font-bold text-red-300" data-i18n="admin.acc.confirm_delete">確定剷除呢張開支單？</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary bg-red-600 border-red-600" onclick="confirmDeleteExpense()" data-i18n="admin.acc.delete_yes">確定剷除</button>
+                    <button type="button" class="btn btn-ghost" onclick="cancelDeleteExpense()" data-i18n="admin.acc.delete_cancel">唔好</button>
+                </div>
+            </div>
+            <div id="expense-actions" class="flex flex-wrap gap-2 pt-1">
                 <button type="button" class="btn btn-primary" onclick="saveExpenseDetail()" data-i18n="admin.acc.save">儲存</button>
-                <button type="button" class="btn btn-ghost text-red-400" onclick="deleteExpenseDetail()" data-i18n="admin.acc.delete">剷除</button>
+                <button type="button" class="btn btn-ghost text-red-400" onclick="askDeleteExpense()" data-i18n="admin.acc.delete">剷除</button>
             </div>
         </div>
     </div>
@@ -767,7 +774,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919expdel"></script>
+    <script src="./js/i18n.js?v=20260919expdel2"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -1275,6 +1282,47 @@
         function closeExpenseDetail() {
             const modal = document.getElementById('expense-modal');
             if (modal) modal.classList.add('hidden');
+            cancelDeleteExpense();
+        }
+
+        function askDeleteExpense() {
+            const box = document.getElementById('expense-delete-confirm');
+            const actions = document.getElementById('expense-actions');
+            if (box) box.classList.remove('hidden');
+            if (actions) actions.classList.add('hidden');
+        }
+
+        function cancelDeleteExpense() {
+            const box = document.getElementById('expense-delete-confirm');
+            const actions = document.getElementById('expense-actions');
+            if (box) box.classList.add('hidden');
+            if (actions) actions.classList.remove('hidden');
+        }
+
+        async function confirmDeleteExpense() {
+            const id = document.getElementById('exp-id').value;
+            if (!id || expenseDetailBusy) return;
+            const msg = document.getElementById('expense-modal-msg');
+            expenseDetailBusy = true;
+            try {
+                await api('/api/admin-menu', { token, action: 'expense_delete', id });
+                closeExpenseDetail();
+                accData = null;
+                await loadAcc();
+            } catch (e) {
+                cancelDeleteExpense();
+                if (msg) {
+                    msg.textContent = e.message || t('admin.alert.delete_fail');
+                    msg.classList.remove('hidden');
+                }
+            } finally {
+                expenseDetailBusy = false;
+            }
+        }
+
+        // Back-compat alias if any old onclick remains
+        async function deleteExpenseDetail() {
+            askDeleteExpense();
         }
 
         async function openExpenseDetail(id) {
@@ -1282,6 +1330,7 @@
             const modal = document.getElementById('expense-modal');
             const msg = document.getElementById('expense-modal-msg');
             if (msg) { msg.classList.add('hidden'); msg.textContent = ''; }
+            cancelDeleteExpense();
             if (modal) modal.classList.remove('hidden');
             document.getElementById('exp-id').value = id;
             document.getElementById('exp-merchant').value = '';
@@ -1357,27 +1406,6 @@
             } catch (e) {
                 if (msg) {
                     msg.textContent = e.message || t('admin.alert.save_fail');
-                    msg.classList.remove('hidden');
-                }
-            } finally {
-                expenseDetailBusy = false;
-            }
-        }
-
-        async function deleteExpenseDetail() {
-            const id = document.getElementById('exp-id').value;
-            if (!id || expenseDetailBusy) return;
-            if (!confirm(t('admin.acc.confirm_delete'))) return;
-            const msg = document.getElementById('expense-modal-msg');
-            expenseDetailBusy = true;
-            try {
-                await api('/api/admin-menu', { token, action: 'expense_delete', id });
-                closeExpenseDetail();
-                accData = null;
-                await loadAcc();
-            } catch (e) {
-                if (msg) {
-                    msg.textContent = e.message || t('admin.alert.delete_fail');
                     msg.classList.remove('hidden');
                 }
             } finally {
