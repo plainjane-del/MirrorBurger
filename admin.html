@@ -387,7 +387,7 @@
                     <label data-i18n="admin.payroll.rules_label">出糧規則</label>
                     <textarea id="payroll-text" rows="4" data-i18n-placeholder="admin.payroll.rules_ph" placeholder="例如：遲到15分鐘扣錢，無飯鐘"></textarea>
                 </div>
-                <button type="button" class="btn btn-primary" id="payroll-save-btn" onclick="generatePayrollRules()" data-i18n="admin.payroll.generate">Generate &amp; Save Rules</button>
+                <button type="button" class="btn btn-primary" id="payroll-save-btn" onclick="generatePayrollRules()" data-i18n="admin.payroll.generate">產生並儲存規則</button>
                 <p id="payroll-msg" class="text-sm font-bold text-neutral-400"></p>
                 <div id="payroll-rules" class="text-sm font-bold text-neutral-300 space-y-1"></div>
             </div>
@@ -609,7 +609,7 @@
     <div id="toast" class="toast hidden"></div>
     <div id="qr-print-root"></div>
 
-    <script src="./js/i18n.js?v=20260919h"></script>
+    <script src="./js/i18n.js?v=20260919i"></script>
     <script>
         const TOKEN_KEY = 'mb_admin_token';
         let token = localStorage.getItem(TOKEN_KEY) || '';
@@ -973,20 +973,17 @@
             const take = current.takeaway || { orders: 0, revenue: 0 };
             const dinePct = pctBar(dine.orders, current.orders);
             const takePct = pctBar(take.orders, current.orders);
-            const rangeLabel = t('admin.range.' + salesRange) || t('admin.range.today');
             const empty = !Number(current.orders);
             if (empty) {
                 sum.innerHTML = `
                     <div class="card metric-hero p-6 mb-4">
-                        <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.total_collected', { range: rangeLabel }))}</div>
-                        <div class="text-5xl font-black mt-2 tracking-tight">${money(0)}</div>
+                        <div class="text-5xl font-black tracking-tight">${money(0)}</div>
                         <div class="text-sm font-bold text-neutral-400 mt-2">${esc(t('admin.sales.no_revenue'))}</div>
                     </div>`;
             } else {
             sum.innerHTML = `
                 <div class="card metric-hero p-6 mb-4">
-                    <div class="text-xs font-black tracking-widest text-neutral-500 uppercase">${esc(t('admin.sales.total_collected', { range: rangeLabel }))}</div>
-                    <div class="text-5xl font-black mt-2 tracking-tight">${money(current.revenue)}</div>
+                    <div class="text-5xl font-black tracking-tight">${money(current.revenue)}</div>
                     <div class="text-sm font-bold text-neutral-300 mt-2">${esc(t('admin.sales.paid_orders', { n: Number(current.orders || 0) }))}</div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-4">
