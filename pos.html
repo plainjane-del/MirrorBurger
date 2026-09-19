@@ -33,6 +33,15 @@
         #pos-toast { position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top)); z-index:95; display:none; background:#14532d; border:1px solid #22c55e; color:#ecfccb; border-radius:14px; padding:12px 14px; font-weight:800; }
         #pos-toast.is-on { display:block; }
         #print-status.is-on { color:#0a0a0a; background:#86efac; border-color:#86efac; }
+        .lang-toggle {
+            min-height:40px; min-width:56px; padding:0 14px; border-radius:999px;
+            border:2px solid #FFD131; background:#FFD131; color:#0a0a0a;
+            font-weight:900; font-size:13px; letter-spacing:.04em;
+        }
+        .lang-toggle:active { transform: scale(.97); }
+        #pos-lang-login {
+            position:absolute; top:calc(12px + env(safe-area-inset-top)); right:16px; z-index:101;
+        }
         .sheet { position:fixed; inset:0; z-index:80; display:none; background:#00000088; }
         .sheet.is-open { display:block; }
         .sheet-panel { position:absolute; left:0; right:0; bottom:0; max-height:90dvh; overflow:auto; background:#111; border-radius:20px 20px 0 0; padding:16px; padding-bottom:calc(16px + env(safe-area-inset-bottom)); }
@@ -51,11 +60,9 @@
 <body class="antialiased">
     <div id="pos-toast" role="status"></div>
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
+        <button type="button" id="pos-lang-login" data-lang-toggle class="lang-toggle" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <div class="flex justify-end">
-                    <button type="button" data-lang-toggle class="chip-btn text-xs" onclick="MB_I18N.toggleLang()">EN</button>
-                </div>
                 <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase" data-i18n="pos.login.badge">Test POS</p>
                 <h1 class="text-2xl font-black text-yellow-400" data-i18n="pos.login.title">店內收銀</h1>
                 <p class="text-sm font-bold text-neutral-400" data-i18n="pos.login.hint">用分店密碼登入；Master 可以切換所有分店。</p>
@@ -81,17 +88,19 @@
                     <div id="pos-title" class="text-sm font-black text-yellow-400" data-i18n="pos.title">測試 POS</div>
                     <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate" data-i18n="pos.last_none">未有店內單</p>
                 </div>
-                <div class="text-right shrink-0 px-2">
+                <button type="button" data-lang-toggle class="lang-toggle shrink-0" onclick="MB_I18N.toggleLang()" aria-label="Language">EN</button>
+                <div class="text-right shrink-0 px-1">
                     <div class="text-[10px] font-bold text-neutral-500" data-i18n="pos.cart">購物車</div>
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
-                <button type="button" data-lang-toggle class="chip-btn" onclick="MB_I18N.toggleLang()">EN</button>
-                <button type="button" class="chip-btn" onclick="openClockSheet()" data-i18n="pos.clock">打卡</button>
-                <button type="button" class="chip-btn" onclick="openToday()" data-i18n="pos.today">今日單</button>
-                <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()" data-i18n="pos.holds">掛單</button>
-                <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()" data-i18n="pos.tables">枱單</button>
-                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.openSheet()" data-i18n="pos.printer">出單機</button>
-                <button type="button" onclick="logoutPos()" class="chip-btn" data-i18n="common.logout">登出</button>
+            </div>
+            <div class="mt-2 flex items-center gap-1 overflow-x-auto pb-1">
+                <button type="button" class="chip-btn shrink-0" onclick="openClockSheet()" data-i18n="pos.clock">打卡</button>
+                <button type="button" class="chip-btn shrink-0" onclick="openToday()" data-i18n="pos.today">今日單</button>
+                <button type="button" class="chip-btn shrink-0" id="hold-btn" onclick="openHolds()" data-i18n="pos.holds">掛單</button>
+                <button type="button" class="chip-btn shrink-0" id="table-unpaid-btn" onclick="openTableUnpaid()" data-i18n="pos.tables">枱單</button>
+                <button type="button" id="print-status" class="chip-btn shrink-0" onclick="PosPrint.openSheet()" data-i18n="pos.printer">出單機</button>
+                <button type="button" onclick="logoutPos()" class="chip-btn shrink-0" data-i18n="common.logout">登出</button>
             </div>
             <div id="pos-queue-bar" class="hidden px-3 py-2 text-xs font-black">
                 <span id="pos-queue-label">斷網排隊</span> <span id="pos-queue-count">0</span>
@@ -284,7 +293,7 @@
         </div>
     </div>
 
-    <script src="./js/i18n.js?v=20260919a"></script>
+    <script src="./js/i18n.js?v=20260919b"></script>
     <script src="./js/pos-print.js?v=20260821t"></script>
     <script src="./js/order-id.js"></script>
     <script>
