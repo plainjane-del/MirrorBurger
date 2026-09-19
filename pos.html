@@ -53,21 +53,24 @@
     <div id="pos-lock" class="fixed inset-0 z-[100] bg-black flex items-center justify-center px-6">
         <form class="w-full max-w-sm space-y-5" method="post" action="#" onsubmit="submitPosLogin(event); return false;">
             <div class="text-center space-y-2">
-                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase">Test POS · v2026.08.21t</p>
-                <h1 class="text-2xl font-black text-yellow-400">店內收銀</h1>
-                <p class="text-sm font-bold text-neutral-400">用分店密碼登入；Master 可以切換所有分店。</p>
+                <div class="flex justify-end">
+                    <button type="button" data-lang-toggle class="chip-btn text-xs" onclick="MB_I18N.toggleLang()">EN</button>
+                </div>
+                <p class="text-[11px] font-black tracking-widest text-amber-400 uppercase" data-i18n="pos.login.badge">Test POS</p>
+                <h1 class="text-2xl font-black text-yellow-400" data-i18n="pos.login.title">店內收銀</h1>
+                <p class="text-sm font-bold text-neutral-400" data-i18n="pos.login.hint">用分店密碼登入；Master 可以切換所有分店。</p>
             </div>
             <select id="pos-login-store"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
-                <option value="Sai Ying Pun">西營盤</option>
-                <option value="Fortress Hill">天后</option>
-                <option value="Tsuen Wan (Takeaway Only)">荃灣</option>
-                <option value="__master__">Master 全部分店</option>
+                <option value="Sai Ying Pun" data-i18n="pos.store.syp">西營盤</option>
+                <option value="Fortress Hill" data-i18n="pos.store.th">天后</option>
+                <option value="Tsuen Wan (Takeaway Only)" data-i18n="pos.store.tw">荃灣</option>
+                <option value="__master__" data-i18n="pos.store.master">Master 全部分店</option>
             </select>
-            <input id="pos-password" type="password" autocomplete="current-password" required placeholder="廚房密碼"
+            <input id="pos-password" type="password" autocomplete="current-password" required data-i18n-placeholder="pos.login.password" placeholder="廚房密碼"
                 class="w-full rounded-2xl bg-neutral-900 border-2 border-neutral-700 px-4 py-4 text-lg font-bold text-white outline-none focus:border-yellow-400">
             <p id="pos-login-error" class="hidden text-sm font-bold text-red-400 text-center"></p>
-            <button type="submit" id="pos-login-btn" class="w-full rounded-2xl bg-yellow-400 text-black py-4 text-base font-black">進入 POS</button>
+            <button type="submit" id="pos-login-btn" class="w-full rounded-2xl bg-yellow-400 text-black py-4 text-base font-black" data-i18n="pos.login.submit">進入 POS</button>
         </form>
     </div>
 
@@ -75,27 +78,28 @@
         <header class="sticky top-0 z-40 bg-black/95 border-b border-neutral-800 px-3 py-2">
             <div class="flex items-center gap-2">
                 <div class="min-w-0 flex-1">
-                    <div id="pos-title" class="text-sm font-black text-yellow-400">測試 POS</div>
-                    <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate">未有店內單</p>
+                    <div id="pos-title" class="text-sm font-black text-yellow-400" data-i18n="pos.title">測試 POS</div>
+                    <p id="last-ticket" class="text-[11px] font-bold text-neutral-500 truncate" data-i18n="pos.last_none">未有店內單</p>
                 </div>
                 <div class="text-right shrink-0 px-2">
-                    <div class="text-[10px] font-bold text-neutral-500">購物車</div>
+                    <div class="text-[10px] font-bold text-neutral-500" data-i18n="pos.cart">購物車</div>
                     <div id="hdr-total" class="text-2xl font-black text-yellow-400 leading-none">$0</div>
                 </div>
-                <button type="button" class="chip-btn" onclick="openClockSheet()">打卡</button>
-                <button type="button" class="chip-btn" onclick="openToday()">今日單</button>
-                <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()">掛單</button>
-                <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()">枱單</button>
-                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.openSheet()">出單機</button>
-                <button type="button" onclick="logoutPos()" class="chip-btn">登出</button>
+                <button type="button" data-lang-toggle class="chip-btn" onclick="MB_I18N.toggleLang()">EN</button>
+                <button type="button" class="chip-btn" onclick="openClockSheet()" data-i18n="pos.clock">打卡</button>
+                <button type="button" class="chip-btn" onclick="openToday()" data-i18n="pos.today">今日單</button>
+                <button type="button" class="chip-btn" id="hold-btn" onclick="openHolds()" data-i18n="pos.holds">掛單</button>
+                <button type="button" class="chip-btn" id="table-unpaid-btn" onclick="openTableUnpaid()" data-i18n="pos.tables">枱單</button>
+                <button type="button" id="print-status" class="chip-btn" onclick="PosPrint.openSheet()" data-i18n="pos.printer">出單機</button>
+                <button type="button" onclick="logoutPos()" class="chip-btn" data-i18n="common.logout">登出</button>
             </div>
             <div id="pos-queue-bar" class="hidden px-3 py-2 text-xs font-black">
-                斷網排隊 <span id="pos-queue-count">0</span> 單 · 網絡一回復就自動上雲，唔使再撳
+                <span id="pos-queue-label">斷網排隊</span> <span id="pos-queue-count">0</span>
             </div>
             <div id="pos-store-row" class="mt-2 grid grid-cols-3 gap-1 hidden">
-                <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)">西營盤</button>
-                <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)">天后</button>
-                <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)">荃灣</button>
+                <button type="button" class="chip-btn" data-branch="Sai Ying Pun" onclick="selectStore(this)" data-i18n="pos.store.syp">西營盤</button>
+                <button type="button" class="chip-btn" data-branch="Fortress Hill" onclick="selectStore(this)" data-i18n="pos.store.th">天后</button>
+                <button type="button" class="chip-btn" data-branch="Tsuen Wan (Takeaway Only)" onclick="selectStore(this)" data-i18n="pos.store.tw">荃灣</button>
             </div>
             <!-- Voice ordering kept in code; hidden until VOICE_ORDERING_ENABLED is true. -->
             <div id="pos-voice-ui" class="hidden">
@@ -116,34 +120,34 @@
 
         <main class="flex-1 grid grid-cols-1 md:grid-cols-[1fr_340px] min-h-0">
             <section id="pos-menu" class="p-3 min-h-0 overflow-auto">
-                <input id="menu-search" type="search" placeholder="搜尋餸名" oninput="renderMenu()"
+                <input id="menu-search" type="search" data-i18n-placeholder="pos.search" placeholder="搜尋餸名" oninput="renderMenu()"
                     class="w-full mb-2 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cat-tabs" class="flex gap-1 overflow-x-auto pb-2"></div>
                 <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
             </section>
             <aside id="pos-cart" class="sticky bottom-0 z-30 border-t md:border-t-0 md:border-l border-neutral-800 p-3 flex flex-col gap-2 bg-neutral-950 md:static overflow-hidden md:overflow-auto">
                 <div class="grid grid-cols-3 gap-1 shrink-0">
-                    <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')">即取</button>
-                    <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')">堂食</button>
-                    <button type="button" class="chip-btn" onclick="clearCart()">清空</button>
+                    <button type="button" id="fulfill-takeaway" class="chip-btn is-active" onclick="setFulfill('takeaway')" data-i18n="pos.takeaway">即取</button>
+                    <button type="button" id="fulfill-dine" class="chip-btn" onclick="setFulfill('dine_in')" data-i18n="pos.dine_in">堂食</button>
+                    <button type="button" class="chip-btn" onclick="clearCart()" data-i18n="common.delete">清空</button>
                 </div>
                 <div id="table-no-wrap" class="hidden">
-                    <input id="table-no" type="tel" inputmode="numeric" maxlength="4" placeholder="枱號（堂食必填）"
+                    <input id="table-no" type="tel" inputmode="numeric" maxlength="4" data-i18n-placeholder="pos.table_no" placeholder="枱號（堂食必填）"
                         class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 </div>
-                <input id="guest-name" type="text" maxlength="40" placeholder="客人名（選填）"
+                <input id="guest-name" type="text" maxlength="40" data-i18n-placeholder="pos.guest_name" placeholder="客人名（選填）"
                     class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
-                <input id="order-note" type="text" maxlength="40" placeholder="備註（選填）"
+                <input id="order-note" type="text" maxlength="40" data-i18n-placeholder="pos.note" placeholder="備註（選填）"
                     class="w-full shrink-0 rounded-xl bg-neutral-900 border border-neutral-700 px-3 py-2 text-sm font-bold outline-none">
                 <div id="cart-list" class="flex-1 min-h-0 space-y-2 overflow-y-auto"></div>
                 <div class="shrink-0 space-y-2 pt-1 bg-neutral-950">
                     <div class="text-sm font-bold text-neutral-400" id="price-break">小計 $0</div>
                     <div class="text-2xl font-black text-yellow-400" id="cart-total">$0</div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" class="pay-btn bg-emerald-600" onclick="beginCharge('cash')">現金</button>
-                        <button type="button" class="pay-btn bg-neutral-200 text-black" onclick="beginCharge('card')">卡機</button>
-                        <button type="button" class="pay-btn bg-sky-600" onclick="beginCharge('fps')">轉數快</button>
-                        <button type="button" class="pay-btn bg-pink-500 text-white" onclick="beginCharge('payme')">PayMe</button>
+                        <button type="button" class="pay-btn bg-emerald-600" onclick="beginCharge('cash')" data-i18n="pos.pay.cash">現金</button>
+                        <button type="button" class="pay-btn bg-neutral-200 text-black" onclick="beginCharge('card')" data-i18n="pos.pay.card">卡機</button>
+                        <button type="button" class="pay-btn bg-sky-600" onclick="beginCharge('fps')" data-i18n="pos.pay.fps">轉數快</button>
+                        <button type="button" class="pay-btn bg-pink-500 text-white" onclick="beginCharge('payme')" data-i18n="pos.pay.payme">PayMe</button>
                     </div>
                 </div>
             </aside>
@@ -157,24 +161,24 @@
                     <h3 id="cfg-title" class="text-lg font-black"></h3>
                     <p id="cfg-price" class="text-sm font-bold text-yellow-400"></p>
                 </div>
-                <button type="button" class="chip-btn" onclick="closeCfg()">關閉</button>
+                <button type="button" class="chip-btn" onclick="closeCfg()" data-i18n="common.close">關閉</button>
             </div>
             <div id="cfg-body" class="space-y-4"></div>
-            <button type="button" id="cfg-add" class="mt-4 w-full rounded-2xl bg-yellow-400 text-black py-4 font-black" onclick="confirmCfg()">加入</button>
+            <button type="button" id="cfg-add" class="mt-4 w-full rounded-2xl bg-yellow-400 text-black py-4 font-black" onclick="confirmCfg()" data-i18n="pos.cfg.add">加入</button>
         </div>
     </div>
 
     <div id="ticket-sheet" class="sheet" onclick="if(event.target===this) closeTicket()">
         <div class="sheet-panel text-center" onclick="event.stopPropagation()">
-            <p class="text-[11px] font-black tracking-widest text-neutral-500 uppercase">請出示單號</p>
+            <p class="text-[11px] font-black tracking-widest text-neutral-500 uppercase">Ticket</p>
             <div id="ticket-no" class="ticket-no text-yellow-400 my-3"></div>
             <p id="ticket-meta" class="text-base font-black"></p>
             <p id="ticket-pay" class="text-sm font-bold text-neutral-400 mt-1"></p>
             <div id="ticket-items" class="text-left mt-4 space-y-1 text-sm font-bold"></div>
             <div class="grid grid-cols-3 gap-2 mt-5">
-                <button type="button" class="chip-btn min-h-[48px]" onclick="cancelTicket()">作廢</button>
-                <button type="button" class="chip-btn min-h-[48px]" onclick="reprintTicket()">重印</button>
-                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="closeTicket()">完成</button>
+                <button type="button" class="chip-btn min-h-[48px]" onclick="cancelTicket()" data-i18n="pos.ticket.void">作廢</button>
+                <button type="button" class="chip-btn min-h-[48px]" onclick="reprintTicket()" data-i18n="pos.ticket.reprint">重印</button>
+                <button type="button" class="pay-btn bg-yellow-400 text-black" onclick="closeTicket()" data-i18n="common.close">完成</button>
             </div>
         </div>
     </div>
@@ -182,8 +186,8 @@
     <div id="today-sheet" class="sheet" onclick="if(event.target===this) closeToday()">
         <div class="sheet-panel" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-black">今日店內單</h3>
-                <button type="button" class="chip-btn" onclick="closeToday()">關閉</button>
+                <h3 class="text-lg font-black" data-i18n="pos.today">今日店內單</h3>
+                <button type="button" class="chip-btn" onclick="closeToday()" data-i18n="common.close">關閉</button>
             </div>
             <div id="today-cashup" class="rounded-xl border border-neutral-800 bg-neutral-900 p-3 mb-3 text-sm font-bold space-y-1"></div>
             <div id="today-list" class="space-y-2"></div>
@@ -280,6 +284,7 @@
         </div>
     </div>
 
+    <script src="./js/i18n.js?v=20260919a"></script>
     <script src="./js/pos-print.js?v=20260821t"></script>
     <script src="./js/order-id.js"></script>
     <script>
@@ -496,8 +501,10 @@
         function renderQueueBar() {
             const bar = document.getElementById('pos-queue-bar');
             const nEl = document.getElementById('pos-queue-count');
+            const label = document.getElementById('pos-queue-label');
             const n = storeQueue().length;
             if (nEl) nEl.textContent = String(n);
+            if (label) label.textContent = t('pos.queue', { n: n });
             if (bar) bar.classList.toggle('hidden', n === 0);
         }
         function queueTicketNo(clientId) {
@@ -534,12 +541,12 @@
                     }),
                 });
                 const data = await res.json().catch(function () { return {}; });
-                if (!res.ok) throw new Error(data.error || '密碼錯誤');
+                if (!res.ok) throw new Error(data.error || t('pos.login.wrong'));
                 saveToken(data.token);
                 applySessionAuth(data);
                 await bootPos();
             } catch (e) {
-                err.textContent = e.message || '登入失敗';
+                err.textContent = e.message || t('pos.login.fail');
                 err.classList.remove('hidden');
             } finally { btn.disabled = false; }
             return false;
@@ -555,7 +562,7 @@
                 else row.classList.add('hidden');
             }
             if (title) {
-                title.textContent = master ? '測試 POS · Master' : ('測試 POS · ' + storeLabel(currentStore));
+                title.textContent = master ? t('pos.title.master') : (t('pos.title') + ' · ' + storeLabel(currentStore));
             }
             document.querySelectorAll('[data-branch]').forEach((el) => {
                 el.classList.toggle('is-active', el.dataset.branch === currentStore);
@@ -795,10 +802,10 @@
         }
         function confirmCfg() {
             if (!cfgItem) return;
-            if (sizesOf(cfgItem).length && !cfg.size) return alert('請揀份量');
-            if (itemNeedsTemp(cfgItem) && !cfg.temp) return alert('請揀熱定凍');
+            if (sizesOf(cfgItem).length && !cfg.size) return alert(t('pos.cfg.size'));
+            if (itemNeedsTemp(cfgItem) && !cfg.temp) return alert(t('pos.cfg.temp'));
             if (isBurger(cfgItem) && cfg.combo && (!cfg.comboSnackId || !cfg.comboDrinkId)) {
-                return alert('套餐請揀小食同飲品。');
+                return alert(t('pos.cfg.combo'));
             }
             const line = buildLineFromCfg();
             line.unit = unitOf({ menuId: cfgItem.id, unit: Number(cfgItem.price) || 0 });
@@ -817,7 +824,7 @@
 
         function renderCart() {
             const list = document.getElementById('cart-list');
-            if (!cart.length) list.innerHTML = '<p class="text-neutral-500 font-bold py-8 text-center">撳左邊加餸</p>';
+            if (!cart.length) list.innerHTML = '<p class="text-neutral-500 font-bold py-8 text-center">' + t('pos.empty_cart') + '</p>';
             else list.innerHTML = cart.map((line, i) => `
                 <div class="rounded-xl bg-neutral-900 border border-neutral-800 p-2">
                     <div class="flex items-start justify-between gap-2">
@@ -834,17 +841,17 @@
                         </div>
                     </div>
                 </div>`).join('');
-            const t = cartTotals();
-            if (t.discount) {
-                document.getElementById('price-break').textContent = `小計 $${t.sub} · 外賣折扣 −$${t.discount}`;
-            } else if (cart.length && !t.takeaway) {
-                document.getElementById('price-break').textContent = `小計 $${t.sub} · 堂食無折扣`;
+            const totals = cartTotals();
+            if (totals.discount) {
+                document.getElementById('price-break').textContent = `${t('pos.subtotal')} $${totals.sub} · ${t('pos.discount.takeaway')} −$${totals.discount}`;
+            } else if (cart.length && !totals.takeaway) {
+                document.getElementById('price-break').textContent = `${t('pos.subtotal')} $${totals.sub} · ${t('pos.no_discount_dine')}`;
             } else {
-                document.getElementById('price-break').textContent = `小計 $${t.sub}`;
+                document.getElementById('price-break').textContent = `${t('pos.subtotal')} $${totals.sub}`;
             }
-            document.getElementById('cart-total').textContent = '$' + t.total;
+            document.getElementById('cart-total').textContent = '$' + totals.total;
             const hdr = document.getElementById('hdr-total');
-            if (hdr) hdr.textContent = '$' + t.total;
+            if (hdr) hdr.textContent = '$' + totals.total;
         }
 
         function renderCats() {
@@ -862,7 +869,7 @@
             });
             const grid = document.getElementById('menu-grid');
             if (!rows.length) {
-                grid.innerHTML = '<p class="col-span-full text-center font-bold text-neutral-500 py-10">呢類暫時冇嘢</p>';
+                grid.innerHTML = '<p class="col-span-full text-center font-bold text-neutral-500 py-10">' + t('pos.cat.empty') + '</p>';
                 return;
             }
             grid.innerHTML = rows.map((item) => {
@@ -916,15 +923,15 @@
                     openDrawer: lastTicket.pay_method === 'cash',
                 });
             } catch (err) {
-                alert('重印失敗：' + ((err && err.message) || err));
+                alert(t('pos.ticket.reprint_fail', { msg: (err && err.message) || err }));
             }
         }
         async function cancelTicket() {
             if (!lastTicket || !lastTicket.orderNo) return;
-            if (!confirm('作廢 #' + lastTicket.orderNo + '？廚房未開始先得。')) return;
+            if (!confirm(t('pos.ticket.void_confirm', { id: ticketLabel(lastTicket) || lastTicket.orderNo }))) return;
             try {
                 await posApi({ action: 'cancel_pos_order', orderNo: lastTicket.orderNo });
-                alert('已作廢 #' + lastTicket.orderNo);
+                alert(t('pos.ticket.voided', { id: ticketLabel(lastTicket) || lastTicket.orderNo }));
                 closeTicket();
             } catch (err) {
                 alert(err.message || err);
@@ -935,9 +942,9 @@
 
         async function openToday() {
             document.getElementById('today-sheet').classList.add('is-open');
-            document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">載入中…</p>';
+            document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">' + t('pos.today.loading') + '</p>';
             var cashupEl = document.getElementById('today-cashup');
-            if (cashupEl) cashupEl.textContent = '計緊今日收款…';
+            if (cashupEl) cashupEl.textContent = t('pos.today.cashup');
             try {
                 const data = await posApi({ action: 'stats', store_name: currentStore });
                 var all = (data.orders || []).filter((o) => {
@@ -947,7 +954,7 @@
                 renderTodayCashup(all);
                 todayRows = all.slice(0, 40);
                 if (!todayRows.length) {
-                    document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">今日未有店內／枱單</p>';
+                    document.getElementById('today-list').innerHTML = '<p class="font-bold text-neutral-500">' + t('pos.today.empty') + '</p>';
                     return;
                 }
                 document.getElementById('today-list').innerHTML = todayRows.map((o, i) => {
@@ -1905,6 +1912,7 @@
         }
 
         async function bootPos() {
+            if (window.MB_I18N) MB_I18N.applyI18n(document);
             document.getElementById('pos-lock').classList.add('hidden');
             document.getElementById('pos-app').classList.remove('hidden');
             markStoreButtons();
@@ -1916,6 +1924,14 @@
         }
         window.onload = async () => {
             try { if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js'); } catch (_) {}
+            if (window.MB_I18N) MB_I18N.applyI18n(document);
+            document.addEventListener('mb:lang', function () {
+                markStoreButtons();
+                renderCart();
+                renderMenu();
+                renderQueueBar();
+                refreshTableUnpaidBadge();
+            });
             const existing = getToken();
             if (!existing) { markStoreButtons(); return; }
             try {

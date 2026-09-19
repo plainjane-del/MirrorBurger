@@ -585,9 +585,9 @@ ${job.guest ? `<div>客人 ${escapeHtml(job.guest)}</div>` : ''}
         });
         return {
             store,
-            orderNo: (typeof global.getShortOrderId === 'function' && (data.displayId || data.display_id))
-                ? global.getShortOrderId(data.displayId || data.display_id)
-                : String(data.orderNo || data.displayId || ''),
+            orderNo: (typeof global.getShortOrderId === 'function')
+                ? global.getShortOrderId(data.displayId || data.display_id || data.orderNo || '')
+                : String(data.displayId || data.display_id || data.orderNo || ''),
             fulfill: data.pickup_time || '',
             pay,
             total: data.total,

@@ -132,7 +132,7 @@ module.exports = async function handler(req, res) {
             console.warn('⚠️ KPay webhook: raw body unavailable; accepting via merchantCode match');
             verified = { ok: true, uri: 'merchantCode-fallback' };
         }
-        if (!verified.ok && req.method === 'POST' && merchantOk && orderNo && /^(MB|UAT)/i.test(orderNo)) {
+        if (!verified.ok && req.method === 'POST' && merchantOk && orderNo && /^(MB|UAT|[A-Z]{2,4}-\d{6}-[A-Z]-\d+)/i.test(orderNo)) {
             console.warn('⚠️ KPay webhook: signature failed; accepting via merchant+orderNo', orderNo);
             verified = { ok: true, uri: 'merchant-order-fallback' };
         }
@@ -159,7 +159,7 @@ module.exports = async function handler(req, res) {
             );
         }
 
-        if (!verified.ok && orderNo && /^(MB|UAT)/i.test(orderNo)) {
+        if (!verified.ok && orderNo && /^(MB|UAT|[A-Z]{2,4}-\d{6}-[A-Z]-\d+)/i.test(orderNo)) {
             try {
                 if (await querySaysPaid()) {
                     await confirmPaid('unsigned-query');
@@ -180,7 +180,7 @@ module.exports = async function handler(req, res) {
                 keys: Object.keys(payload || {}),
             });
             // 401 stops some gateways from retrying. Ask KPay to retry if this looks like ours.
-            if (orderNo && /^(MB|UAT)/i.test(orderNo)) {
+            if (orderNo && /^(MB|UAT|[A-Z]{2,4}-\d{6}-[A-Z]-\d+)/i.test(orderNo)) {
                 return res.status(500).send('TRY_AGAIN');
             }
             return res.status(401).send('Unauthorized');

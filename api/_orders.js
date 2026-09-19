@@ -244,6 +244,7 @@ function clip(value, max) {
 }
 
 function generateOrderNo() {
+    // Legacy fallback only — prefer allocateOrderId() (Supabase RPC).
     const timePart = Date.now().toString().slice(-6);
     const randPart = crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
     return `MB${timePart}${randPart}`;
@@ -318,6 +319,16 @@ async function generateDisplayId(storeName, channel) {
     id = String(id || '').trim();
     if (!id) throw new Error('generate_order_id returned empty');
     return id;
+}
+
+/** Golden ticket ID = order_no = display_id (e.g. TW-260919-Q-001). */
+async function allocateOrderId(storeName, channel) {
+    return generateDisplayId(storeName, channel);
+}
+
+function ticketIdOf(order) {
+    if (!order) return '';
+    return String(order.display_id || order.displayId || order.order_no || order.orderNo || '').trim();
 }
 
 function startOfTodayHkIso() {
@@ -443,17 +454,20 @@ async function createPendingOrder(input) {
     }
 
     let lastError = null;
-    let displayId = null;
-    try {
-        displayId = await generateDisplayId(storeName, 'online');
-    } catch (err) {
-        console.warn('generateDisplayId skipped (online):', err.message || err);
-    }
     for (let attempt = 0; attempt < 6; attempt++) {
-        const orderNo = generateOrderNo();
+        let orderNo;
+        try {
+            orderNo = await allocateOrderId(storeName, 'online');
+        } catch (err) {
+            lastError = err;
+            console.error('allocateOrderId failed (online):', err.message || err);
+            if (attempt === 5) throw err;
+            continue;
+        }
         try {
             const rowBody = {
                 order_no: orderNo,
+                display_id: orderNo,
                 store_name: storeName,
                 customer_name: customerName,
                 customer_phone: customerPhone,
@@ -463,19 +477,18 @@ async function createPendingOrder(input) {
                 payment_status: 'PENDING',
                 channel: 'online',
             };
-            if (displayId) rowBody.display_id = displayId;
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             return {
                 orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || displayId,
+                displayId: (row && row.display_id) || orderNo,
                 total: priced.total,
                 reused: false,
             };
         } catch (err) {
             lastError = err;
             const msg = String(err.message || '');
-            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+            if (!/duplicate|unique|order_no|display_id|23505/i.test(msg)) throw err;
         }
     }
     throw lastError || new Error('Failed to create order');
@@ -680,17 +693,20 @@ async function createPosOrder(input) {
     });
 
     let lastError = null;
-    let displayId = null;
-    try {
-        displayId = await generateDisplayId(storeName, 'pos');
-    } catch (err) {
-        console.warn('generateDisplayId skipped (pos):', err.message || err);
-    }
     for (let attempt = 0; attempt < 6; attempt++) {
-        const orderNo = generateOrderNo();
+        let orderNo;
+        try {
+            orderNo = await allocateOrderId(storeName, 'pos');
+        } catch (err) {
+            lastError = err;
+            console.error('allocateOrderId failed (pos):', err.message || err);
+            if (attempt === 5) throw err;
+            continue;
+        }
         try {
             const rowBody = {
                 order_no: orderNo,
+                display_id: orderNo,
                 store_name: storeName,
                 customer_name: customerName,
                 customer_phone: 'POS',
@@ -702,12 +718,12 @@ async function createPosOrder(input) {
                 channel: 'pos',
                 pay_method: payMethod,
             };
-            if (displayId) rowBody.display_id = displayId;
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             const order = (await getOrderByNo(orderNo)) || {
                 ...row,
                 order_no: orderNo,
+                display_id: orderNo,
                 store_name: storeName,
                 items_json: items,
             };
@@ -717,7 +733,7 @@ async function createPosOrder(input) {
             });
             return {
                 orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || displayId,
+                displayId: (row && row.display_id) || orderNo,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -728,14 +744,14 @@ async function createPosOrder(input) {
         } catch (err) {
             lastError = err;
             const msg = String(err.message || '');
-            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+            if (!/duplicate|unique|order_no|display_id|23505/i.test(msg)) throw err;
         }
     }
     throw lastError || new Error('Failed to create POS order');
 }
 
 async function cancelPosOrder(orderNo) {
-    const no = clip(orderNo, 32);
+    const no = clip(orderNo, 40);
     if (!no) {
         const err = new Error('Missing orderNo');
         err.status = 400;
@@ -825,17 +841,20 @@ async function createTableOrder(input) {
     });
 
     let lastError = null;
-    let displayId = null;
-    try {
-        displayId = await generateDisplayId(storeName, 'table');
-    } catch (err) {
-        console.warn('generateDisplayId skipped (table):', err.message || err);
-    }
     for (let attempt = 0; attempt < 6; attempt++) {
-        const orderNo = generateOrderNo();
+        let orderNo;
+        try {
+            orderNo = await allocateOrderId(storeName, 'table');
+        } catch (err) {
+            lastError = err;
+            console.error('allocateOrderId failed (table):', err.message || err);
+            if (attempt === 5) throw err;
+            continue;
+        }
         try {
             const rowBody = {
                 order_no: orderNo,
+                display_id: orderNo,
                 store_name: storeName,
                 customer_name: customerName,
                 customer_phone: customerPhone,
@@ -846,12 +865,12 @@ async function createTableOrder(input) {
                 status: 'PAID',
                 channel: 'table',
             };
-            if (displayId) rowBody.display_id = displayId;
             const saved = await insertOrderWithFallback(rowBody);
             const row = Array.isArray(saved) ? saved[0] : saved;
             const order = (await getOrderByNo(orderNo)) || {
                 ...row,
                 order_no: orderNo,
+                display_id: orderNo,
                 store_name: storeName,
                 items_json: items,
             };
@@ -861,7 +880,7 @@ async function createTableOrder(input) {
             });
             return {
                 orderNo: (row && row.order_no) || orderNo,
-                displayId: (row && row.display_id) || displayId,
+                displayId: (row && row.display_id) || orderNo,
                 total: priced.total,
                 subtotal: priced.subtotal,
                 discount: priced.discount,
@@ -872,14 +891,14 @@ async function createTableOrder(input) {
         } catch (err) {
             lastError = err;
             const msg = String(err.message || '');
-            if (!/duplicate|unique|order_no|23505/i.test(msg)) throw err;
+            if (!/duplicate|unique|order_no|display_id|23505/i.test(msg)) throw err;
         }
     }
     throw lastError || new Error('Failed to create table order');
 }
 
 async function markTableOrderPaid(orderNo, payMethod) {
-    const no = clip(orderNo, 32);
+    const no = clip(orderNo, 40);
     const method = clip(payMethod, 20).toLowerCase();
     if (!no) {
         const err = new Error('Missing orderNo');
@@ -934,7 +953,7 @@ async function markTableOrderPaid(orderNo, payMethod) {
 }
 
 async function getPublicOrderStatus(orderNo) {
-    const no = clip(orderNo, 32);
+    const no = clip(orderNo, 40);
     if (!no) return null;
     try {
         const rows = await sbRest(
@@ -1231,5 +1250,7 @@ module.exports = {
     storeCodeFor,
     channelCodeFor,
     generateDisplayId,
+    allocateOrderId,
+    ticketIdOf,
     KNOWN_STORES,
 };

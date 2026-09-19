@@ -32,8 +32,12 @@ function formatItems(order) {
     }).join('<br>');
 }
 
+function ticketIdOf(order) {
+    return String((order && (order.display_id || order.order_no)) || '').trim();
+}
+
 function buildEmailHtml(order) {
-    const orderNo = escapeHtml(order.order_no);
+    const orderNo = escapeHtml(ticketIdOf(order) || order.order_no);
     const store = escapeHtml(order.store_name || '—');
     const name = escapeHtml(order.customer_name || '—');
     const phone = escapeHtml(order.customer_phone || '—');
@@ -70,7 +74,7 @@ async function sendOrderEmail(order) {
         return { skipped: true, reason: 'no_recipients' };
     }
 
-    const orderNo = order.order_no || '';
+    const orderNo = ticketIdOf(order) || order.order_no || '';
     const store = order.store_name || '';
     const subject = `【新單】#${orderNo} · ${store} · ${order.pickup_time || ''}`.trim();
 
@@ -141,11 +145,13 @@ async function sendOrderPush(order) {
         return { ok: true, sent: 0 };
     }
 
+    const ticket = ticketIdOf(order) || order.order_no;
     const payload = JSON.stringify({
-        title: `新單 #${order.order_no}`,
+        title: `新單 #${ticket}`,
         body: `${order.store_name || ''} · ${order.pickup_time || ''} · HK$${Math.round(Number(order.total_amount) || 0)}`,
         url: '/kitchen.html',
         orderNo: order.order_no,
+        displayId: order.display_id || ticket,
     });
 
     let sent = 0;
