@@ -22,6 +22,7 @@
     }
   ],
   "redirects": [
+    { "source": "/expense", "destination": "/expense.html", "permanent": false },
     { "source": "/sai-ying-pun.html", "destination": "/sai-ying-pun", "permanent": true },
     { "source": "/tin-hau.html", "destination": "/tin-hau", "permanent": true },
     { "source": "/tsuen-wan.html", "destination": "/tsuen-wan", "permanent": true },
@@ -48,7 +49,6 @@
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/pos", "destination": "/pos.html" },
     { "source": "/kitchen", "destination": "/kitchen.html" },
-    { "source": "/expense", "destination": "/expense.html" },
     { "source": "/acc-scan", "destination": "/acc-scan.html" },
     { "source": "/t/:store/:n", "destination": "/table.html" },
     { "source": "/t/:n", "destination": "/table.html" },
