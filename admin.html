@@ -107,6 +107,8 @@
             .app-main { padding-top: 1.5rem; }
             #app-toolbar { margin-top: 0.25rem; margin-bottom: 1.5rem; }
         }
+        html.is-standalone #login-view { padding-top: calc(4rem + env(safe-area-inset-top, 0px)); }
+        html.is-standalone .app-nav { padding-top: calc(0.85rem + env(safe-area-inset-top, 0px)); }
         .lang-toggle {
             min-height:40px; min-width:56px; padding:0 14px; border-radius:999px;
             border:2px solid #FFD131; background:#FFD131; color:#0a0a0a;
