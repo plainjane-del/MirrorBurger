@@ -103,14 +103,16 @@
       "source": "/expense",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
       ]
     },
     {
       "source": "/expense.html",
       "headers": [
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "Permissions-Policy", "value": "camera=*, microphone=()" }
       ]
     },
     {

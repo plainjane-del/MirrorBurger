@@ -6,9 +6,6 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Mirror Burger · AI 開支</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- OpenCV is large; load async. jscanify waits for cv.onRuntimeInitialized. -->
-    <script async src="https://docs.opencv.org/4.7.0/opencv.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jscanify@1.4.3/src/jscanify.min.js"></script>
     <style>
         body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0a0a0a; color: #f5f5f5; }
         .card { background: #141414; border: 1px solid #262626; border-radius: 1rem; }
@@ -43,12 +40,21 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            border-radius: 0;
             background: #050505;
         }
         .scan-stage #preview { object-fit: contain; z-index: 3; }
         .scan-stage canvas#overlay { z-index: 2; pointer-events: none; }
         .scan-stage video { z-index: 1; }
+        .guide {
+            pointer-events: none;
+            position: absolute;
+            inset: 10% 8%;
+            z-index: 2;
+            border: 2px solid rgba(255, 209, 49, 0.85);
+            border-radius: 12px;
+            box-shadow: 0 0 0 999px rgba(0,0,0,0.32);
+        }
+        .guide.hidden { display: none; }
         .scan-badge {
             position: absolute;
             left: 50%;
@@ -63,6 +69,9 @@
             border-radius: 999px;
             white-space: nowrap;
             pointer-events: none;
+            max-width: 92%;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .scan-badge.ok { color: #0a0a0a; background: #FFD131; }
         .actions { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.5rem; }
@@ -101,9 +110,10 @@
 
                 <div class="scan-stage" id="stage">
                     <video id="video" playsinline muted autoplay></video>
+                    <div class="guide" id="guide"></div>
                     <canvas id="overlay"></canvas>
                     <img id="preview" class="hidden" alt="Receipt preview">
-                    <div class="scan-badge" id="scan-badge">載入掃描引擎…</div>
+                    <div class="scan-badge" id="scan-badge">開緊鏡頭…</div>
                 </div>
                 <canvas id="work"></canvas>
                 <canvas id="detect"></canvas>
@@ -128,27 +138,29 @@
         const TOKEN_KEY = 'mb_expense_token';
         const MAX_EDGE = 1200;
         const MAX_BYTES = 200 * 1024;
-        const DETECT_W = 480;
-        const STABLE_NEEDED = 8;      // ~1.2s at 150ms interval
-        const CORNER_TOL = 28;        // px on detect canvas
-        const MIN_AREA_RATIO = 0.12;  // paper must cover enough of frame
+        const DETECT_W = 360;
+        const STABLE_NEEDED = 7;
+        const OPENCV_TIMEOUT_MS = 12000;
 
         let token = localStorage.getItem(TOKEN_KEY) || '';
         let stream = null;
         let busy = false;
         let scanner = null;
         let cvReady = false;
+        let engineMode = 'lite'; // 'lite' | 'opencv'
         let scanning = false;
-        let rafTimer = 0;
+        let loopTimer = 0;
         let stableCount = 0;
+        let lastSig = null;
         let lastCorners = null;
+        let enginePromise = null;
 
         function showApp() {
             document.getElementById('lock').classList.add('hidden');
             document.getElementById('app').classList.remove('hidden');
-            ensureScanner().then(() => startCamera()).catch((e) => {
-                setBadge(e.message || '掃描引擎失敗', false);
-            });
+            // Camera first — never block UI on OpenCV download.
+            startCamera();
+            loadScanEngine().catch(() => {});
         }
         function showLock(msg) {
             stopScanLoop();
@@ -205,61 +217,111 @@
 
         function setBadge(text, ok) {
             const el = document.getElementById('scan-badge');
+            if (!text) {
+                el.classList.add('hidden');
+                return;
+            }
+            el.classList.remove('hidden');
             el.textContent = text;
             el.classList.toggle('ok', !!ok);
-            el.classList.toggle('hidden', !text);
         }
 
-        function waitForOpenCv(timeoutMs = 45000) {
+        function loadScript(src) {
             return new Promise((resolve, reject) => {
-                if (typeof cv !== 'undefined' && cv.Mat) return resolve(cv);
-                const started = Date.now();
-                const prev = typeof cv !== 'undefined' ? cv.onRuntimeInitialized : null;
-                const timer = setInterval(() => {
-                    if (typeof cv !== 'undefined' && cv.Mat) {
-                        clearInterval(timer);
-                        resolve(cv);
-                    } else if (Date.now() - started > timeoutMs) {
-                        clearInterval(timer);
-                        reject(new Error('掃描引擎載入逾時 — 請刷新再試'));
-                    }
-                }, 100);
-                if (typeof cv !== 'undefined') {
-                    cv.onRuntimeInitialized = () => {
-                        if (typeof prev === 'function') prev();
-                        clearInterval(timer);
-                        resolve(cv);
-                    };
-                }
+                const s = document.createElement('script');
+                s.src = src;
+                s.async = true;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('script fail: ' + src));
+                document.head.appendChild(s);
             });
         }
 
-        async function ensureScanner() {
-            if (scanner && cvReady) return scanner;
-            setBadge('載入掃描引擎…', false);
-            await waitForOpenCv();
-            if (typeof jscanify !== 'function') throw new Error('找不到 jscanify');
-            scanner = new jscanify();
-            cvReady = true;
-            setBadge('對準收據，會自動影', false);
-            return scanner;
+        function waitCvReady(timeoutMs) {
+            return new Promise((resolve, reject) => {
+                const start = Date.now();
+                const done = () => {
+                    if (typeof cv !== 'undefined' && cv && typeof cv.Mat === 'function') {
+                        resolve(cv);
+                        return true;
+                    }
+                    return false;
+                };
+                if (done()) return;
+
+                const timer = setInterval(() => {
+                    if (done()) {
+                        clearInterval(timer);
+                        return;
+                    }
+                    if (Date.now() - start > timeoutMs) {
+                        clearInterval(timer);
+                        reject(new Error('OpenCV timeout'));
+                    }
+                }, 80);
+
+                const hook = () => {
+                    if (done()) clearInterval(timer);
+                };
+                try {
+                    if (typeof cv !== 'undefined' && cv) {
+                        const prev = cv.onRuntimeInitialized;
+                        cv.onRuntimeInitialized = function () {
+                            if (typeof prev === 'function') prev();
+                            hook();
+                        };
+                    }
+                } catch (_) { /* ignore */ }
+            });
+        }
+
+        async function loadScanEngine() {
+            if (enginePromise) return enginePromise;
+            enginePromise = (async () => {
+                setBadge('鏡頭已開 · 輕量自動掃描中', false);
+                try {
+                    await loadScript('https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.8.0-release.10/dist/opencv.js');
+                    await waitCvReady(OPENCV_TIMEOUT_MS);
+                    await loadScript('https://cdn.jsdelivr.net/npm/jscanify@1.4.3/src/jscanify.min.js');
+                    if (typeof jscanify !== 'function') throw new Error('no jscanify');
+                    scanner = new jscanify();
+                    cvReady = true;
+                    engineMode = 'opencv';
+                    document.getElementById('guide').classList.add('hidden');
+                    if (scanning) setBadge('邊緣偵測已開 · 對準紙張', false);
+                    return true;
+                } catch (err) {
+                    console.warn('OpenCV engine unavailable, using lite scan', err);
+                    cvReady = false;
+                    engineMode = 'lite';
+                    scanner = null;
+                    document.getElementById('guide').classList.remove('hidden');
+                    if (scanning) setBadge('對準黃框內收據 · 企穩會自動影', false);
+                    return false;
+                }
+            })();
+            return enginePromise;
         }
 
         function setLiveUi(live) {
             const video = document.getElementById('video');
             const overlay = document.getElementById('overlay');
             const preview = document.getElementById('preview');
+            const guide = document.getElementById('guide');
             const btnScan = document.getElementById('btn-scan');
             const btnRescan = document.getElementById('btn-rescan');
             if (live) {
                 video.style.display = 'block';
                 overlay.style.display = 'block';
                 preview.classList.add('hidden');
-                btnScan.disabled = !stream || busy || !cvReady;
+                if (engineMode === 'lite') guide.classList.remove('hidden');
+                else guide.classList.add('hidden');
+                btnScan.disabled = !stream || busy;
                 btnRescan.disabled = true;
             } else {
                 video.style.display = 'none';
                 overlay.style.display = 'none';
+                guide.classList.add('hidden');
                 preview.classList.remove('hidden');
                 btnScan.disabled = true;
                 btnRescan.disabled = busy;
@@ -273,6 +335,7 @@
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 status.textContent = '呢個瀏覽器唔支援鏡頭 — 請用「相簿」';
                 status.className = 'text-sm font-bold text-amber-300';
+                setBadge('請用相簿', false);
                 setLiveUi(false);
                 return;
             }
@@ -281,22 +344,26 @@
                     audio: false,
                     video: {
                         facingMode: { ideal: 'environment' },
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
                     },
                 });
                 const video = document.getElementById('video');
+                video.setAttribute('playsinline', 'true');
+                video.muted = true;
                 video.srcObject = stream;
                 await video.play();
                 setLiveUi(true);
-                status.textContent = '對準紙張／螢幕上嘅收據，企穩會自動掃描';
+                status.textContent = '對準收據，企穩會自動掃描（或撳「即刻掃描」）';
                 status.className = 'text-sm font-bold text-neutral-400';
+                setBadge(engineMode === 'opencv' ? '邊緣偵測已開 · 對準紙張' : '對準黃框內收據 · 企穩會自動影', false);
                 startScanLoop();
             } catch (err) {
                 stream = null;
                 setLiveUi(false);
-                status.textContent = '開唔到鏡頭 — 請允許相機，或用「相簿」';
+                status.textContent = '開唔到鏡頭 — 請允許相機權限，或用「相簿」';
                 status.className = 'text-sm font-bold text-amber-300';
+                setBadge('相機權限未開', false);
             }
         }
 
@@ -312,11 +379,12 @@
 
         function stopScanLoop() {
             scanning = false;
-            if (rafTimer) {
-                clearTimeout(rafTimer);
-                rafTimer = 0;
+            if (loopTimer) {
+                clearTimeout(loopTimer);
+                loopTimer = 0;
             }
             stableCount = 0;
+            lastSig = null;
             lastCorners = null;
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
@@ -345,7 +413,6 @@
 
         function cornerArea(c, w, h) {
             if (!c) return 0;
-            // Shoelace on the quad
             const pts = [c.topLeftCorner, c.topRightCorner, c.bottomRightCorner, c.bottomLeftCorner];
             if (pts.some((p) => !p)) return 0;
             let area = 0;
@@ -354,8 +421,7 @@
                 const q = pts[(i + 1) % 4];
                 area += p.x * q.y - q.x * p.y;
             }
-            area = Math.abs(area) / 2;
-            return area / (w * h);
+            return Math.abs(area) / 2 / (w * h);
         }
 
         function scaleCorners(c, sx, sy) {
@@ -373,15 +439,14 @@
             const video = document.getElementById('video');
             const overlay = document.getElementById('overlay');
             const rect = video.getBoundingClientRect();
-            overlay.width = Math.round(rect.width * devicePixelRatio);
-            overlay.height = Math.round(rect.height * devicePixelRatio);
+            overlay.width = Math.max(1, Math.round(rect.width * devicePixelRatio));
+            overlay.height = Math.max(1, Math.round(rect.height * devicePixelRatio));
             overlay.style.width = rect.width + 'px';
             overlay.style.height = rect.height + 'px';
             const ctx = overlay.getContext('2d');
             ctx.clearRect(0, 0, overlay.width, overlay.height);
             if (!corners) return;
 
-            // object-fit: cover mapping from detect canvas → overlay
             const vw = video.videoWidth || dw;
             const vh = video.videoHeight || dh;
             const scale = Math.max(overlay.width / vw, overlay.height / vh);
@@ -389,7 +454,6 @@
             const oy = (overlay.height - vh * scale) / 2;
             const sx = (vw / dw) * scale;
             const sy = (vh / dh) * scale;
-
             const pts = [
                 corners.topLeftCorner,
                 corners.topRightCorner,
@@ -408,21 +472,18 @@
             ctx.stroke();
         }
 
-        function detectCornersFromVideo() {
+        function detectOpenCv() {
             const video = document.getElementById('video');
             if (!scanner || !cvReady || !video.videoWidth) return null;
-
             const vw = video.videoWidth;
             const vh = video.videoHeight;
             const scale = Math.min(1, DETECT_W / Math.max(vw, vh));
             const dw = Math.max(1, Math.round(vw * scale));
             const dh = Math.max(1, Math.round(vh * scale));
-
             const detect = document.getElementById('detect');
             detect.width = dw;
             detect.height = dh;
-            const dctx = detect.getContext('2d', { willReadFrequently: true });
-            dctx.drawImage(video, 0, 0, dw, dh);
+            detect.getContext('2d', { willReadFrequently: true }).drawImage(video, 0, 0, dw, dh);
 
             let mat = null;
             let contour = null;
@@ -431,87 +492,178 @@
                 contour = scanner.findPaperContour(mat);
                 if (!contour) return null;
                 const corners = scanner.getCornerPoints(contour);
-                const area = cornerArea(corners, dw, dh);
-                if (area < MIN_AREA_RATIO) return null;
-                return { corners, dw, dh, vw, vh };
+                if (cornerArea(corners, dw, dh) < 0.12) return null;
+                return { kind: 'opencv', corners, dw, dh, vw, vh };
             } catch (_) {
                 return null;
             } finally {
-                if (contour && typeof contour.delete === 'function') contour.delete();
-                if (mat && typeof mat.delete === 'function') mat.delete();
+                if (contour && contour.delete) contour.delete();
+                if (mat && mat.delete) mat.delete();
             }
+        }
+
+        /** Lightweight: content + sharpness + stillness inside the yellow guide. */
+        function detectLite() {
+            const video = document.getElementById('video');
+            if (!video.videoWidth) return null;
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const scale = Math.min(1, DETECT_W / Math.max(vw, vh));
+            const dw = Math.max(1, Math.round(vw * scale));
+            const dh = Math.max(1, Math.round(vh * scale));
+            const detect = document.getElementById('detect');
+            detect.width = dw;
+            detect.height = dh;
+            const ctx = detect.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(video, 0, 0, dw, dh);
+
+            const x0 = Math.floor(dw * 0.08);
+            const y0 = Math.floor(dh * 0.10);
+            const rw = Math.floor(dw * 0.84);
+            const rh = Math.floor(dh * 0.80);
+            const img = ctx.getImageData(x0, y0, rw, rh);
+            const data = img.data;
+            const step = 4; // sample every 4th pixel
+            let n = 0, sum = 0, sumSq = 0, edge = 0;
+            const gray = [];
+            for (let y = 0; y < rh; y += step) {
+                for (let x = 0; x < rw; x += step) {
+                    const i = (y * rw + x) * 4;
+                    const g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                    gray.push(g);
+                    sum += g;
+                    sumSq += g * g;
+                    n += 1;
+                }
+            }
+            if (n < 50) return null;
+            const mean = sum / n;
+            const variance = Math.max(0, sumSq / n - mean * mean);
+            const cols = Math.ceil(rw / step);
+            for (let y = 1; y < Math.floor(rh / step) - 1; y++) {
+                for (let x = 1; x < cols - 1; x++) {
+                    const i = y * cols + x;
+                    const gx = gray[i + 1] - gray[i - 1];
+                    const gy = gray[i + cols] - gray[i - cols];
+                    edge += Math.abs(gx) + Math.abs(gy);
+                }
+            }
+            const edgeScore = edge / n;
+            // Stillness vs previous grayscale signature (coarse histogram)
+            const buckets = new Array(8).fill(0);
+            for (let i = 0; i < gray.length; i += 3) {
+                buckets[Math.min(7, gray[i] >> 5)] += 1;
+            }
+            const sig = buckets.map((b) => b / gray.length);
+            let motion = 1;
+            if (lastSig) {
+                motion = 0;
+                for (let i = 0; i < 8; i++) motion += Math.abs(sig[i] - lastSig[i]);
+            }
+            lastSig = sig;
+
+            // Tuned for receipts / phone screens showing receipts
+            const hasContent = variance > 350 && edgeScore > 18;
+            const isStill = motion < 0.08;
+            if (!hasContent) return null;
+            return { kind: 'lite', still: isStill, variance, edgeScore, motion, dw, dh, vw, vh };
         }
 
         function startScanLoop() {
             scanning = true;
             stableCount = 0;
+            lastSig = null;
             lastCorners = null;
 
             const tick = () => {
                 if (!scanning || busy || !stream) return;
                 try {
-                    const hit = detectCornersFromVideo();
-                    if (hit && hit.corners) {
-                        drawCornersOverlay(hit.corners, hit.dw, hit.dh);
-                        const drift = cornerDistance(hit.corners, lastCorners);
-                        if (lastCorners && drift < CORNER_TOL) {
-                            stableCount += 1;
+                    if (engineMode === 'opencv' && cvReady) {
+                        const hit = detectOpenCv();
+                        if (hit) {
+                            drawCornersOverlay(hit.corners, hit.dw, hit.dh);
+                            const drift = cornerDistance(hit.corners, lastCorners);
+                            stableCount = (lastCorners && drift < 28) ? stableCount + 1 : 1;
+                            lastCorners = hit.corners;
+                            setBadge(`偵測到紙張 · 企穩 (${stableCount}/${STABLE_NEEDED})`, true);
+                            if (stableCount >= STABLE_NEEDED) {
+                                setBadge('已鎖定 — 自動掃描中', true);
+                                autoCapture(hit);
+                                return;
+                            }
                         } else {
-                            stableCount = 1;
+                            drawCornersOverlay(null, 1, 1);
+                            stableCount = 0;
+                            lastCorners = null;
+                            setBadge('對準收據／紙張邊緣', false);
                         }
-                        lastCorners = hit.corners;
-                        const left = Math.max(0, STABLE_NEEDED - stableCount);
-                        if (stableCount >= STABLE_NEEDED) {
-                            setBadge('已鎖定 — 自動掃描中', true);
-                            autoCapture(hit);
-                            return;
-                        }
-                        setBadge(`偵測到紙張 · 企穩自動影 (${STABLE_NEEDED - left}/${STABLE_NEEDED})`, true);
                     } else {
-                        drawCornersOverlay(null, 1, 1);
-                        stableCount = 0;
-                        lastCorners = null;
-                        setBadge('對準收據／紙張邊緣', false);
+                        const hit = detectLite();
+                        if (hit && hit.still) {
+                            stableCount += 1;
+                            setBadge(`對準中 · 企穩自動影 (${stableCount}/${STABLE_NEEDED})`, true);
+                            if (stableCount >= STABLE_NEEDED) {
+                                setBadge('已鎖定 — 自動掃描中', true);
+                                autoCapture(hit);
+                                return;
+                            }
+                        } else if (hit) {
+                            stableCount = Math.max(0, stableCount - 1);
+                            setBadge('對準黃框 · 請企穩', false);
+                        } else {
+                            stableCount = 0;
+                            setBadge('對準黃框內收據', false);
+                        }
                     }
-                } catch (_) {
-                    /* keep looping */
+                } catch (e) {
+                    console.warn('scan tick', e);
                 }
-                rafTimer = setTimeout(tick, 150);
+                loopTimer = setTimeout(tick, 160);
             };
             tick();
         }
 
         async function warpAndCompress(sourceCanvas, corners) {
-            await ensureScanner();
-            let extracted = null;
-            try {
-                if (corners) {
-                    extracted = scanner.extractPaper(sourceCanvas, 1000, 1400, corners);
-                } else {
-                    extracted = scanner.extractPaper(sourceCanvas, 1000, 1400);
-                }
-            } catch (_) {
-                extracted = null;
+            if (cvReady && scanner) {
+                try {
+                    const extracted = corners
+                        ? scanner.extractPaper(sourceCanvas, 1000, 1400, corners)
+                        : scanner.extractPaper(sourceCanvas, 1000, 1400);
+                    if (extracted) {
+                        const img = await loadImageFromSrc(extracted.toDataURL('image/jpeg', 0.92));
+                        return compressFromImage(img);
+                    }
+                } catch (_) { /* fall through */ }
             }
-            const imgCanvas = extracted || sourceCanvas;
-            const img = await loadImageFromSrc(imgCanvas.toDataURL('image/jpeg', 0.92));
+            const img = await loadImageFromSrc(sourceCanvas.toDataURL('image/jpeg', 0.92));
             return compressFromImage(img);
         }
 
-        async function captureFullFrame(cornersOnDetect) {
+        async function captureFullFrame(hit) {
             const video = document.getElementById('video');
             const work = document.getElementById('work');
             const vw = video.videoWidth;
             const vh = video.videoHeight;
             work.width = vw;
             work.height = vh;
-            work.getContext('2d').drawImage(video, 0, 0, vw, vh);
+            const wctx = work.getContext('2d');
 
+            if (hit && hit.kind === 'lite') {
+                // Crop to guide region (same ratios as CSS guide)
+                const sx = Math.round(vw * 0.08);
+                const sy = Math.round(vh * 0.10);
+                const sw = Math.round(vw * 0.84);
+                const sh = Math.round(vh * 0.80);
+                work.width = sw;
+                work.height = sh;
+                wctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+                return warpAndCompress(work, null);
+            }
+
+            wctx.drawImage(video, 0, 0, vw, vh);
             let fullCorners = null;
-            if (cornersOnDetect && cornersOnDetect.corners) {
-                const sx = vw / cornersOnDetect.dw;
-                const sy = vh / cornersOnDetect.dh;
-                fullCorners = scaleCorners(cornersOnDetect.corners, sx, sy);
+            if (hit && hit.kind === 'opencv' && hit.corners) {
+                fullCorners = scaleCorners(hit.corners, vw / hit.dw, vh / hit.dh);
             }
             return warpAndCompress(work, fullCorners);
         }
@@ -548,8 +700,8 @@
             try {
                 status.textContent = '掃描中…';
                 status.className = 'text-sm font-bold text-amber-300';
-                const hit = detectCornersFromVideo();
-                const compressed = await captureFullFrame(hit);
+                const hit = (engineMode === 'opencv' && cvReady) ? detectOpenCv() : { kind: 'lite' };
+                const compressed = await captureFullFrame(hit || { kind: 'lite' });
                 stopCamera();
                 if (!compressed) throw new Error('掃描失敗');
                 await uploadCompressed(compressed);
@@ -596,12 +748,9 @@
         function canvasSupports(type) {
             try {
                 const c = document.createElement('canvas');
-                c.width = 1;
-                c.height = 1;
+                c.width = 1; c.height = 1;
                 return c.toDataURL(type).startsWith(`data:${type}`);
-            } catch (_) {
-                return false;
-            }
+            } catch (_) { return false; }
         }
 
         function drawScaled(img, maxEdge) {
@@ -611,8 +760,7 @@
             const w = Math.max(1, Math.round(srcW * scale));
             const h = Math.max(1, Math.round(srcH * scale));
             const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
+            canvas.width = w; canvas.height = h;
             const ctx = canvas.getContext('2d', { alpha: false });
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, w, h);
@@ -626,37 +774,21 @@
             let maxEdge = MAX_EDGE;
             let quality = 0.7;
             let best = null;
-
             for (let pass = 0; pass < 10; pass++) {
                 const canvas = drawScaled(img, maxEdge);
                 const dataUrl = canvas.toDataURL(mime, quality);
                 const bytes = dataUrlBytes(dataUrl);
-                best = { dataUrl, mime_type: mime, bytes, width: canvas.width, height: canvas.height };
+                best = { dataUrl, mime_type: mime, bytes };
                 if (bytes <= MAX_BYTES) return best;
-
-                if (quality > 0.45) {
-                    quality = Math.max(0.45, quality - 0.1);
-                } else if (maxEdge > 800) {
-                    maxEdge = Math.max(800, Math.round(maxEdge * 0.85));
-                    quality = 0.7;
-                } else if (quality > 0.35) {
-                    quality -= 0.05;
-                } else {
-                    maxEdge = Math.max(640, Math.round(maxEdge * 0.85));
-                    quality = Math.max(0.3, quality - 0.05);
-                }
+                if (quality > 0.45) quality = Math.max(0.45, quality - 0.1);
+                else if (maxEdge > 800) { maxEdge = Math.max(800, Math.round(maxEdge * 0.85)); quality = 0.7; }
+                else if (quality > 0.35) quality -= 0.05;
+                else { maxEdge = Math.max(640, Math.round(maxEdge * 0.85)); quality = Math.max(0.3, quality - 0.05); }
             }
-
             if (preferWebp && best && best.bytes > MAX_BYTES) {
                 const canvas = drawScaled(img, Math.min(maxEdge, 800));
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
-                best = {
-                    dataUrl,
-                    mime_type: 'image/jpeg',
-                    bytes: dataUrlBytes(dataUrl),
-                    width: canvas.width,
-                    height: canvas.height,
-                };
+                best = { dataUrl, mime_type: 'image/jpeg', bytes: dataUrlBytes(dataUrl) };
             }
             return best;
         }
@@ -667,7 +799,6 @@
             const result = document.getElementById('result');
             result.classList.add('hidden');
             result.innerHTML = '';
-
             preview.src = compressed.dataUrl;
             setLiveUi(false);
             setBadge('', false);
@@ -709,24 +840,19 @@
             const file = event.target.files && event.target.files[0];
             event.target.value = '';
             if (!file || !token || busy) return;
-
             busy = true;
             stopScanLoop();
             stopCamera();
             document.getElementById('btn-scan').disabled = true;
             const status = document.getElementById('status');
             try {
-                status.textContent = '偵測紙張邊緣…';
+                status.textContent = '處理相片…';
                 status.className = 'text-sm font-bold text-neutral-400';
-                await ensureScanner();
+                await loadScanEngine().catch(() => false);
                 const img = await loadImage(file);
                 const canvas = drawScaled(img, 1600);
-                let compressed;
-                try {
-                    compressed = await warpAndCompress(canvas, null);
-                } catch (_) {
-                    compressed = await compressFromImage(img);
-                }
+                let compressed = await warpAndCompress(canvas, null);
+                if (!compressed) compressed = await compressFromImage(img);
                 if (!compressed) throw new Error('壓縮失敗');
                 await uploadCompressed(compressed);
             } catch (err) {
@@ -747,12 +873,8 @@
         }
 
         (async function boot() {
-            // Warm OpenCV while on login screen
-            waitForOpenCv().then(() => {
-                cvReady = true;
-                try { scanner = new jscanify(); } catch (_) {}
-            }).catch(() => {});
-
+            // Warm engine in background on login screen (non-blocking).
+            loadScanEngine().catch(() => {});
             if (!token) return showLock();
             try {
                 const res = await fetch('/api/admin-login', {
@@ -761,7 +883,7 @@
                     body: JSON.stringify({ token }),
                 });
                 if (res.ok) return showApp();
-            } catch (_) { /* try kitchen */ }
+            } catch (_) {}
             try {
                 const res = await fetch('/api/kitchen-login', {
                     method: 'POST',
@@ -769,7 +891,7 @@
                     body: JSON.stringify({ token }),
                 });
                 if (res.ok) return showApp();
-            } catch (_) { /* fall through */ }
+            } catch (_) {}
             token = '';
             localStorage.removeItem(TOKEN_KEY);
             showLock();
