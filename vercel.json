@@ -26,7 +26,8 @@
     { "source": "/tin-hau.html", "destination": "/tin-hau", "permanent": true },
     { "source": "/tsuen-wan.html", "destination": "/tsuen-wan", "permanent": true },
     { "source": "/fortress-hill", "destination": "/tin-hau", "permanent": true },
-    { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true }
+    { "source": "/fortress-hill.html", "destination": "/tin-hau", "permanent": true },
+    { "source": "/menu.html", "destination": "/menu", "permanent": true }
   ],
   "rewrites": [
     { "source": "/api/admin-login", "destination": "/api/router?route=admin-login" },
@@ -39,9 +40,10 @@
     { "source": "/api/push-vapid-public", "destination": "/api/router?route=push-vapid-public" },
     { "source": "/api/cleanup-pending", "destination": "/api/router?route=cleanup-pending" },
 
-    { "source": "/sai-ying-pun", "destination": "/sai-ying-pun.html" },
-    { "source": "/tin-hau", "destination": "/tin-hau.html" },
-    { "source": "/tsuen-wan", "destination": "/tsuen-wan.html" },
+    { "source": "/sai-ying-pun", "destination": "/menu.html?store=SYP" },
+    { "source": "/tin-hau", "destination": "/menu.html?store=TH" },
+    { "source": "/tsuen-wan", "destination": "/menu.html?store=TW" },
+    { "source": "/menu", "destination": "/menu.html?store=SYP" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/pos", "destination": "/pos.html" },
     { "source": "/kitchen", "destination": "/kitchen.html" },
