@@ -1325,6 +1325,15 @@
             askDeleteExpense();
         }
 
+        // Ensure handlers are reachable from inline onclick after cache quirks
+        window.openExpenseDetail = openExpenseDetail;
+        window.closeExpenseDetail = closeExpenseDetail;
+        window.saveExpenseDetail = saveExpenseDetail;
+        window.askDeleteExpense = askDeleteExpense;
+        window.cancelDeleteExpense = cancelDeleteExpense;
+        window.confirmDeleteExpense = confirmDeleteExpense;
+        window.deleteExpenseDetail = deleteExpenseDetail;
+
         async function openExpenseDetail(id) {
             if (!id || expenseDetailBusy) return;
             const modal = document.getElementById('expense-modal');
